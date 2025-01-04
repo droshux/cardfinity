@@ -73,7 +73,18 @@ data Monster = Monster
   }
 
 instance HasScale Monster where
-  scale (Monster _ s c p t) = _
+  scale (Monster _ s c p t) =
+    sum (map scale c)
+      + sum (map scale s)
+      + punishment * max 0 (length s - 1)
+      + sp p
+      + if ut && t then -5 else 0 -- Enters the field tapped
+    where
+      ut = any ((==) OnTap . spellTrigger) s
+      sp v =
+        let f :: Float = fromIntegral v
+            sc :: Scale = fromIntegral v
+         in sc * ceiling (logBase 10.0 f)
 
 data CardStats = SpellStats Spell | MonsterStats Monster
 
