@@ -1,11 +1,46 @@
 module Types where
 
--- For typeclass objects.
 import Control.Monad.Except
 import Control.Monad.Reader (ReaderT)
 import Control.Monad.State
+import Data.Data (Typeable, cast)
+import Data.Foldable (Foldable (toList))
 import Data.Kind (Constraint, Type)
+import Data.Set.Ordered qualified as OS (OSet, singleton, (|>))
 import GHC.Natural (Natural)
+
+--------------------------------------------------------------------------------
+-- CARD BALANCING AREA:
+punishment :: Scale
+punishment = 10
+
+instance HasScale Trigger where
+  scale Infinity = 50
+  scale OnPlay = 0
+  scale _ = 5
+
+instance HasScale Spell where
+  scale (Spell _ t c e) =
+    scale t
+      + sum (map scale $ toList c)
+      + sum (map scale e)
+      + punishment * max 0 (length e - 1)
+
+instance HasScale Monster where
+  scale (Monster _ s c p t) =
+    sum (map scale $ toList c)
+      + sum (map scale s)
+      + punishment * max 0 (length s - 1)
+      + sp p
+      + if ut && t then -5 else 0 -- Enters the field tapped
+    where
+      ut = any ((==) OnTap . spellTrigger) s
+      sp v =
+        let f :: Float = fromIntegral v
+            sc :: Scale = fromIntegral v
+         in sc * ceiling (logBase 10.0 f)
+
+--------------------------------------------------------------------------------
 
 -- Existential Quantification
 data Ex (c :: Type -> Constraint) where
@@ -24,13 +59,29 @@ isMonsterOnly OnDefeat = True
 isMonsterOnly Infinity = True
 isMonsterOnly _ = False
 
-instance HasScale Trigger where
-  scale Infinity = 50
-  scale OnPlay = 0
-  scale _ = 5
-
-class (HasScale a) => Requirement a where
+class (HasScale a, Ord a, Typeable a) => Requirement a where
   testRequirement :: Card -> a -> GameOperation Bool
+
+instance Eq (Ex Requirement) where
+  (==) (Ex a) (Ex b) = case cast b of
+    Just b' -> a == b'
+    Nothing -> False
+
+-- Symmetric => Not an Ordering Relation
+instance Ord (Ex Requirement) where
+  (<=) (Ex a) (Ex b) = case cast b of
+    Just b' -> a <= b'
+    Nothing -> False
+
+-- Sugar to for creating requirement lists
+(|>) :: (c a, Ord (Ex c)) => OS.OSet (Ex c) -> a -> OS.OSet (Ex c)
+(|>) a = (OS.|>) a . Ex
+
+-- This is supposed to be the start of the list
+reqs :: (c a) => a -> OS.OSet (Ex c)
+reqs = OS.singleton . Ex
+
+-- reqs a |> b |> c |> ...
 
 instance Requirement (Ex Requirement) where
   testRequirement c (Ex r) = testRequirement c r
@@ -50,41 +101,17 @@ instance HasScale (Ex Effect) where
 data Spell = Spell
   { spellName :: String,
     spellTrigger :: Trigger,
-    castingConditions :: [Ex Requirement],
+    castingConditions :: OS.OSet (Ex Requirement),
     effects :: [Ex Effect]
   }
-
-punishment :: Scale
-punishment = 10
-
-instance HasScale Spell where
-  scale (Spell _ t c e) =
-    scale t
-      + sum (map scale c)
-      + sum (map scale e)
-      + punishment * max 0 (length e - 1)
 
 data Monster = Monster
   { monsterName :: String,
     monsterSpells :: [Spell],
-    summoningConditions :: [Ex Requirement],
+    summoningConditions :: OS.OSet (Ex Requirement),
     combatPower :: Natural,
     isTapped :: Bool
   }
-
-instance HasScale Monster where
-  scale (Monster _ s c p t) =
-    sum (map scale c)
-      + sum (map scale s)
-      + punishment * max 0 (length s - 1)
-      + sp p
-      + if ut && t then -5 else 0 -- Enters the field tapped
-    where
-      ut = any ((==) OnTap . spellTrigger) s
-      sp v =
-        let f :: Float = fromIntegral v
-            sc :: Scale = fromIntegral v
-         in sc * ceiling (logBase 10.0 f)
 
 data CardStats = SpellStats Spell | MonsterStats Monster
 
@@ -94,7 +121,7 @@ instance HasScale CardStats where
 
 data Card = Card
   { cardID :: Int,
-    cardFamilies :: [String],
+    cardFamilies :: OS.OSet String,
     cardStats :: CardStats
   }
 

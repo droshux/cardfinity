@@ -73,7 +73,8 @@ executable cardgame
     build-depends:    
       base ^>=4.17.2.1,
       mtl,
-      transformers
+      transformers,
+      ordered-containers
 
     -- Directories containing source files.
     hs-source-dirs:   app
