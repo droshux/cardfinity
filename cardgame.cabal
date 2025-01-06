@@ -65,6 +65,7 @@ executable cardgame
     other-modules:
       Types
       Utils
+      Atoms
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

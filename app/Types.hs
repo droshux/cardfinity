@@ -51,7 +51,15 @@ type Scale = Int
 class HasScale a where
   scale :: a -> Scale
 
-data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnDefeat | Infinity deriving (Eq, Show)
+data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnDefeat | Infinity deriving (Eq)
+
+instance Show Trigger where
+  show OnPlay = "When played"
+  show OnDiscard = "When discarded"
+  show OnDraw = "When drawn"
+  show OnTap = "Tap this card"
+  show OnDefeat = "When defeated"
+  show Infinity = "On your turn"
 
 isMonsterOnly :: Trigger -> Bool
 isMonsterOnly OnTap = True
@@ -59,8 +67,8 @@ isMonsterOnly OnDefeat = True
 isMonsterOnly Infinity = True
 isMonsterOnly _ = False
 
-class (HasScale a, Ord a, Typeable a) => Requirement a where
-  testRequirement :: Card -> a -> GameOperation Bool
+class (HasScale a, Ord a, Typeable a, Show a) => Requirement a where
+  testRequirement :: a -> GameOperation Bool
 
 instance Eq (Ex Requirement) where
   (==) (Ex a) (Ex b) = case cast b of
@@ -84,16 +92,22 @@ reqs = OS.singleton . Ex
 -- reqs a |> b |> c |> ...
 
 instance Requirement (Ex Requirement) where
-  testRequirement c (Ex r) = testRequirement c r
+  testRequirement (Ex r) = testRequirement r
 
 instance HasScale (Ex Requirement) where
   scale (Ex r) = scale r
 
-class (HasScale a) => Effect a where
-  performEffect :: Card -> a -> GameOperation ()
+instance Show (Ex Requirement) where
+  show (Ex r) = show r
+
+class (HasScale a, Show a) => Effect a where
+  performEffect :: a -> GameOperation ()
 
 instance Effect (Ex Effect) where
-  performEffect c (Ex e) = performEffect c e
+  performEffect (Ex e) = performEffect e
+
+instance Show (Ex Effect) where
+  show (Ex e) = show e
 
 instance HasScale (Ex Effect) where
   scale (Ex e) = scale e
@@ -138,17 +152,17 @@ data Player = Player1 | Player2 deriving (Eq, Show)
 data PlayerState = PlayerState
   { hand :: [Card],
     deck :: [Card],
-    field :: [Monster],
+    field :: [Card], -- Only monsters. cardID etc mut be retained though
     graveyard :: [Card]
   }
 
-data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show)
+data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord)
 
-toLens :: CardLocation -> PlayerState -> [Ex HasScale]
-toLens Hand = map Ex . hand
-toLens Deck = map Ex . deck
-toLens Field = map Ex . field
-toLens Graveyard = map Ex . graveyard
+toLens :: CardLocation -> PlayerState -> [Card]
+toLens Hand = hand
+toLens Deck = deck
+toLens Field = field
+toLens Graveyard = graveyard
 
 data GameState = GameState
   { player1State :: PlayerState,
@@ -156,6 +170,15 @@ data GameState = GameState
     isFirstTurn :: Bool
   }
 
+getPlayerState :: Player -> GameState -> PlayerState
+getPlayerState Player1 = player1State
+getPlayerState Player2 = player2State
+
+data GameContext = GameContext
+  { currentPlayer :: Player,
+    cardContext :: Card
+  }
+
 {- Perform an operation for a given player, returning a player early if they
 deckout, keeping track of the game and taking user IO -}
-type GameOperation = ReaderT Player (ExceptT Player (StateT GameState IO))
+type GameOperation = ReaderT GameContext (ExceptT Player (StateT GameState IO))
