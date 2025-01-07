@@ -1,13 +1,18 @@
+{-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Redundant <&>" #-}
 
 module Utils where
 
-import Control.Monad.Except (MonadIO (liftIO), MonadPlus (mzero), MonadTrans (lift), runExceptT, when)
-import Control.Monad.Reader (MonadReader (ask), ReaderT (runReaderT), asks)
+import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), runExceptT, when)
+import Control.Monad.Reader (MonadReader (ask, local), ReaderT (runReaderT), asks)
 import Control.Monad.State (MonadState (get, put), StateT (runStateT), gets, modify)
-import Control.Monad.Trans.Maybe (MaybeT (runMaybeT))
 import Data.Foldable (Foldable (toList))
 import Data.Functor ((<&>))
+import Data.List (findIndex)
+import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Set.Ordered (OSet)
 import GHC.Natural (Natural, naturalToInteger)
 import GHC.Num (integerToInt)
@@ -20,8 +25,13 @@ natToInt = integerToInt . naturalToInteger
 without :: [a] -> Int -> [a]
 xs `without` i = drop i xs ++ take (i + 1) xs
 
-showFold :: (Show a, Foldable f) => String -> f a -> String
-showFold connector = foldr (\x a -> a ++ connector ++ show x) ""
+showFold :: (Show a, Foldable t) => String -> t a -> String
+showFold connector xs
+  | null xs = ""
+  | otherwise = foldr (\x a -> a ++ connector ++ show x) "" xs
+
+{-showFold _ [] = ""
+showFold c (x : xs) = foldr (\x' a -> a ++ c ++ show x') (show x) xs-}
 
 sandbox :: GameOpWithCardContext a -> GameOpWithCardContext (Either Player a, GameState)
 sandbox op = do
@@ -39,36 +49,50 @@ checkAll rs = do
     Right True -> put fstate >> return True
     _ -> return False
 
+asOpponent :: (MonadReader Player m) => m a -> m a
+asOpponent op = do
+  p <- ask
+  let p' = case p of Player1 -> Player2; Player2 -> Player1
+  local (const p') op
+
+asOpponent' :: GameOpWithCardContext a -> GameOpWithCardContext a
+asOpponent' op = ask >>= lift . asOpponent . runReaderT op
+
 promoteMonsterSpell :: Card -> Spell -> Card
 promoteMonsterSpell m s = m {cardStats = SpellStats s}
 
-selectFromList :: (Show a) => [a] -> GameOperation (Maybe (Int, a))
-selectFromList = liftIO . runMaybeT . helper
+selectFromList :: (Show a) => NonEmpty a -> GameOperation (Int, a)
+selectFromList = liftIO . helper . toList
   where
     printOptions = mapM_ printOption . zip [0 ..]
     helper xs = do
       liftIO $ printOptions xs
-      liftIO $ putStrLn "(Or leave blank to cancel)"
-      line <- lift getLine
-      if null line
-        then mzero
-        else case readMaybe line of
-          Just i -> return (i, xs !! i)
-          Nothing -> do
-            liftIO $ putStrLn "Invalid input, please try again..."
-            helper xs
+      liftIO getLine <&> readMaybe >>= \case
+        Just i -> return (i, xs !! i)
+        Nothing -> do
+          liftIO $ putStrLn "Invalid input, please try again..."
+          helper xs
     printOption (i :: Int, s) = putStrLn (show i ++ ": " ++ show s)
+
+selectFromList' :: (Show a) => NonEmpty a -> GameOpWithCardContext (Int, a)
+selectFromList' = lift . selectFromList
 
 playerState :: GameOperation PlayerState
 playerState = do
   stateGetter <- asks getPlayerState
   gets stateGetter
 
+playerState' :: GameOpWithCardContext PlayerState
+playerState' = lift playerState
+
 updatePlayerState :: (PlayerState -> PlayerState) -> GameOperation ()
 updatePlayerState f = asks h >>= modify
   where
     h Player1 gs = gs {player1State = f $ player1State gs}
     h Player2 gs = gs {player2State = f $ player2State gs}
+
+updatePlayerState' :: (PlayerState -> PlayerState) -> GameOpWithCardContext ()
+updatePlayerState' = lift . updatePlayerState
 
 trigger :: Trigger -> Card -> GameOperation ()
 trigger t = runReaderT activateCard
@@ -81,30 +105,49 @@ trigger t = runReaderT activateCard
           liftIO $ putStrLn ("Can't cast " ++ spellName s)
         else mapM_ performEffect $ effects s
     actMonster m
-      | isMonsterOnly t = do
-          r <- lift $ selectFromList $ validMSpells m
-          case r of
-            Nothing -> liftIO $ putStrLn "No monster spells activated."
-            Just (_, s) -> actSpell s
+      | isTapped m = liftIO $ putStrLn (monsterName m ++ " is tapped so no spells can trigger.")
+      | isMonsterOnly t = case validMSpells m of
+          [] -> liftIO $ putStrLn (monsterName m ++ " has no spells that can be activated in that way.")
+          (sfst : srest) -> do
+            (_, s) <- selectFromList' (sfst :| srest)
+            actSpell s
+            when (t == OnTap) tapThisCard
       | otherwise = mapM_ actSpell $ validMSpells m
     validMSpells = filter ((t ==) . spellTrigger) . monsterSpells
 
+tapThisCard :: GameOpWithCardContext ()
+tapThisCard = do
+  cid <- asks cardID
+  res <- lift playerState <&> findIndex ((==) cid . cardID) . field
+  case res of
+    Nothing -> return ()
+    Just i -> lift $ updatePlayerState $ \p -> p {field = tapAtI i $ field p}
+  where
+    tapAtI i cs = take i cs ++ [tap (cs !! i)] ++ drop (i + 1) cs
+    tap c = c {cardStats = tapm $ cardStats c}
+    tapm (MonsterStats m) = MonsterStats $ m {isTapped = True}
+    tapm (SpellStats s) = SpellStats s
+
 instance Show Spell where
-  show (Spell n t cs es) = concat [show n, " ", show t, " ", scs, ": ", ses]
+  show (Spell n t cs es) = concat [show n, " ", show t, if null cs then ": " else scs, ses]
     where
-      scs = showFold ", " cs
+      scs = " " ++ showFold ", " (toList cs) ++ ": "
       ses = showFold ", " es
 
 instance Show Monster where
   show (Monster n ss rs p t) =
     concat $
-      [ show n,
-        "\n",
-        showFold ", " rs,
-        ":"
-      ]
+      show n
+        : ( if null rs
+              then []
+              else
+                [ "\n",
+                  showFold ", " $ toList rs,
+                  ":"
+                ]
+          )
         ++ map (("\n\t" ++) . show) ss
-        ++ [ "\n\t Power: ",
+        ++ [ "\n\tPower ",
              show p,
              if t then "\t[Tapped]" else ""
            ]
@@ -115,12 +158,16 @@ instance Show CardStats where
 
 instance Show Card where
   show (Card i fs cs) =
-    concat
+    concat $
       [ "(",
         show $ scale (Card i fs cs),
         ") ",
-        show cs,
-        "\n\t(",
-        showFold ", " fs,
-        ")"
+        show cs
       ]
+        ++ if null fs
+          then []
+          else
+            [ "\n\t(",
+              showFold ", " $ toList fs,
+              ")"
+            ]

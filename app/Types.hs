@@ -29,7 +29,7 @@ instance HasScale Spell where
 instance HasScale Monster where
   scale (Monster _ ss c p t) =
     sum (map scale $ toList c)
-      + sum (map h ss)
+      + sum (map (max 0 . scale) ss)
       + punishment * max 0 (length ss - 1)
       + sp p
       + if ut && t then -5 else 0 -- Enters the field tapped
@@ -39,7 +39,14 @@ instance HasScale Monster where
         let f :: Float = fromIntegral v
             sc :: Scale = fromIntegral v
          in sc * ceiling (logBase 10.0 f)
-      h s = if isMonsterOnly $ spellTrigger s then max 0 $ scale s else scale s
+
+isLegal :: CardStats -> Bool
+isLegal (SpellStats s) =
+  scale s <= 10
+    && not (isMonsterOnly $ spellTrigger s)
+    && not (any monsterOnlyEffect $ effects s)
+    && not (any monsterOnlyRequirement $ castingConditions s)
+isLegal (MonsterStats m) = scale m <= 10 && all ((<= 15) . scale) (monsterSpells m)
 
 --------------------------------------------------------------------------------
 
@@ -70,6 +77,8 @@ isMonsterOnly _ = False
 
 class (HasScale a, Ord a, Typeable a, Show a) => Requirement a where
   testRequirement :: a -> GameOpWithCardContext Bool
+  monsterOnlyRequirement :: a -> Bool
+  monsterOnlyRequirement = const False
 
 instance Eq (Ex Requirement) where
   (==) (Ex a) (Ex b) = case cast b of
@@ -83,17 +92,18 @@ instance Ord (Ex Requirement) where
     Nothing -> False
 
 -- Sugar to for creating requirement lists
-(|>) :: (c a, Ord (Ex c)) => OS.OSet (Ex c) -> a -> OS.OSet (Ex c)
-(|>) a = (OS.|>) a . Ex
+(~>) :: (c a, Ord (Ex c)) => OS.OSet (Ex c) -> a -> OS.OSet (Ex c)
+(~>) a = (OS.|>) a . Ex
 
 -- This is supposed to be the start of the list
 reqs :: (c a) => a -> OS.OSet (Ex c)
 reqs = OS.singleton . Ex
 
--- reqs a |> b |> c |> ...
+-- reqs a ~> b ~> c ~> ...
 
 instance Requirement (Ex Requirement) where
   testRequirement (Ex r) = testRequirement r
+  monsterOnlyRequirement (Ex r) = monsterOnlyRequirement r
 
 instance HasScale (Ex Requirement) where
   scale (Ex r) = scale r
@@ -103,9 +113,12 @@ instance Show (Ex Requirement) where
 
 class (HasScale a, Show a) => Effect a where
   performEffect :: a -> GameOpWithCardContext ()
+  monsterOnlyEffect :: a -> Bool
+  monsterOnlyEffect = const False
 
 instance Effect (Ex Effect) where
   performEffect (Ex e) = performEffect e
+  monsterOnlyEffect (Ex e) = monsterOnlyEffect e
 
 instance Show (Ex Effect) where
   show (Ex e) = show e
@@ -135,7 +148,7 @@ instance HasScale CardStats where
   scale (MonsterStats m) = scale m
 
 data Card = Card
-  { cardID :: Int,
+  { cardID :: Natural,
     cardFamilies :: OS.OSet String,
     cardStats :: CardStats
   }

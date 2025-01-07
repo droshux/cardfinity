@@ -75,7 +75,9 @@ executable cardgame
       base ^>=4.17.2.1,
       mtl,
       transformers,
-      ordered-containers
+      ordered-containers,
+      random,
+      random-shuffle
 
     -- Directories containing source files.
     hs-source-dirs:   app
