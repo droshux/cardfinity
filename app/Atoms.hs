@@ -5,8 +5,8 @@
 
 module Atoms where
 
-import Control.Monad.Except (throwError, when)
-import Control.Monad.RWS (asks)
+import Control.Monad.Except (MonadTrans (lift), throwError, when)
+import Control.Monad.RWS (MonadReader (ask))
 import Data.Functor ((<&>))
 import GHC.Natural (Natural)
 import Types
@@ -35,23 +35,23 @@ instance Requirement DestroyCards where
   testRequirement (Discard n l) = case l of
     Graveyard -> return True -- Cannot discard from graveyard so just do nothing.
     other ->
-      playerState <&> toLens other >>= \case
+      lift playerState <&> toLens other >>= \case
         [] -> do
           when (other == Deck) $ performEffect Deckout
           return False
         (c : cs) -> do
           let toGY ps = ps {graveyard = c : graveyard ps}
-          updatePlayerState (destroyHelper other cs . toGY)
-          trigger OnDiscard c
+          lift $ updatePlayerState (destroyHelper other cs . toGY)
+          lift $ trigger OnDiscard c
           testRequirement $ Discard (n - 1) l
   testRequirement (Banish 0 _) = return True
   testRequirement (Banish n l) =
-    playerState <&> toLens l >>= \case
+    lift playerState <&> toLens l >>= \case
       [] -> do
         when (l == Deck) $ performEffect Deckout
         return False
       (_ : cs) -> do
-        updatePlayerState $ destroyHelper l cs
+        lift $ updatePlayerState $ destroyHelper l cs
         testRequirement $ Banish (n - 1) l
 
 destroyHelper :: CardLocation -> [Card] -> PlayerState -> PlayerState
@@ -75,6 +75,6 @@ instance HasScale Deckout where
 
 instance Effect Deckout where
   -- Cancells everything early and ends the game
-  performEffect _ = asks currentPlayer >>= throwError
+  performEffect _ = lift ask >>= throwError
 
 data SearchType = ForName String | ForFamlily String | ForSpell | ForMonster

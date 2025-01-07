@@ -2,8 +2,8 @@
 
 module Utils where
 
-import Control.Monad.Except (MonadIO (liftIO), MonadPlus (mzero), MonadTrans (lift), forM_, runExceptT, when)
-import Control.Monad.Reader (MonadReader (ask, local), ReaderT (runReaderT), asks)
+import Control.Monad.Except (MonadIO (liftIO), MonadPlus (mzero), MonadTrans (lift), runExceptT, when)
+import Control.Monad.Reader (MonadReader (ask), ReaderT (runReaderT), asks)
 import Control.Monad.State (MonadState (get, put), StateT (runStateT), gets, modify)
 import Control.Monad.Trans.Maybe (MaybeT (runMaybeT))
 import Data.Foldable (Foldable (toList))
@@ -20,13 +20,16 @@ natToInt = integerToInt . naturalToInteger
 showFold :: (Show a, Foldable f) => String -> f a -> String
 showFold connector = foldr (\x a -> a ++ connector ++ show x) ""
 
-sandbox :: GameOperation a -> GameOperation (Either Player a, GameState)
+sandbox :: GameOpWithCardContext a -> GameOpWithCardContext (Either Player a, GameState)
 sandbox op = do
-  currentPlayer <- ask
+  context <- ask
+  currentPlayer <- lift ask
   initialState <- get
-  liftIO $ flip runStateT initialState $ runExceptT $ runReaderT op currentPlayer
+  let runReaders = flip runReaderT currentPlayer . flip runReaderT context
+  let runMisc = flip runStateT initialState . runExceptT
+  liftIO $ runMisc $ runReaders op
 
-checkAll :: OSet (Ex Requirement) -> GameOperation Bool
+checkAll :: OSet (Ex Requirement) -> GameOpWithCardContext Bool
 checkAll rs = do
   (res, fstate) <- sandbox $ mapM testRequirement (toList rs) <&> and
   case res of
@@ -55,32 +58,33 @@ selectFromList = liftIO . runMaybeT . helper
 
 playerState :: GameOperation PlayerState
 playerState = do
-  stateGetter <- asks (getPlayerState . currentPlayer)
+  stateGetter <- asks getPlayerState
   gets stateGetter
 
 updatePlayerState :: (PlayerState -> PlayerState) -> GameOperation ()
-updatePlayerState f = asks (h . currentPlayer) >>= modify
+updatePlayerState f = asks h >>= modify
   where
     h Player1 gs = gs {player1State = f $ player1State gs}
     h Player2 gs = gs {player2State = f $ player2State gs}
 
 trigger :: Trigger -> Card -> GameOperation ()
-trigger t c = local (\gc -> gc {cardContext = c}) activateCard
+trigger t = runReaderT activateCard
   where
-    activateCard = asks cardContext >>= cardElim activateSpell activateMonster
-    activateSpell s = when (spellTrigger s == t) $ do
+    activateCard = ask >>= cardElim actSpell actMonster
+    actSpell s = when (spellTrigger s == t) $ do
       r <- checkAll (castingConditions s)
       if not r
-        then liftIO $ putStrLn ("Can't cast " ++ spellName s)
-        else forM_ (effects s) performEffect
-    activateMonster m
+        then
+          liftIO $ putStrLn ("Can't cast " ++ spellName s)
+        else mapM_ performEffect $ effects s
+    actMonster m
       | isMonsterOnly t = do
-          r <- selectFromList $ getOptions m
+          r <- lift $ selectFromList $ validMSpells m
           case r of
-            Nothing -> liftIO $ putStrLn "Cancelled!"
-            Just (_, s) -> activateSpell s
-      | otherwise = mapM_ activateSpell $ getOptions m
-    getOptions = filter ((==) t . spellTrigger) . monsterSpells
+            Nothing -> liftIO $ putStrLn "No monster spells activated."
+            Just (_, s) -> actSpell s
+      | otherwise = mapM_ actSpell $ validMSpells m
+    validMSpells = filter ((t ==) . spellTrigger) . monsterSpells
 
 instance Show Spell where
   show (Spell n t cs es) = concat [show n, " ", show t, " ", scs, ": ", ses]

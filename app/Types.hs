@@ -68,7 +68,7 @@ isMonsterOnly Infinity = True
 isMonsterOnly _ = False
 
 class (HasScale a, Ord a, Typeable a, Show a) => Requirement a where
-  testRequirement :: a -> GameOperation Bool
+  testRequirement :: a -> GameOpWithCardContext Bool
 
 instance Eq (Ex Requirement) where
   (==) (Ex a) (Ex b) = case cast b of
@@ -101,7 +101,7 @@ instance Show (Ex Requirement) where
   show (Ex r) = show r
 
 class (HasScale a, Show a) => Effect a where
-  performEffect :: a -> GameOperation ()
+  performEffect :: a -> GameOpWithCardContext ()
 
 instance Effect (Ex Effect) where
   performEffect (Ex e) = performEffect e
@@ -174,11 +174,8 @@ getPlayerState :: Player -> GameState -> PlayerState
 getPlayerState Player1 = player1State
 getPlayerState Player2 = player2State
 
-data GameContext = GameContext
-  { currentPlayer :: Player,
-    cardContext :: Card
-  }
-
 {- Perform an operation for a given player, returning a player early if they
 deckout, keeping track of the game and taking user IO -}
-type GameOperation = ReaderT GameContext (ExceptT Player (StateT GameState IO))
+type GameOperation = ReaderT Player (ExceptT Player (StateT GameState IO))
+
+type GameOpWithCardContext = ReaderT Card GameOperation
