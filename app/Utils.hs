@@ -17,6 +17,9 @@ import Types
 natToInt :: Natural -> Int
 natToInt = integerToInt . naturalToInteger
 
+without :: [a] -> Int -> [a]
+xs `without` i = drop i xs ++ take (i + 1) xs
+
 showFold :: (Show a, Foldable f) => String -> f a -> String
 showFold connector = foldr (\x a -> a ++ connector ++ show x) ""
 
@@ -91,3 +94,33 @@ instance Show Spell where
     where
       scs = showFold ", " cs
       ses = showFold ", " es
+
+instance Show Monster where
+  show (Monster n ss rs p t) =
+    concat $
+      [ show n,
+        "\n",
+        showFold ", " rs,
+        ":"
+      ]
+        ++ map (("\n\t" ++) . show) ss
+        ++ [ "\n\t Power: ",
+             show p,
+             if t then "\t[Tapped]" else ""
+           ]
+
+instance Show CardStats where
+  show (SpellStats s) = show s
+  show (MonsterStats s) = show s
+
+instance Show Card where
+  show (Card i fs cs) =
+    concat
+      [ "(",
+        show $ scale (Card i fs cs),
+        ") ",
+        show cs,
+        "\n\t(",
+        showFold ", " fs,
+        ")"
+      ]

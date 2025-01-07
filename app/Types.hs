@@ -156,7 +156,8 @@ data Player = Player1 | Player2 deriving (Eq, Show)
 data PlayerState = PlayerState
   { hand :: [Card],
     deck :: [Card],
-    field :: [Card], -- Only monsters. cardID etc mut be retained though
+    -- Only monsters. cardID etc must be retained though
+    field :: [Card],
     graveyard :: [Card]
   }
 
