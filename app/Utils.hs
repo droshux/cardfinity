@@ -91,8 +91,3 @@ instance Show Spell where
     where
       scs = showFold ", " cs
       ses = showFold ", " es
-
-showCardCount :: Natural -> String
-showCardCount 0 = "no cards"
-showCardCount 1 = "a card"
-showCardCount n = show n ++ " cards"

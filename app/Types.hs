@@ -27,18 +27,19 @@ instance HasScale Spell where
       + punishment * max 0 (length e - 1)
 
 instance HasScale Monster where
-  scale (Monster _ s c p t) =
+  scale (Monster _ ss c p t) =
     sum (map scale $ toList c)
-      + sum (map scale s)
-      + punishment * max 0 (length s - 1)
+      + sum (map h ss)
+      + punishment * max 0 (length ss - 1)
       + sp p
       + if ut && t then -5 else 0 -- Enters the field tapped
     where
-      ut = any ((==) OnTap . spellTrigger) s
+      ut = any ((==) OnTap . spellTrigger) ss
       sp v =
         let f :: Float = fromIntegral v
             sc :: Scale = fromIntegral v
          in sc * ceiling (logBase 10.0 f)
+      h s = if isMonsterOnly $ spellTrigger s then max 0 $ scale s else scale s
 
 --------------------------------------------------------------------------------
 
@@ -143,6 +144,9 @@ cardElim :: (Spell -> a) -> (Monster -> a) -> Card -> a
 cardElim fs fm c = case cardStats c of
   SpellStats s -> fs s
   MonsterStats m -> fm m
+
+cardName :: Card -> String
+cardName = cardElim spellName monsterName
 
 instance HasScale Card where
   scale c = scale $ cardStats c
