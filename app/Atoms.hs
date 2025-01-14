@@ -5,7 +5,7 @@
 
 module Atoms where
 
-import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), replicateM_, throwError, when)
+import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), replicateM_, when)
 import Control.Monad.RWS (MonadReader (ask), asks, unless)
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Data.Functor ((<&>))
@@ -192,7 +192,7 @@ instance HasScale Deckout where
 
 instance Effect Deckout where
   -- Cancells everything early and ends the game
-  performEffect _ = lift ask >>= throwError
+  performEffect _ = lift deckout
 
 newtype Draw = Draw Natural
 
@@ -203,13 +203,7 @@ instance HasScale Draw where
   scale (Draw n) = natToInt n * 10
 
 instance Effect Draw where
-  performEffect (Draw n) =
-    replicateM_ (natToInt n) $
-      playerState' <&> deck >>= \case
-        [] -> performEffect Deckout
-        (c : cs) -> lift $ do
-          updatePlayerState $ \p -> p {deck = cs, hand = c : hand p}
-          trigger OnDraw c
+  performEffect (Draw n) = replicateM_ (natToInt n) (lift draw)
 
 newtype Peek = Peek Natural
 

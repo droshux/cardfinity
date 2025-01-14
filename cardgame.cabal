@@ -66,6 +66,7 @@ executable cardgame
       Types
       Utils
       Atoms
+      Round
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

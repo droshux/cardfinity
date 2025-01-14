@@ -6,7 +6,7 @@
 
 module Utils where
 
-import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), runExceptT, when)
+import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), runExceptT, throwError, when)
 import Control.Monad.Reader (MonadReader (ask, local), ReaderT (runReaderT), asks)
 import Control.Monad.State (MonadState (get, put), StateT (runStateT), gets, modify)
 import Data.Foldable (Foldable (toList))
@@ -94,6 +94,17 @@ updatePlayerState f = asks h >>= modify
 updatePlayerState' :: (PlayerState -> PlayerState) -> GameOpWithCardContext ()
 updatePlayerState' = lift . updatePlayerState
 
+deckout :: GameOperation ()
+deckout = ask >>= throwError
+
+draw :: GameOperation ()
+draw =
+  playerState <&> deck >>= \case
+    [] -> ask >>= throwError
+    (c : deck) -> do
+      updatePlayerState $ \p -> p {deck = deck, hand = c : hand p}
+      trigger OnDraw c
+
 trigger :: Trigger -> Card -> GameOperation ()
 trigger t = runReaderT activateCard
   where
@@ -127,6 +138,9 @@ tapThisCard = do
     tap c = c {cardStats = tapm $ cardStats c}
     tapm (MonsterStats m) = MonsterStats $ m {isTapped = True}
     tapm (SpellStats s) = SpellStats s
+
+printCardsIn :: CardLocation -> GameOperation ()
+printCardsIn l = playerState >>= mapM_ (liftIO . print . cardName) . toLens l
 
 instance Show Spell where
   show (Spell n t cs es) = concat [show n, " ", show t, if null cs then ": " else scs, ses]
