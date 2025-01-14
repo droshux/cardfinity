@@ -13,8 +13,9 @@ import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.State (StateT)
 import Data.Functor ((<&>))
 import Data.List.NonEmpty (NonEmpty (..))
+import Data.List.NonEmpty qualified as NonE
 import Types
-import Utils (asOpponent, deckout, draw, playerState, printCardsIn, selectFromList)
+import Utils
 
 gameRound :: Control.Monad.Trans.Except.ExceptT Player (StateT GameState IO) ()
 gameRound = do
@@ -52,7 +53,7 @@ action = do
     CheckGY -> do
       yourLoc Graveyard
       liftIO $ putStrLn "Would you like to see more details?"
-      res <- selectFromList ("Yes" :| ["No"]) <&> fst
+      (res, _) <- selectFromList ("Yes" :| ["No"])
       when (res == 1) $ displayLoc Graveyard
       action
     Play -> playCard >> action
@@ -71,7 +72,47 @@ action = do
     displayLoc = mapM_ (liftIO . print) <=< ((playerState <&>) . toLens)
 
 playCard :: GameOperation ()
-playCard = _
+playCard = do
+  -- Select a playable card from your hand
+  let playable = flip cardElim (const True) $ (== OnPlay) . spellTrigger
+  playerState <&> filter playable . hand >>= \case
+    [] -> liftIO $ putStrLn "No cards to play."
+    (cfst : crst) -> do
+      (i, _) <- selectFromList $ NonE.map cardName (cfst :| crst)
+      let toPlay = (cfst : crst) !! i
+      cardElim (playSpell i toPlay) (playMonster i toPlay) toPlay
+  where
+    fromHand i p = p {hand = hand p `without` i}
+    -- Spell: trigger OnPlay, move it to the GY
+    playSpell i c _ = do
+      trigger OnPlay c
+      let toGY p = p {graveyard = c : graveyard p}
+      updatePlayerState (toGY . fromHand i)
+    -- Monster: Test summoning conditions, move to field, trigger OnPlay
+    playMonster i c m = do
+      success <- runReaderT (checkAll $ summoningConditions m) c
+      if not success
+        then liftIO $ putStrLn ("Failed to summon " ++ monsterName m)
+        else do
+          let toField p = p {field = c : field p}
+          updatePlayerState (toField . fromHand i)
+          trigger OnPlay c
 
 activateCard :: GameOperation ()
-activateCard = _
+activateCard =
+  playerState <&> filter isActivatable . field >>= \case
+    [] -> liftIO $ putStrLn "No monsters on the field can be activated."
+    (cfst : crst) -> do
+      (i, _) <- selectFromList $ NonE.map cardName $ cfst :| crst
+      -- playerState >>= cardElim (const $ return ()) activateMonster . (!! i) . field
+      target <- playerState <&> (!! i) . field
+      cardElim (const $ return ()) (activateMonster target) target
+  where
+    manualSpell = (`elem` [Infinity, OnTap]) . spellTrigger
+    isActivatable = cardElim (const False) $ \m -> any manualSpell $ monsterSpells m
+    activateMonster c m = case filter manualSpell $ monsterSpells m of
+      -- Impossible case
+      [] -> liftIO $ putStrLn "This monster has no spells that can be activated."
+      (sfst : srst) -> do
+        (i, _) <- selectFromList $ NonE.map spellName $ sfst :| srst
+        flip trigger c $ spellTrigger $ (sfst : srst) !! i
