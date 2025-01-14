@@ -90,7 +90,7 @@ instance Requirement DestroyCards where
   testRequirement (Destroy d (FindCards n t l)) = case l of
     Deck ->
       playerState' <&> deck >>= \case
-        [] -> performEffect Deckout >> return False
+        [] -> lift deckout
         dck -> case findIndex (toPredicate t) dck of
           Nothing -> return False
           Just i -> do
@@ -148,7 +148,7 @@ instance Effect DestroyTheirs where
       moveOn
     Deck ->
       playerState' <&> deck >>= \case
-        [] -> performEffect Deckout
+        [] -> lift deckout
         (c : deck) -> do
           updatePlayerState' $ \p -> p {deck = deck}
           handleDiscard c
@@ -276,7 +276,7 @@ instance Effect Attack where
       attackDirectly m = do
         liftIO $ putStrLn "Attacking Directly!"
         didKill <- lift $ dealDamage m
-        when didKill $ asOpponent' (performEffect Deckout)
+        when didKill $ lift $ asOpponent deckout
 
       dealDamage m = do
         let discardFromDeck p = p {deck = drop (natToInt $ combatPower m) $ deck p}
@@ -309,3 +309,44 @@ instance Effect Attack where
 
         ask >>= lift . trigger OnDiscard
   monsterOnlyEffect = const True
+
+data SearchForCard = SearchFor SearchType | DrillFor SearchType
+
+instance Show SearchForCard where
+  show (SearchFor t) = "Search the deck for a " ++ show t
+  show (DrillFor t) = "Drill the deck for a " ++ show t
+
+instance HasScale SearchForCard where
+  scale (SearchFor _) = 25
+  scale (DrillFor _) = 20
+
+instance Effect SearchForCard where
+  performEffect (DrillFor t) =
+    playerState' <&> deck >>= \case
+      [] -> lift deckout
+      (c : cs) ->
+        if not $ toPredicate t c
+          then do
+            setDeck cs
+            performEffect (DrillFor t)
+          else do
+            setDeck cs
+            updatePlayerState' $ \p -> p {hand = c : hand p}
+            lift $ trigger OnDraw c
+    where
+      setDeck cs = updatePlayerState' $ \p -> p {deck = cs}
+  performEffect (SearchFor t) =
+    options >>= \case
+      [] -> liftIO $ putStrLn ("No " ++ show t ++ "s in the deck.")
+      (cfst : crst) -> do
+        ids <- options <&> map cardID
+        (i', _) <- selectFromList' $ NonE.map cardName $ cfst :| crst
+        playerState' <&> findIndex ((ids !! i' ==) . cardID) . deck >>= \case
+          Nothing -> liftIO $ putStrLn $ cardName ((cfst : crst) !! i') ++ " not found in deck?!"
+          Just i -> do
+            c <- playerState' <&> (!! i) . deck
+            updatePlayerState' $ \p -> p {hand = c : hand p, deck = deck p `without` i}
+            lift shuffleDeck
+            lift $ trigger OnDraw c
+    where
+      options = playerState' <&> filter (toPredicate t) . deck

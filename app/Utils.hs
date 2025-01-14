@@ -16,6 +16,7 @@ import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Set.Ordered (OSet)
 import GHC.Natural (Natural, naturalToInteger)
 import GHC.Num (integerToInt)
+import System.Random.Shuffle (shuffleM)
 import Text.Read (readMaybe)
 import Types
 
@@ -26,12 +27,10 @@ without :: [a] -> Int -> [a]
 xs `without` i = drop i xs ++ take (i + 1) xs
 
 showFold :: (Show a, Foldable t) => String -> t a -> String
-showFold connector xs
-  | null xs = ""
-  | otherwise = foldr (\x a -> a ++ connector ++ show x) "" xs
-
-{-showFold _ [] = ""
-showFold c (x : xs) = foldr (\x' a -> a ++ c ++ show x') (show x) xs-}
+showFold connector as = helper connector $ toList as
+  where
+    helper _ [] = ""
+    helper c (x : xs) = foldr (\x' a -> a ++ c ++ show x') (show x) xs
 
 sandbox :: GameOpWithCardContext a -> GameOpWithCardContext (Either Player a, GameState)
 sandbox op = do
@@ -94,7 +93,7 @@ updatePlayerState f = asks h >>= modify
 updatePlayerState' :: (PlayerState -> PlayerState) -> GameOpWithCardContext ()
 updatePlayerState' = lift . updatePlayerState
 
-deckout :: GameOperation ()
+deckout :: GameOperation a
 deckout = ask >>= throwError
 
 draw :: GameOperation ()
@@ -104,6 +103,11 @@ draw =
     (c : deck) -> do
       updatePlayerState $ \p -> p {deck = deck, hand = c : hand p}
       trigger OnDraw c
+
+shuffleDeck :: GameOperation ()
+shuffleDeck = do
+  r <- playerState >>= shuffleM . deck
+  updatePlayerState $ \p -> p {deck = r}
 
 trigger :: Trigger -> Card -> GameOperation ()
 trigger t = runReaderT activateCard
