@@ -67,6 +67,8 @@ executable cardgame
       Utils
       Atoms
       Round
+      Game
+      ExampleCards
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -78,7 +80,8 @@ executable cardgame
       transformers,
       ordered-containers,
       random,
-      random-shuffle
+      random-shuffle,
+      MonadRandom
 
     -- Directories containing source files.
     hs-source-dirs:   app

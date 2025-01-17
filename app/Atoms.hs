@@ -6,7 +6,7 @@
 module Atoms where
 
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), replicateM_, when)
-import Control.Monad.RWS (MonadReader (ask), asks, unless)
+import Control.Monad.RWS (MonadReader (ask), asks, gets, unless)
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Data.Functor ((<&>))
 import Data.List (findIndex, stripPrefix)
@@ -35,8 +35,8 @@ toPredicate t = cardElim (const $ t == ForSpell) (const $ t == ForMonster)
 
 instance Show SearchType where
   show ForCard = "card"
-  show ForSpell = "spell card"
-  show ForMonster = "monster card"
+  show ForSpell = "spell"
+  show ForMonster = "monster"
   show (ForName n) = show n
   show (ForFamily f) = show f ++ " card"
 
@@ -54,13 +54,21 @@ instance Show FindCards where
         show l
       ]
 
-instance HasScale FindCards where
-  scale (FindCards _ _ Deck) = 0
-  scale (FindCards n _ Field) = -(4 * natToInt n)
-  scale (FindCards n _ _) = -natToInt n
+newtype IfCards = IfCards FindCards deriving (Ord, Eq)
 
-instance Requirement FindCards where
-  testRequirement (FindCards n t l) = playerState' <&> h
+instance HasScale IfCards where
+  scale (IfCards (FindCards _ _ Deck)) = 0
+  scale (IfCards (FindCards n _ Field)) = -(4 * natToInt n)
+  scale (IfCards (FindCards n _ _)) = -natToInt n
+
+instance Show IfCards where
+  show (IfCards f) = case f of
+    FindCards n _ _ -> "if there" ++ isare n ++ show f
+    where
+      isare n = if n == 1 then " is " else " are "
+
+instance Requirement IfCards where
+  testRequirement (IfCards (FindCards n t l)) = playerState' <&> h
     where
       h = (>= natToInt n) . length . filter (toPredicate t) . toLens l
 
@@ -100,14 +108,14 @@ instance Requirement DestroyCards where
     other ->
       playerState' <&> filter (toPredicate t) . toLens other >>= \case
         [] -> liftIO $ do
-          putStr "Could not find any "
+          putStr "Could not find a "
           putStr $ show t
           putStr $ if l == Field then " on the " else " in the "
-          putStr $ show l
+          print l
           return False
         (c : cs) -> do
           let names = cardName c :| map cardName cs
-          (i, _) <- selectFromList' names
+          (i, _) <- selectFromList' ("Select a card to " ++ show d ++ ":") names
           upWithout other i
           handleDiscard ((c : cs) !! i)
           moveOn
@@ -170,7 +178,7 @@ instance Effect DestroyTheirs where
         [] -> return ()
         (cfst : crst) -> do
           let names = cardName cfst :| map cardName crst
-          (i, _) <- selectFromList' names
+          (i, _) <- selectFromList' ("Select one of the opponent's monsters to " ++ show d ++ ":") names
           c <- playerState' <&> (!! i) . field
           updatePlayerState' $ \p -> p {field = field p `without` i}
           handleDiscard c
@@ -197,7 +205,7 @@ instance Effect Deckout where
 newtype Draw = Draw Natural
 
 instance Show Draw where
-  show (Draw n) = "Draw " ++ show n ++ " card " ++ if n == 1 then "" else "s"
+  show (Draw n) = "Draw " ++ show n ++ " card" ++ if n == 1 then " " else "s"
 
 instance HasScale Draw where
   scale (Draw n) = natToInt n * 10
@@ -253,11 +261,11 @@ instance Show Choose where
   show (Choose es) = showFold " or " es
 
 instance HasScale Choose where
-  scale (Choose es) = 3 + maximum (NonE.map scale es)
+  scale (Choose es) = maximum (NonE.map scale es)
 
 instance Effect Choose where
   performEffect (Choose es) = do
-    (_, c) <- lift $ selectFromList es
+    (_, c) <- lift $ selectFromList "Choose one of the following:" es
     performEffect c
 
 data Attack = Attack | AttackDirectly
@@ -271,24 +279,33 @@ instance HasScale Attack where
   scale AttackDirectly = 20
 
 instance Effect Attack where
-  performEffect AttackDirectly = ask >>= cardElim (const $ return ()) attackDirectly
+  performEffect AttackDirectly = do
+    ft <- gets isFirstTurn
+    if not ft
+      then ask >>= cardElim (const $ return ()) attackDirectly
+      else liftIO $ putStrLn "You cannot attack on the first turn."
     where
       attackDirectly m = do
         liftIO $ putStrLn "Attacking Directly!"
-        didKill <- lift $ dealDamage m
+        didKill <- lift $ asOpponent $ takeDamage m
         when didKill $ lift $ asOpponent deckout
 
-      dealDamage m = do
-        let discardFromDeck p = p {deck = drop (natToInt $ combatPower m) $ deck p}
-        asOpponent $ updatePlayerState discardFromDeck
-        asOpponent playerState <&> null . deck
-  performEffect Attack = ask >>= cardElim (const $ return ()) attack
+      takeDamage m = do
+        let toDiscard = natToInt $ combatPower m
+        updatePlayerState $ \p -> p {graveyard = take toDiscard (deck p) ++ graveyard p}
+        updatePlayerState $ \p -> p {deck = drop toDiscard $ deck p}
+        playerState <&> null . deck
+  performEffect Attack = do
+    ft <- gets isFirstTurn
+    if not ft
+      then ask >>= cardElim (const $ return ()) attack
+      else liftIO $ putStrLn "You cannot attack on the first turn."
     where
       attack m =
         lift (asOpponent playerState) <&> field >>= \case
           [] -> performEffect AttackDirectly
           (efst : erst) -> do
-            (i, _) <- selectFromList' $ NonE.map cardName (efst :| erst)
+            (i, _) <- selectFromList' "Select the monster to attack:" $ NonE.map cardName (efst :| erst)
             let target = (efst : erst) !! i
             let targetP = cardElim (const 0) combatPower target
             if targetP > combatPower m then defeatThis else defeatTarget target
@@ -299,13 +316,14 @@ instance Effect Attack where
 
         -- Get the location of this card and send it to the graveyard
         cid <- asks cardID
-        playerState' <&> findIndex ((==) cid . cardID) . field >>= \case
+        mbIndex <- playerState' <&> findIndex ((==) cid . cardID) . field
+        case mbIndex of
           Nothing -> liftIO (putStrLn "Error: Cannot find this card on the field.")
           Just i -> do
             -- Send to the graveyard
-            let toGY p = p {field = (field p !! i) : graveyard p}
-            let offField p = p {field = field p `without` i}
-            lift $ updatePlayerState (offField . toGY)
+            updatePlayerState' $ \p -> p {graveyard = (field p !! i) : graveyard p}
+            -- Remove from field
+            updatePlayerState' $ \p -> p {field = field p `without` i}
 
         ask >>= lift . trigger OnDiscard
   monsterOnlyEffect = const True
@@ -340,7 +358,7 @@ instance Effect SearchForCard where
       [] -> liftIO $ putStrLn ("No " ++ show t ++ "s in the deck.")
       (cfst : crst) -> do
         ids <- options <&> map cardID
-        (i', _) <- selectFromList' $ NonE.map cardName $ cfst :| crst
+        (i', _) <- selectFromList' "Select card to draw:" $ NonE.map cardName $ cfst :| crst
         playerState' <&> findIndex ((ids !! i' ==) . cardID) . deck >>= \case
           Nothing -> liftIO $ putStrLn $ cardName ((cfst : crst) !! i') ++ " not found in deck?!"
           Just i -> do

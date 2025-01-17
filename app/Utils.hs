@@ -6,7 +6,7 @@
 
 module Utils where
 
-import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), runExceptT, throwError, when)
+import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), runExceptT, throwError, void, when)
 import Control.Monad.Reader (MonadReader (ask, local), ReaderT (runReaderT), asks)
 import Control.Monad.State (MonadState (get, put), StateT (runStateT), gets, modify)
 import Data.Foldable (Foldable (toList))
@@ -24,7 +24,7 @@ natToInt :: Natural -> Int
 natToInt = integerToInt . naturalToInteger
 
 without :: [a] -> Int -> [a]
-xs `without` i = drop i xs ++ take (i + 1) xs
+xs `without` i = take i xs ++ drop (i + 1) xs
 
 showFold :: (Show a, Foldable t) => String -> t a -> String
 showFold connector as = helper connector $ toList as
@@ -60,8 +60,8 @@ asOpponent' op = ask >>= lift . asOpponent . runReaderT op
 promoteMonsterSpell :: Card -> Spell -> Card
 promoteMonsterSpell m s = m {cardStats = SpellStats s}
 
-selectFromList :: (Show a) => NonEmpty a -> GameOperation (Int, a)
-selectFromList = liftIO . helper . toList
+selectFromList :: (Show a) => String -> NonEmpty a -> GameOperation (Int, a)
+selectFromList prompt = (>>) (liftIO $ putStrLn prompt) . liftIO . helper . toList
   where
     printOptions = mapM_ printOption . zip [0 ..]
     helper xs = do
@@ -73,8 +73,8 @@ selectFromList = liftIO . helper . toList
           helper xs
     printOption (i :: Int, s) = putStrLn (show i ++ ": " ++ show s)
 
-selectFromList' :: (Show a) => NonEmpty a -> GameOpWithCardContext (Int, a)
-selectFromList' = lift . selectFromList
+selectFromList' :: (Show a) => String -> NonEmpty a -> GameOpWithCardContext (Int, a)
+selectFromList' prompt = lift . selectFromList prompt
 
 playerState :: GameOperation PlayerState
 playerState = do
@@ -112,22 +112,31 @@ shuffleDeck = do
 trigger :: Trigger -> Card -> GameOperation ()
 trigger t = runReaderT activateCard
   where
-    activateCard = ask >>= cardElim actSpell actMonster
-    actSpell s = when (spellTrigger s == t) $ do
+    activateCard = ask >>= cardElim (void . (`actSpell` t)) (`actMonster` t)
+
+actSpell :: Spell -> Trigger -> ReaderT Card GameOperation Bool
+actSpell s t =
+  if spellTrigger s == t
+    then do
       r <- checkAll (castingConditions s)
       if not r
         then
           liftIO $ putStrLn ("Can't cast " ++ spellName s)
         else mapM_ performEffect $ effects s
-    actMonster m
-      | isTapped m = liftIO $ putStrLn (monsterName m ++ " is tapped so no spells can trigger.")
-      | isMonsterOnly t = case validMSpells m of
-          [] -> liftIO $ putStrLn (monsterName m ++ " has no spells that can be activated in that way.")
-          (sfst : srest) -> do
-            (_, s) <- selectFromList' (sfst :| srest)
-            actSpell s
-            when (t == OnTap) tapThisCard
-      | otherwise = mapM_ actSpell $ validMSpells m
+      return r
+    else return False
+
+actMonster :: Monster -> Trigger -> ReaderT Card GameOperation ()
+actMonster m t
+  | isTapped m = liftIO $ putStrLn (monsterName m ++ " is tapped so no spells can trigger.")
+  | isMonsterOnly t = case validMSpells m of
+      [] -> liftIO $ putStrLn (monsterName m ++ " has no spells that can be activated in that way.")
+      (sfst : srest) -> do
+        (_, s) <- selectFromList' "Select a monster spell to activate:" (sfst :| srest)
+        didCast <- actSpell s t
+        when (didCast && t == OnTap) tapThisCard
+  | otherwise = mapM_ (`actSpell` t) $ validMSpells m
+  where
     validMSpells = filter ((t ==) . spellTrigger) . monsterSpells
 
 tapThisCard :: GameOpWithCardContext ()
@@ -144,7 +153,7 @@ tapThisCard = do
     tapm (SpellStats s) = SpellStats s
 
 printCardsIn :: CardLocation -> GameOperation ()
-printCardsIn l = playerState >>= mapM_ (liftIO . print . cardName) . toLens l
+printCardsIn l = playerState >>= liftIO . putStrLn . showFold "\t" . map cardName . toLens l
 
 instance Show Spell where
   show (Spell n t cs es) = concat [show n, " ", show t, if null cs then ": " else scs, ses]

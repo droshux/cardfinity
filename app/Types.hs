@@ -48,6 +48,13 @@ isLegal (SpellStats s) =
     && not (any monsterOnlyRequirement $ castingConditions s)
 isLegal (MonsterStats m) = scale m <= 10 && all ((<= 15) . scale) (monsterSpells m)
 
+isLegalDeck :: [CardStats] -> Bool
+isLegalDeck cs =
+  length cs >= 40
+    && length cs <= 60
+    && all isLegal cs
+    && sum (map (max 0 . scale) cs) <= 200
+
 --------------------------------------------------------------------------------
 
 -- Existential Quantification
@@ -93,7 +100,7 @@ instance Ord (Ex Requirement) where
 
 -- Sugar to for creating requirement lists
 (~>) :: (c a, Ord (Ex c)) => OS.OSet (Ex c) -> a -> OS.OSet (Ex c)
-(~>) a = (OS.|>) a . Ex
+(~>) a b = (OS.|>) a (Ex b)
 
 -- This is supposed to be the start of the list
 reqs :: (c a) => a -> OS.OSet (Ex c)
