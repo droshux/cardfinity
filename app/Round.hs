@@ -26,19 +26,20 @@ gameRound = do
   takeTurn Player2
   gameRound
 
-data RoundAction = Play | CheckHand | CheckField | CheckGY | Activate | Pass | Forfeit
+data RoundAction = Play | CheckHand | CheckField | CheckTheirField | CheckGY | Activate | Pass | Forfeit deriving (Enum)
 
 instance Show RoundAction where
   show Play = "Play a Card"
   show CheckHand = "See detailed information about your hand."
   show CheckField = "See detailed information about your field."
+  show CheckTheirField = "See detailed information about the opponent's field."
   show CheckGY = "See your graveyard."
   show Activate = "Activate an effect of a card on the field."
   show Pass = "End your turn."
   show Forfeit = "Forfeit the game."
 
 allRoundActions :: NonEmpty RoundAction
-allRoundActions = Play :| [CheckHand, CheckField, CheckGY, Activate, Pass, Forfeit]
+allRoundActions = toEnum 0 :| enumFrom (toEnum 1)
 
 action :: GameOperation ()
 action = do
@@ -56,6 +57,7 @@ action = do
     Forfeit -> deckout
     CheckHand -> displayLoc Hand >> action
     CheckField -> displayLoc Field >> action
+    CheckTheirField -> asOpponent (displayLoc Field) >> action
     CheckGY -> do
       yourLoc "Your" Graveyard
       (res, _) <- selectFromList "Would you like to see more details?" $ "Yes" :| ["No"]
