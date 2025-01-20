@@ -1,7 +1,7 @@
 module Types where
 
 import Control.Monad.Except
-import Control.Monad.Reader (ReaderT)
+import Control.Monad.Reader (ReaderT (runReaderT))
 import Control.Monad.State
 import Data.Data (Typeable, cast)
 import Data.Foldable (Foldable (toList))
@@ -164,6 +164,9 @@ cardElim :: (Spell -> a) -> (Monster -> a) -> Card -> a
 cardElim fs fm c = case cardStats c of
   SpellStats s -> fs s
   MonsterStats m -> fm m
+
+cardElim' :: (Spell -> GameOpWithCardContext a) -> (Monster -> GameOpWithCardContext a) -> Card -> GameOperation a
+cardElim' fs fm c = cardElim (flip runReaderT c . fs) (flip runReaderT c . fm) c
 
 cardName :: Card -> String
 cardName = cardElim spellName monsterName

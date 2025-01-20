@@ -81,7 +81,8 @@ executable cardgame
       ordered-containers,
       random,
       random-shuffle,
-      MonadRandom
+      MonadRandom,
+      ansi-terminal
 
     -- Directories containing source files.
     hs-source-dirs:   app

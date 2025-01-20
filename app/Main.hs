@@ -1,7 +1,7 @@
 module Main where
 
+import ExampleCards (sampleDeck, sampleDeck2)
 import Game (runGame)
-import ExampleCards (sampleDeck)
 
 main :: IO ()
-main = runGame sampleDeck sampleDeck
+main = runGame sampleDeck sampleDeck2

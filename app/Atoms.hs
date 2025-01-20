@@ -5,6 +5,7 @@
 
 module Atoms where
 
+import Control.Monad (void, (>=>))
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), replicateM_, when)
 import Control.Monad.RWS (MonadReader (ask), asks, gets, unless)
 import Control.Monad.Reader (ReaderT (runReaderT))
@@ -63,7 +64,7 @@ instance HasScale IfCards where
 
 instance Show IfCards where
   show (IfCards f) = case f of
-    FindCards n _ _ -> "if there" ++ isare n ++ show f
+    FindCards n _ _ -> "if there" ++ isare n ++ "at least " ++ show f
     where
       isare n = if n == 1 then " is " else " are "
 
@@ -102,29 +103,38 @@ instance Requirement DestroyCards where
         dck -> case findIndex (toPredicate t) dck of
           Nothing -> return False
           Just i -> do
+            let c = dck !! i
+            liftIO $ putStrLn (show d ++ "ing " ++ cardName c ++ " from the Deck")
             updatePlayerState' $ \p -> p {deck = deck p `without` i}
-            handleDiscard $ dck !! i
+            lift $ handleDiscard c
             moveOn
-    other ->
-      playerState' <&> filter (toPredicate t) . toLens other >>= \case
+    other -> do
+      cid <- asks cardID
+      let validTarget c = toPredicate t c && cardID c /= cid
+      playerState' <&> filter validTarget . toLens other >>= \case
         [] -> liftIO $ do
           putStr "Could not find a "
           putStr $ show t
           putStr $ if l == Field then " on the " else " in the "
           print l
           return False
-        (c : cs) -> do
-          let names = cardName c :| map cardName cs
+        (cfst : crst) -> do
+          let names = cardName cfst :| map cardName crst
           (i, _) <- selectFromList' ("Select a card to " ++ show d ++ ":") names
-          upWithout other i
-          handleDiscard ((c : cs) !! i)
+          let c = (cfst : crst) !! i
+          liftIO $ putStrLn (show d ++ "ing " ++ cardName c ++ " from the " ++ show other)
+          playerState' <&> findIndex ((== cardID c) . cardID) . toLens other >>= \case
+            Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in " ++ show other)
+            Just j -> lift $ do
+              upWithout other j
+              handleDiscard c
           moveOn
     where
       moveOn = testRequirement $ Destroy d $ FindCards (n - 1) t l
-      handleDiscard c = unless (d == Banish) $ lift $ do
+      handleDiscard c = unless (d == Banish) $ do
         updatePlayerState $ \p -> p {graveyard = c : graveyard p}
-        trigger OnDiscard c
-      upWithout loc i = updatePlayerState' $ \p -> case loc of
+        void $ trigger OnDiscard c
+      upWithout loc i = updatePlayerState $ \p -> case loc of
         Hand -> p {hand = hand p `without` i}
         Field -> p {field = field p `without` i}
         _ -> p
@@ -188,7 +198,7 @@ instance Effect DestroyTheirs where
       handleDiscard c =
         when (d == Discard) $ lift $ do
           updatePlayerState $ \p -> p {graveyard = c : graveyard p}
-          trigger OnDiscard c
+          void $ trigger OnDiscard c
 
 data Deckout = Deckout deriving (Eq, Ord)
 
@@ -312,7 +322,7 @@ instance Effect Attack where
 
       defeatTarget = lift . asOpponent . runReaderT defeatThis
       defeatThis = do
-        ask >>= lift . trigger OnDefeat
+        ask >>= lift . void . trigger OnDefeat
 
         -- Get the location of this card and send it to the graveyard
         cid <- asks cardID
@@ -325,7 +335,7 @@ instance Effect Attack where
             -- Remove from field
             updatePlayerState' $ \p -> p {field = field p `without` i}
 
-        ask >>= lift . trigger OnDiscard
+        ask >>= lift . void . trigger OnDiscard
   monsterOnlyEffect = const True
 
 data SearchForCard = SearchFor SearchType | DrillFor SearchType
@@ -350,7 +360,7 @@ instance Effect SearchForCard where
           else do
             setDeck cs
             updatePlayerState' $ \p -> p {hand = c : hand p}
-            lift $ trigger OnDraw c
+            lift $ void $ trigger OnDraw c
     where
       setDeck cs = updatePlayerState' $ \p -> p {deck = cs}
   performEffect (SearchFor t) =
@@ -365,6 +375,58 @@ instance Effect SearchForCard where
             c <- playerState' <&> (!! i) . deck
             updatePlayerState' $ \p -> p {hand = c : hand p, deck = deck p `without` i}
             lift shuffleDeck
-            lift $ trigger OnDraw c
+            lift $ void $ trigger OnDraw c
     where
       options = playerState' <&> filter (toPredicate t) . deck
+
+data Healing = Heal Natural | DrawGY | PlayGY
+
+instance HasScale Healing where
+  scale (Heal n) = 7 * natToInt n
+  scale DrawGY = 12
+  scale PlayGY = 12
+
+instance Show Healing where
+  show DrawGY = "Draw the top card of the Graveyard"
+  show PlayGY = "Play the top card of the Graveyard"
+  show (Heal 1) = "Put the top card of the Graveyard onto the Deck"
+  show (Heal n) = "Put the top " ++ show n ++ " cards of the Graveyard onto the Deck"
+
+instance Effect Healing where
+  performEffect (Heal 0) = return ()
+  performEffect (Heal n) =
+    playerState' <&> graveyard >>= \case
+      [] -> liftIO $ putStrLn "No more cards in the Graveyard."
+      (c : cs) -> do
+        updatePlayerState' $ \p -> p {deck = c : deck p, graveyard = cs}
+        performEffect $ Heal (n - 1)
+  performEffect DrawGY =
+    lift $
+      playerState <&> graveyard >>= \case
+        [] -> liftIO $ putStrLn "No more cards in the Graveyard."
+        (c : cs) -> do
+          updatePlayerState (\p -> p {hand = c : hand p, graveyard = cs})
+          void $ trigger OnDraw c
+  performEffect PlayGY =
+    lift $
+      playerState <&> graveyard >>= \case
+        [] -> liftIO $ putStrLn "No more cards in the Graveyard."
+        (c : _) ->
+          if not $ cardElim ((OnPlay ==) . spellTrigger) (const True) c
+            then liftIO $ putStrLn (cardName c ++ " is not playable.")
+            else
+              let playSpell = test castingConditions triggerPlay
+                  playMonster = test summoningConditions monstGY
+               in cardElim' playSpell playMonster c
+    where
+      test = flip (.) (flip when) . (>=>) . (checkAll .)
+      triggerPlay = ask >>= lift . void . trigger OnPlay
+      monstGY = do
+        -- Move to Field
+        playerState' <&> graveyard >>= \case
+          [] -> return ()
+          (c : cs) -> updatePlayerState' $ \p -> p {field = c : field p, graveyard = cs}
+
+        triggerPlay
+
+-- PlayGY should void trigger OnPlay?

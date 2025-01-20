@@ -6,6 +6,7 @@
 
 module Utils where
 
+import Control.Monad ((<=<))
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), runExceptT, throwError, void, when)
 import Control.Monad.Reader (MonadReader (ask, local), ReaderT (runReaderT), asks)
 import Control.Monad.State (MonadState (get, put), StateT (runStateT), gets, modify)
@@ -61,8 +62,14 @@ promoteMonsterSpell :: Card -> Spell -> Card
 promoteMonsterSpell m s = m {cardStats = SpellStats s}
 
 selectFromList :: (Show a) => String -> NonEmpty a -> GameOperation (Int, a)
-selectFromList prompt = (>>) (liftIO $ putStrLn prompt) . liftIO . helper . toList
+selectFromList _ (option :| []) = return (0, option)
+selectFromList prompt options = do
+  ask >>= liftIO . putStr . (++ ", ") . show
+  liftIO $ putStrLn prompt
+  helper $ toList options
   where
+    -- (>>) (liftIO $ putStrLn prompt) . liftIO . helper . toList
+
     printOptions = mapM_ printOption . zip [0 ..]
     helper xs = do
       liftIO $ printOptions xs
@@ -75,6 +82,29 @@ selectFromList prompt = (>>) (liftIO $ putStrLn prompt) . liftIO . helper . toLi
 
 selectFromList' :: (Show a) => String -> NonEmpty a -> GameOpWithCardContext (Int, a)
 selectFromList' prompt = lift . selectFromList prompt
+
+data Cancelable a where
+  Cancel :: Cancelable a
+  Option :: (Show a) => a -> Cancelable a
+
+instance Show (Cancelable a) where
+  show (Option x) = show x
+  show Cancel = "Cancel"
+
+selectFromListCancelable :: (Show a) => String -> [a] -> GameOperation (Cancelable (Int, a))
+selectFromListCancelable prompt = return . h <=< selectFromList prompt . (Cancel :|) . map Option
+  where
+    h (_, Cancel) = Cancel
+    -- Cancel is always 0, users choice is always 1 more than the index.
+    h (i, Option x) = Option (i - 1, x)
+
+selectFromListCancelable' :: (Show a) => String -> [a] -> GameOpWithCardContext (Cancelable (Int, a))
+selectFromListCancelable' prompt = lift . selectFromListCancelable prompt
+
+ifNotCancelled :: (MonadIO m) => Cancelable (i, a) -> ((i, a) -> m ()) -> m ()
+ifNotCancelled c f = case c of
+  Cancel -> liftIO $ putStrLn "Cancelled."
+  Option p -> f p
 
 playerState :: GameOperation PlayerState
 playerState = do
@@ -102,22 +132,23 @@ draw =
     [] -> ask >>= throwError
     (c : deck) -> do
       updatePlayerState $ \p -> p {deck = deck, hand = c : hand p}
-      trigger OnDraw c
+      void $ trigger OnDraw c
 
 shuffleDeck :: GameOperation ()
 shuffleDeck = do
   r <- playerState >>= shuffleM . deck
   updatePlayerState $ \p -> p {deck = r}
 
-trigger :: Trigger -> Card -> GameOperation ()
+trigger :: Trigger -> Card -> GameOperation Bool
 trigger t = runReaderT activateCard
   where
-    activateCard = ask >>= cardElim (void . (`actSpell` t)) (`actMonster` t)
+    activateCard = ask >>= cardElim (`actSpell` t) (`actMonster` t)
 
 actSpell :: Spell -> Trigger -> ReaderT Card GameOperation Bool
 actSpell s t =
   if spellTrigger s == t
     then do
+      liftIO $ putStrLn ("Attempting to cast " ++ spellName s)
       r <- checkAll (castingConditions s)
       if not r
         then
@@ -126,16 +157,25 @@ actSpell s t =
       return r
     else return False
 
-actMonster :: Monster -> Trigger -> ReaderT Card GameOperation ()
+actMonster :: Monster -> Trigger -> ReaderT Card GameOperation Bool
 actMonster m t
-  | isTapped m = liftIO $ putStrLn (monsterName m ++ " is tapped so no spells can trigger.")
+  | isTapped m = do
+      liftIO $ putStrLn (monsterName m ++ " is tapped so no spells can trigger.")
+      return False
   | isMonsterOnly t = case validMSpells m of
-      [] -> liftIO $ putStrLn (monsterName m ++ " has no spells that can be activated in that way.")
-      (sfst : srest) -> do
-        (_, s) <- selectFromList' "Select a monster spell to activate:" (sfst :| srest)
-        didCast <- actSpell s t
-        when (didCast && t == OnTap) tapThisCard
-  | otherwise = mapM_ (`actSpell` t) $ validMSpells m
+      [] -> do
+        liftIO $ putStrLn (monsterName m ++ " has no spells that can be activated in that way.")
+        return False
+      options ->
+        selectFromListCancelable' "Select a monster spell to activate:" options >>= \case
+          Cancel -> liftIO $ putStrLn "Canncelled." >> return False
+          Option (_, s) -> do
+            didCast <- actSpell s t
+            when (didCast && t == OnTap) tapThisCard
+            return didCast
+  | otherwise = do
+      spellResults <- mapM (`actSpell` t) $ validMSpells m
+      return $ or spellResults
   where
     validMSpells = filter ((t ==) . spellTrigger) . monsterSpells
 
