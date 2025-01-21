@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Types
   ( isLegalDeck,
     Ex (..),
@@ -26,6 +28,27 @@ module Types
     getPlayerState,
     GameOperation,
     GameOpWithCardContext,
+    spellName,
+    spellTrigger,
+    castingConditions,
+    effects,
+    monsterName,
+    monsterSpells,
+    summoningConditions,
+    combatPower,
+    isTapped,
+    spellStats,
+    monsterStats,
+    cardID,
+    cardFamilies,
+    cardStats,
+    hand,
+    field,
+    deck,
+    graveyard,
+    isFirstTurn,
+    player1State,
+    player2State,
   )
 where
 
@@ -35,8 +58,10 @@ import Control.Monad.State
 import Data.Data (Typeable, cast)
 import Data.Foldable (Foldable (toList))
 import Data.Kind (Constraint, Type)
+import Data.Maybe (isJust)
 import Data.Set.Ordered qualified as OS (OSet, singleton, (|>))
 import GHC.Natural (Natural)
+import Optics
 
 --------------------------------------------------------------------------------
 -- CARD BALANCING AREA:
@@ -164,12 +189,33 @@ instance Show (Ex Effect) where
 instance HasScale (Ex Effect) where
   scale (Ex e) = scale e
 
+type Effects = [Ex Effect]
+
+type Conditions = OS.OSet (Ex Requirement)
+
 data Spell = Spell
   { _spellName :: String,
     _spellTrigger :: Trigger,
-    _castingConditions :: OS.OSet (Ex Requirement),
+    _castingConditions :: Conditions,
     _effects :: [Ex Effect]
   }
+
+-- Due to a dependency loop at the core of the problem, macros cannot be used to
+-- create lenses.
+
+type SpellLens a = Lens' Spell a
+
+spellName :: SpellLens String
+spellName = lens _spellName $ \s x -> s {_spellName = x}
+
+spellTrigger :: SpellLens Trigger
+spellTrigger = lens _spellTrigger $ \s x -> s {_spellTrigger = x}
+
+castingConditions :: SpellLens Conditions
+castingConditions = lens _castingConditions $ \s x -> s {_castingConditions = x}
+
+effects :: SpellLens Effects
+effects = lens _effects $ \s x -> s {_effects = x}
 
 data Monster = Monster
   { _monsterName :: String,
@@ -179,7 +225,34 @@ data Monster = Monster
     _isTapped :: Bool
   }
 
+type MonsterLens a = Lens' Monster a
+
+monsterName :: MonsterLens String
+monsterName = lens _monsterName $ \m x -> m {_monsterName = x}
+
+monsterSpells :: MonsterLens [Spell]
+monsterSpells = lens _monsterSpells $ \m x -> m {_monsterSpells = x}
+
+summoningConditions :: MonsterLens Conditions
+summoningConditions = lens _summoningConditions $ \m x -> m {_summoningConditions = x}
+
+combatPower :: MonsterLens Natural
+combatPower = lens _combatPower $ \m x -> m {_combatPower = x}
+
+isTapped :: MonsterLens Bool
+isTapped = lens _isTapped $ \m x -> m {_isTapped = x}
+
 data CardStats = SpellStats Spell | MonsterStats Monster
+
+spellStats :: Prism' CardStats Spell
+spellStats = prism SpellStats $ \case
+  SpellStats s -> Right s
+  m -> Left m
+
+monsterStats :: Prism' CardStats Monster
+monsterStats = prism MonsterStats $ \case
+  MonsterStats m -> Right m
+  s -> Left s
 
 instance HasScale CardStats where
   scale (SpellStats s) = scale s
@@ -190,6 +263,17 @@ data Card = Card
     _cardFamilies :: OS.OSet String,
     _cardStats :: CardStats
   }
+
+type CardLens a = Lens' Card a
+
+cardID :: CardLens Natural
+cardID = lens _cardID $ \c x -> c {_cardID = x}
+
+cardFamilies :: CardLens (OS.OSet String)
+cardFamilies = lens _cardFamilies $ \c x -> c {_cardFamilies = x}
+
+cardStats :: CardLens CardStats
+cardStats = lens _cardStats $ \c x -> c {_cardStats = x}
 
 cardElim :: (Spell -> a) -> (Monster -> a) -> Card -> a
 cardElim fs fm c = case _cardStats c of
@@ -203,7 +287,7 @@ cardName :: Card -> String
 cardName = cardElim _spellName _monsterName
 
 isMonster :: Card -> Bool
-isMonster = cardElim (const False) (const True)
+isMonster = isJust . preview (cardStats % monsterStats)
 
 instance HasScale Card where
   scale c = scale $ _cardStats c
@@ -217,6 +301,20 @@ data PlayerState = PlayerState
     _field :: [Card],
     _graveyard :: [Card]
   }
+
+type PSLens = Lens' PlayerState [Card]
+
+hand :: PSLens
+hand = lens _hand $ \p x -> p {_hand = x}
+
+deck :: PSLens
+deck = lens _deck $ \p x -> p {_deck = x}
+
+field :: PSLens
+field = lens _field $ \p x -> p {_field = x}
+
+graveyard :: PSLens
+graveyard = lens _graveyard $ \p x -> p {_graveyard = x}
 
 data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord, Enum)
 
@@ -234,6 +332,15 @@ data GameState = GameState
     _player2State :: PlayerState,
     _isFirstTurn :: Bool
   }
+
+player1State :: Lens' GameState PlayerState
+player1State = lens _player1State $ \g p -> g {_player1State = p}
+
+player2State :: Lens' GameState PlayerState
+player2State = lens _player2State $ \g p -> g {_player2State = p}
+
+isFirstTurn :: Lens' GameState Bool
+isFirstTurn = lens _isFirstTurn $ \g b -> g {_isFirstTurn = b}
 
 getPlayerState :: Player -> GameState -> PlayerState
 getPlayerState Player1 = _player1State
