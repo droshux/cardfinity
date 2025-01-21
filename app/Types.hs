@@ -63,7 +63,7 @@ instance HasScale Monster where
       + sp p
       + if ut && t then -5 else 0 -- Enters the field tapped
     where
-      ut = any ((==) OnTap . spellTrigger) ss
+      ut = any ((==) OnTap . _spellTrigger) ss
       sp v =
         let f :: Float = fromIntegral v
             sc :: Scale = fromIntegral v
@@ -74,10 +74,10 @@ isLegal (SpellStats s) =
   -- MonsterOnly effects cannot appear on spells that could be played as cards
   scale s <= 10 && (mot || (not moe && not mor))
   where
-    moe = any monsterOnlyEffect $ effects s
-    mor = any monsterOnlyRequirement $ castingConditions s
-    mot = isMonsterOnly $ spellTrigger s
-isLegal (MonsterStats m) = scale m <= 10 && all ((<= 15) . scale) (monsterSpells m)
+    moe = any monsterOnlyEffect $ _effects s
+    mor = any monsterOnlyRequirement $ _castingConditions s
+    mot = isMonsterOnly $ _spellTrigger s
+isLegal (MonsterStats m) = scale m <= 10 && all ((<= 15) . scale) (_monsterSpells m)
 
 isLegalDeck :: [CardStats] -> Bool
 isLegalDeck cs =
@@ -165,18 +165,18 @@ instance HasScale (Ex Effect) where
   scale (Ex e) = scale e
 
 data Spell = Spell
-  { spellName :: String,
-    spellTrigger :: Trigger,
-    castingConditions :: OS.OSet (Ex Requirement),
-    effects :: [Ex Effect]
+  { _spellName :: String,
+    _spellTrigger :: Trigger,
+    _castingConditions :: OS.OSet (Ex Requirement),
+    _effects :: [Ex Effect]
   }
 
 data Monster = Monster
-  { monsterName :: String,
-    monsterSpells :: [Spell],
-    summoningConditions :: OS.OSet (Ex Requirement),
-    combatPower :: Natural,
-    isTapped :: Bool
+  { _monsterName :: String,
+    _monsterSpells :: [Spell],
+    _summoningConditions :: OS.OSet (Ex Requirement),
+    _combatPower :: Natural,
+    _isTapped :: Bool
   }
 
 data CardStats = SpellStats Spell | MonsterStats Monster
@@ -186,13 +186,13 @@ instance HasScale CardStats where
   scale (MonsterStats m) = scale m
 
 data Card = Card
-  { cardID :: Natural,
-    cardFamilies :: OS.OSet String,
-    cardStats :: CardStats
+  { _cardID :: Natural,
+    _cardFamilies :: OS.OSet String,
+    _cardStats :: CardStats
   }
 
 cardElim :: (Spell -> a) -> (Monster -> a) -> Card -> a
-cardElim fs fm c = case cardStats c of
+cardElim fs fm c = case _cardStats c of
   SpellStats s -> fs s
   MonsterStats m -> fm m
 
@@ -200,22 +200,22 @@ cardElim' :: (Spell -> GameOpWithCardContext a) -> (Monster -> GameOpWithCardCon
 cardElim' fs fm c = cardElim (flip runReaderT c . fs) (flip runReaderT c . fm) c
 
 cardName :: Card -> String
-cardName = cardElim spellName monsterName
+cardName = cardElim _spellName _monsterName
 
 isMonster :: Card -> Bool
 isMonster = cardElim (const False) (const True)
 
 instance HasScale Card where
-  scale c = scale $ cardStats c
+  scale c = scale $ _cardStats c
 
 data Player = Player1 | Player2 deriving (Eq, Show)
 
 data PlayerState = PlayerState
-  { hand :: [Card],
-    deck :: [Card],
+  { _hand :: [Card],
+    _deck :: [Card],
     -- Only monsters. cardID etc must be retained though
-    field :: [Card],
-    graveyard :: [Card]
+    _field :: [Card],
+    _graveyard :: [Card]
   }
 
 data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord, Enum)
@@ -224,20 +224,20 @@ allCardLocations :: [CardLocation]
 allCardLocations = enumFrom $ toEnum 0
 
 toLens :: CardLocation -> PlayerState -> [Card]
-toLens Hand = hand
-toLens Deck = deck
-toLens Field = field
-toLens Graveyard = graveyard
+toLens Hand = _hand
+toLens Deck = _deck
+toLens Field = _field
+toLens Graveyard = _graveyard
 
 data GameState = GameState
-  { player1State :: PlayerState,
-    player2State :: PlayerState,
-    isFirstTurn :: Bool
+  { _player1State :: PlayerState,
+    _player2State :: PlayerState,
+    _isFirstTurn :: Bool
   }
 
 getPlayerState :: Player -> GameState -> PlayerState
-getPlayerState Player1 = player1State
-getPlayerState Player2 = player2State
+getPlayerState Player1 = _player1State
+getPlayerState Player2 = _player2State
 
 {- Perform an operation for a given player, returning a player early if they
 deckout, keeping track of the game and taking user IO -}

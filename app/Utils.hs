@@ -140,8 +140,8 @@ playerState' = lift playerState
 updatePlayerState :: (PlayerState -> PlayerState) -> GameOperation ()
 updatePlayerState f = asks h >>= modify
   where
-    h Player1 gs = gs {player1State = f $ player1State gs}
-    h Player2 gs = gs {player2State = f $ player2State gs}
+    h Player1 gs = gs {_player1State = f $ _player1State gs}
+    h Player2 gs = gs {_player2State = f $ _player2State gs}
 
 updatePlayerState' :: (PlayerState -> PlayerState) -> GameOpWithCardContext ()
 updatePlayerState' = lift . updatePlayerState
@@ -151,16 +151,16 @@ deckout = ask >>= throwError
 
 draw :: GameOperation ()
 draw =
-  playerState <&> deck >>= \case
+  playerState <&> _deck >>= \case
     [] -> ask >>= throwError
     (c : deck) -> do
-      updatePlayerState $ \p -> p {deck = deck, hand = c : hand p}
+      updatePlayerState $ \p -> p {_deck = deck, _hand = c : _hand p}
       void $ trigger OnDraw c
 
 shuffleDeck :: GameOperation ()
 shuffleDeck = do
-  r <- playerState >>= shuffleM . deck
-  updatePlayerState $ \p -> p {deck = r}
+  r <- playerState >>= shuffleM . _deck
+  updatePlayerState $ \p -> p {_deck = r}
 
 trigger :: Trigger -> Card -> GameOperation Bool
 trigger t = runReaderT activateCard
@@ -169,25 +169,25 @@ trigger t = runReaderT activateCard
 
 actSpell :: Spell -> Trigger -> ReaderT Card GameOperation Bool
 actSpell s t =
-  if spellTrigger s == t
+  if _spellTrigger s == t
     then do
-      liftIO $ putStrLn ("Attempting to cast " ++ spellName s)
-      r <- checkAll (castingConditions s)
+      liftIO $ putStrLn ("Attempting to cast " ++ _spellName s)
+      r <- checkAll (_castingConditions s)
       if not r
         then
-          liftIO $ putStrLn ("Can't cast " ++ spellName s)
-        else mapM_ performEffect $ effects s
+          liftIO $ putStrLn ("Can't cast " ++ _spellName s)
+        else mapM_ performEffect $ _effects s
       return r
     else return False
 
 actMonster :: Monster -> Trigger -> ReaderT Card GameOperation Bool
 actMonster m t
-  | isTapped m = do
-      liftIO $ putStrLn (monsterName m ++ " is tapped so no spells can trigger.")
+  | _isTapped m = do
+      liftIO $ putStrLn (_monsterName m ++ " is tapped so no spells can trigger.")
       return False
   | isMonsterOnly t = case validMSpells m of
       [] -> do
-        liftIO $ putStrLn (monsterName m ++ " has no spells that can be activated in that way.")
+        liftIO $ putStrLn (_monsterName m ++ " has no spells that can be activated in that way.")
         return False
       options ->
         selectFromListCancelable' "Select a monster spell to activate:" options >>= \case
@@ -200,19 +200,19 @@ actMonster m t
       spellResults <- mapM (`actSpell` t) $ validMSpells m
       return $ or spellResults
   where
-    validMSpells = filter ((t ==) . spellTrigger) . monsterSpells
+    validMSpells = filter ((t ==) . _spellTrigger) . _monsterSpells
 
 tapThisCard :: GameOpWithCardContext ()
 tapThisCard = do
-  cid <- asks cardID
-  res <- lift playerState <&> findIndex ((==) cid . cardID) . field
+  cid <- asks _cardID
+  res <- lift playerState <&> findIndex ((==) cid . _cardID) . _field
   case res of
     Nothing -> return ()
-    Just i -> lift $ updatePlayerState $ \p -> p {field = tapAtI i $ field p}
+    Just i -> lift $ updatePlayerState $ \p -> p {_field = tapAtI i $ _field p}
   where
     tapAtI i cs = take i cs ++ [tap (cs !! i)] ++ drop (i + 1) cs
-    tap c = c {cardStats = tapm $ cardStats c}
-    tapm (MonsterStats m) = MonsterStats $ m {isTapped = True}
+    tap c = c {_cardStats = tapm $ _cardStats c}
+    tapm (MonsterStats m) = MonsterStats $ m {_isTapped = True}
     tapm (SpellStats s) = SpellStats s
 
 findThisCard :: GameOpWithCardContext (Maybe (Int, CardLocation))
@@ -222,8 +222,8 @@ findThisCard = mapM findThisIn allCardLocations <&> fmap (second toEnum) . first
     firstIndex i (Nothing : xs) = firstIndex (i + 1) xs
     firstIndex i ((Just x) : _) = Just (x, i)
     findThisIn loc = do
-      cid <- asks cardID
-      playerState' <&> findIndex ((== cid) . cardID) . toLens loc
+      cid <- asks _cardID
+      playerState' <&> findIndex ((== cid) . _cardID) . toLens loc
 
 printCardsIn :: CardLocation -> GameOperation ()
 printCardsIn l = playerState >>= liftIO . putStrLn . showFold "\t" . map cardName . toLens l

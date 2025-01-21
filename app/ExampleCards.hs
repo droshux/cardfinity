@@ -37,54 +37,54 @@ sampleDeck3 = concatMap (uncurry replicate) $ (20, hermitCrab) : map (5,) [stabo
 sciomancy :: Card
 sciomancy =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnPlay,
-              spellName = "Sciomancy",
-              effects = [Ex $ Peek 1],
-              castingConditions = reqs $ PopGraveyard 1
+            { _spellTrigger = OnPlay,
+              _spellName = "Sciomancy",
+              _effects = [Ex $ Peek 1],
+              _castingConditions = reqs $ PopGraveyard 1
             },
-      cardID = 0,
-      cardFamilies = fromList ["Occult", "Necromancy", "Divination"]
+      _cardID = 0,
+      _cardFamilies = fromList ["Occult", "Necromancy", "Divination"]
     }
 
 mysteriousSacrifice :: Card
 mysteriousSacrifice =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnPlay,
-              spellName = "Mysterious Sacrifice",
-              effects = [Ex $ DestroyTheirs Discard 2 Field],
-              castingConditions = reqs (IfCards $ FindCards 5 ForMonster Graveyard) ~> Destroy Banish (FindCards 1 ForMonster Field)
+            { _spellTrigger = OnPlay,
+              _spellName = "Mysterious Sacrifice",
+              _effects = [Ex $ DestroyTheirs Discard 2 Field],
+              _castingConditions = reqs (IfCards $ FindCards 5 ForMonster Graveyard) ~> Destroy Banish (FindCards 1 ForMonster Field)
             },
-      cardID = 0,
-      cardFamilies = empty
+      _cardID = 0,
+      _cardFamilies = empty
     }
 
 darkEngine :: Card
 darkEngine =
   Card
-    { cardStats =
+    { _cardStats =
         MonsterStats $
           Monster
-            { summoningConditions = empty,
-              monsterSpells =
+            { _summoningConditions = empty,
+              _monsterSpells =
                 [ Spell
-                    { spellTrigger = OnTap,
-                      spellName = "Dark Cycle",
-                      effects = [Ex $ Draw 1],
-                      castingConditions = reqs $ Destroy Discard $ FindCards 1 ForMonster Hand
+                    { _spellTrigger = OnTap,
+                      _spellName = "Dark Cycle",
+                      _effects = [Ex $ Draw 1],
+                      _castingConditions = reqs $ Destroy Discard $ FindCards 1 ForMonster Hand
                     }
                 ],
-              monsterName = "Dark Engine",
-              isTapped = False,
-              combatPower = 0
+              _monsterName = "Dark Engine",
+              _isTapped = False,
+              _combatPower = 0
             },
-      cardID = 0,
-      cardFamilies = fromList ["Dark Machine"]
+      _cardID = 0,
+      _cardFamilies = fromList ["Dark Machine"]
     }
 
 portalSummoning :: OSet (Ex Requirement)
@@ -96,326 +96,326 @@ portalSummoning =
 darkPortal :: Card
 darkPortal =
   Card
-    { cardStats =
+    { _cardStats =
         MonsterStats $
           Monster
-            { summoningConditions = portalSummoning,
-              monsterSpells =
+            { _summoningConditions = portalSummoning,
+              _monsterSpells =
                 [ Spell
-                    { spellTrigger = OnTap,
-                      spellName = "Dark Summoning",
-                      effects = [Ex $ Draw 1],
-                      castingConditions = empty
+                    { _spellTrigger = OnTap,
+                      _spellName = "Dark Summoning",
+                      _effects = [Ex $ Draw 1],
+                      _castingConditions = empty
                     },
                   Spell
-                    { spellTrigger = OnDiscard,
-                      spellName = "Dark Explosion",
-                      effects = [Ex $ DestroyTheirs Banish 1 Field],
-                      castingConditions = reqs $ Destroy Discard $ FindCards 3 ForMonster Deck
+                    { _spellTrigger = OnDiscard,
+                      _spellName = "Dark Explosion",
+                      _effects = [Ex $ DestroyTheirs Banish 1 Field],
+                      _castingConditions = reqs $ Destroy Discard $ FindCards 3 ForMonster Deck
                     },
-                  Spell {spellTrigger = OnPlay, spellName = "Dark Aura", effects = [Ex $ DestroyTheirs Banish 1 Deck], castingConditions = empty}
+                  Spell {_spellTrigger = OnPlay, _spellName = "Dark Aura", _effects = [Ex $ DestroyTheirs Banish 1 Deck], _castingConditions = empty}
                 ],
-              monsterName = "Dark Portal",
-              isTapped = False,
-              combatPower = 0
+              _monsterName = "Dark Portal",
+              _isTapped = False,
+              _combatPower = 0
             },
-      cardID = 0,
-      cardFamilies = fromList ["Dark Machine"]
+      _cardID = 0,
+      _cardFamilies = fromList ["Dark Machine"]
     }
 
 imp :: Card
 imp =
   Card
-    { cardStats =
+    { _cardStats =
         MonsterStats $
           Monster
-            { summoningConditions = empty,
-              monsterSpells =
+            { _summoningConditions = empty,
+              _monsterSpells =
                 [ Spell
-                    { spellTrigger = OnDiscard,
-                      spellName = "Chaos Burst",
-                      effects = [Ex $ DestroyTheirs Discard 1 Deck],
-                      castingConditions = reqs $ Destroy Discard $ FindCards 1 (ForName "Arcane Burst") Hand
+                    { _spellTrigger = OnDiscard,
+                      _spellName = "Chaos Burst",
+                      _effects = [Ex $ DestroyTheirs Discard 1 Deck],
+                      _castingConditions = reqs $ Destroy Discard $ FindCards 1 (ForName "Arcane Burst") Hand
                     }
                 ],
-              monsterName = "Imp",
-              isTapped = False,
-              combatPower = 0
+              _monsterName = "Imp",
+              _isTapped = False,
+              _combatPower = 0
             },
-      cardID = 0,
-      cardFamilies = fromList ["Demon"]
+      _cardID = 0,
+      _cardFamilies = fromList ["Demon"]
     }
 
 demonWarrior :: Card
 demonWarrior =
   Card
-    { cardStats =
+    { _cardStats =
         MonsterStats $
           Monster
-            { summoningConditions = reqs $ Destroy Discard $ FindCards 1 ForCard Field,
-              monsterSpells = [Spell {spellTrigger = OnTap, spellName = "Flame Spear", effects = [Ex Attack], castingConditions = empty}],
-              monsterName = "Demon Warrior",
-              isTapped = False,
-              combatPower = 7
+            { _summoningConditions = reqs $ Destroy Discard $ FindCards 1 ForCard Field,
+              _monsterSpells = [Spell {_spellTrigger = OnTap, _spellName = "Flame Spear", _effects = [Ex Attack], _castingConditions = empty}],
+              _monsterName = "Demon Warrior",
+              _isTapped = False,
+              _combatPower = 7
             },
-      cardID = 0,
-      cardFamilies = fromList ["Demon"]
+      _cardID = 0,
+      _cardFamilies = fromList ["Demon"]
     }
 
 arcaneburst :: Card
 arcaneburst =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnDiscard,
-              spellName = "Arcane Burst",
-              effects = [Ex $ DestroyTheirs Discard 2 Deck],
-              castingConditions = reqs $ Destroy Discard $ FindCards 1 ForSpell Hand
+            { _spellTrigger = OnDiscard,
+              _spellName = "Arcane Burst",
+              _effects = [Ex $ DestroyTheirs Discard 2 Deck],
+              _castingConditions = reqs $ Destroy Discard $ FindCards 1 ForSpell Hand
             },
-      cardID = 0,
-      cardFamilies = empty
+      _cardID = 0,
+      _cardFamilies = empty
     }
 
 cherubim :: Card
 cherubim =
   Card
-    { cardStats =
+    { _cardStats =
         MonsterStats $
           Monster
-            { summoningConditions = empty,
-              monsterSpells =
+            { _summoningConditions = empty,
+              _monsterSpells =
                 [ Spell
-                    { spellTrigger = OnPlay,
-                      spellName = "Call to the Archangels",
-                      effects = [Ex DrawGY],
-                      castingConditions = reqs (Destroy Banish $ FindCards 1 ForCard Hand) ~> Destroy Discard (FindCards 1 (ForFamily "Archangel") Deck)
+                    { _spellTrigger = OnPlay,
+                      _spellName = "Call to the Archangels",
+                      _effects = [Ex DrawGY],
+                      _castingConditions = reqs (Destroy Banish $ FindCards 1 ForCard Hand) ~> Destroy Discard (FindCards 1 (ForFamily "Archangel") Deck)
                     }
                 ],
-              monsterName = "Cherubim",
-              isTapped = False,
-              combatPower = 0
+              _monsterName = "Cherubim",
+              _isTapped = False,
+              _combatPower = 0
             },
-      cardID = 0,
-      cardFamilies = singleton "Angel"
+      _cardID = 0,
+      _cardFamilies = singleton "Angel"
     }
 
 gabriel :: Card
 gabriel =
   Card
-    { cardStats =
+    { _cardStats =
         MonsterStats $
           Monster
-            { summoningConditions = reqs $ Destroy Discard $ FindCards 1 (ForFamily "Angel") Field,
-              monsterSpells =
+            { _summoningConditions = reqs $ Destroy Discard $ FindCards 1 (ForFamily "Angel") Field,
+              _monsterSpells =
                 [ Spell
-                    { spellTrigger = OnTap,
-                      spellName = "Messenger of God",
-                      effects = [Ex DrawGY],
-                      castingConditions = reqs $ Destroy Discard $ FindCards 1 ForSpell Hand
+                    { _spellTrigger = OnTap,
+                      _spellName = "Messenger of God",
+                      _effects = [Ex DrawGY],
+                      _castingConditions = reqs $ Destroy Discard $ FindCards 1 ForSpell Hand
                     }
                 ],
-              monsterName = "Gabriel",
-              isTapped = False,
-              combatPower = 8
+              _monsterName = "Gabriel",
+              _isTapped = False,
+              _combatPower = 8
             },
-      cardID = 0,
-      cardFamilies = fromList ["Angel", "Archangel"]
+      _cardID = 0,
+      _cardFamilies = fromList ["Angel", "Archangel"]
     }
 
 michael :: Card
 michael =
   Card
-    { cardStats =
+    { _cardStats =
         MonsterStats $
           Monster
-            { summoningConditions = reqs $ Destroy Discard $ FindCards 1 (ForFamily "Angel") Field,
-              monsterSpells =
+            { _summoningConditions = reqs $ Destroy Discard $ FindCards 1 (ForFamily "Angel") Field,
+              _monsterSpells =
                 [ Spell
-                    { spellTrigger = OnTap,
-                      spellName = "Healer of God",
-                      effects = [Ex $ Heal 1],
-                      castingConditions = empty
+                    { _spellTrigger = OnTap,
+                      _spellName = "Healer of God",
+                      _effects = [Ex $ Heal 1],
+                      _castingConditions = empty
                     }
                 ],
-              monsterName = "Michael",
-              isTapped = False,
-              combatPower = 6
+              _monsterName = "Michael",
+              _isTapped = False,
+              _combatPower = 6
             },
-      cardID = 0,
-      cardFamilies = fromList ["Angel", "Archangel"]
+      _cardID = 0,
+      _cardFamilies = fromList ["Angel", "Archangel"]
     }
 
 sacredSacrifice :: Card
 sacredSacrifice =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnPlay,
-              spellName = "Sacred Sacrifice",
-              effects = [Ex $ Heal 3],
-              castingConditions = reqs $ Destroy Discard $ FindCards 1 (ForFamily "Angel") Field
+            { _spellTrigger = OnPlay,
+              _spellName = "Sacred Sacrifice",
+              _effects = [Ex $ Heal 3],
+              _castingConditions = reqs $ Destroy Discard $ FindCards 1 (ForFamily "Angel") Field
             },
-      cardID = 0,
-      cardFamilies = empty
+      _cardID = 0,
+      _cardFamilies = empty
     }
 
 lazarus :: Card
 lazarus =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnPlay,
-              spellName = "Staff of Lazarus",
-              effects = [Ex PlayGY],
-              castingConditions = reqs $ Destroy Banish $ FindCards 1 ForCard Hand
+            { _spellTrigger = OnPlay,
+              _spellName = "Staff of Lazarus",
+              _effects = [Ex PlayGY],
+              _castingConditions = reqs $ Destroy Banish $ FindCards 1 ForCard Hand
             },
-      cardID = 0,
-      cardFamilies = empty
+      _cardID = 0,
+      _cardFamilies = empty
     }
 
 prophecy :: Card
 prophecy =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnDraw,
-              spellName = "Prophecy",
-              effects = [Ex $ Peek 1],
-              castingConditions = reqs $ IfCards $ FindCards 1 (ForFamily "Archangel") Field
+            { _spellTrigger = OnDraw,
+              _spellName = "Prophecy",
+              _effects = [Ex $ Peek 1],
+              _castingConditions = reqs $ IfCards $ FindCards 1 (ForFamily "Archangel") Field
             },
-      cardID = 0,
-      cardFamilies = empty
+      _cardID = 0,
+      _cardFamilies = empty
     }
 
 divineRetribution :: Card
 divineRetribution =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnDiscard,
-              spellName = "Divine Retribution",
-              effects = [Ex $ DestroyTheirs Discard 2 Deck],
-              castingConditions = reqs $ Destroy Discard $ FindCards 1 (ForFamily "Angel") Deck
+            { _spellTrigger = OnDiscard,
+              _spellName = "Divine Retribution",
+              _effects = [Ex $ DestroyTheirs Discard 2 Deck],
+              _castingConditions = reqs $ Destroy Discard $ FindCards 1 (ForFamily "Angel") Deck
             },
-      cardID = 0,
-      cardFamilies = empty
+      _cardID = 0,
+      _cardFamilies = empty
     }
 
 raphael :: Card
 raphael =
   Card
-    { cardStats =
+    { _cardStats =
         MonsterStats $
           Monster
-            { summoningConditions = reqs (Destroy Discard $ FindCards 1 (ForFamily "Angel") Field),
-              monsterSpells = [Spell {spellTrigger = OnTap, spellName = "Divine Wrath", effects = [Ex Attack], castingConditions = empty}],
-              monsterName = "Raphael",
-              isTapped = False,
-              combatPower = 9
+            { _summoningConditions = reqs (Destroy Discard $ FindCards 1 (ForFamily "Angel") Field),
+              _monsterSpells = [Spell {_spellTrigger = OnTap, _spellName = "Divine Wrath", _effects = [Ex Attack], _castingConditions = empty}],
+              _monsterName = "Raphael",
+              _isTapped = False,
+              _combatPower = 9
             },
-      cardID = 0,
-      cardFamilies = fromList ["Angel", "Archangel"]
+      _cardID = 0,
+      _cardFamilies = fromList ["Angel", "Archangel"]
     }
 
 hermitCrab :: Card
 hermitCrab =
   Card
-    { cardStats =
+    { _cardStats =
         MonsterStats $
           Monster
-            { summoningConditions = reqs $ Destroy Discard $ FindCards 2 ForCard Hand,
-              monsterSpells =
+            { _summoningConditions = reqs $ Destroy Discard $ FindCards 2 ForCard Hand,
+              _monsterSpells =
                 [ Spell
-                    { spellTrigger = OnTap,
-                      spellName = "Scavenge Shell",
-                      effects = [Ex Attach],
-                      castingConditions = empty
+                    { _spellTrigger = OnTap,
+                      _spellName = "Scavenge Shell",
+                      _effects = [Ex Attach],
+                      _castingConditions = empty
                     }
                 ],
-              monsterName = "Hermit Crab",
-              isTapped = False,
-              combatPower = 5
+              _monsterName = "Hermit Crab",
+              _isTapped = False,
+              _combatPower = 5
             },
-      cardID = 0,
-      cardFamilies = singleton "Crab"
+      _cardID = 0,
+      _cardFamilies = singleton "Crab"
     }
 
 staboCrabo :: Card
 staboCrabo =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnTap,
-              spellName = "Stabbo Crabbo",
-              effects = [Ex AttackDirectly],
-              castingConditions = reqs $ Destroy Discard (FindCards 3 ForCard Deck)
+            { _spellTrigger = OnTap,
+              _spellName = "Stabbo Crabbo",
+              _effects = [Ex AttackDirectly],
+              _castingConditions = reqs $ Destroy Discard (FindCards 3 ForCard Deck)
             },
-      cardID = 0,
-      cardFamilies = singleton "Crabcessory"
+      _cardID = 0,
+      _cardFamilies = singleton "Crabcessory"
     }
 
 fancyHat :: Card
 fancyHat =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnTap,
-              spellName = "Fancy Hat",
-              effects = [Ex DrawGY],
-              castingConditions = reqs (PopGraveyard 1) ~> Destroy Discard (FindCards 1 (ForFamily "Crabcessory") Deck)
+            { _spellTrigger = OnTap,
+              _spellName = "Fancy Hat",
+              _effects = [Ex DrawGY],
+              _castingConditions = reqs (PopGraveyard 1) ~> Destroy Discard (FindCards 1 (ForFamily "Crabcessory") Deck)
             },
-      cardID = 0,
-      cardFamilies = singleton "Crabcessory"
+      _cardID = 0,
+      _cardFamilies = singleton "Crabcessory"
     }
 
 shrimpPistol :: Card
 shrimpPistol =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnTap,
-              spellName = "Shrimp Pistol",
-              effects = [Ex $ DestroyTheirs Discard 1 Field],
-              castingConditions = reqs $ Destroy Discard $ FindCards 1 ForCard Hand
+            { _spellTrigger = OnTap,
+              _spellName = "Shrimp Pistol",
+              _effects = [Ex $ DestroyTheirs Discard 1 Field],
+              _castingConditions = reqs $ Destroy Discard $ FindCards 1 ForCard Hand
             },
-      cardID = 0,
-      cardFamilies = singleton "Crabcessory"
+      _cardID = 0,
+      _cardFamilies = singleton "Crabcessory"
     }
 
 crabcaine :: Card
 crabcaine =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnTap,
-              spellName = "Crabcaine",
-              effects = [Ex $ SearchFor $ ForFamily "Crabcessory"],
-              castingConditions = reqs (IfCards $ FindCards 20 ForCard Graveyard) ~> Destroy Discard (FindCards 1 ForSpell Hand)
+            { _spellTrigger = OnTap,
+              _spellName = "Crabcaine",
+              _effects = [Ex $ SearchFor $ ForFamily "Crabcessory"],
+              _castingConditions = reqs (IfCards $ FindCards 20 ForCard Graveyard) ~> Destroy Discard (FindCards 1 ForSpell Hand)
             },
-      cardID = 0,
-      cardFamilies = singleton "Crabcessory"
+      _cardID = 0,
+      _cardFamilies = singleton "Crabcessory"
     }
 
 crabCycle :: Card
 crabCycle =
   Card
-    { cardStats =
+    { _cardStats =
         SpellStats $
           Spell
-            { spellTrigger = OnDiscard,
-              spellName = "The Crab Cycle",
-              effects = [Ex DrawGY],
-              castingConditions = reqs $ Destroy Banish $ FindCards 1 ForCard Deck
+            { _spellTrigger = OnDiscard,
+              _spellName = "The Crab Cycle",
+              _effects = [Ex DrawGY],
+              _castingConditions = reqs $ Destroy Banish $ FindCards 1 ForCard Deck
             },
-      cardID = 0,
-      cardFamilies = singleton "Crabcessory"
+      _cardID = 0,
+      _cardFamilies = singleton "Crabcessory"
     }

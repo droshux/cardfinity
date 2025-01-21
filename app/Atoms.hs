@@ -48,7 +48,7 @@ instance Eq SearchType where
 
 toPredicate :: SearchType -> Card -> Bool
 toPredicate (ForName n) = (n ==) . cardName
-toPredicate (ForFamily f) = elem f . cardFamilies
+toPredicate (ForFamily f) = elem f . _cardFamilies
 toPredicate ForCard = const True
 toPredicate t = cardElim (const $ t == ForSpell) (const $ t == ForMonster)
 
@@ -116,19 +116,19 @@ instance Requirement DestroyCards where
   testRequirement (Destroy Discard (FindCards _ _ Graveyard)) = return False
   testRequirement (Destroy d (FindCards n t l)) = case l of
     Deck ->
-      playerState' <&> deck >>= \case
+      playerState' <&> _deck >>= \case
         [] -> lift deckout
         dck -> case findIndex (toPredicate t) dck of
           Nothing -> return False
           Just i -> do
             let c = dck !! i
             liftIO $ putStrLn (show d ++ "ing " ++ cardName c ++ " from the Deck")
-            updatePlayerState' $ \p -> p {deck = deck p `without` i}
+            updatePlayerState' $ \p -> p {_deck = _deck p `without` i}
             lift $ handleDiscard c
             moveOn
     other -> do
-      cid <- asks cardID
-      let validTarget c = toPredicate t c && cardID c /= cid
+      cid <- asks _cardID
+      let validTarget c = toPredicate t c && _cardID c /= cid
       playerState' <&> filter validTarget . toLens other >>= \case
         [] -> liftIO $ do
           putStr "Could not find a "
@@ -141,7 +141,7 @@ instance Requirement DestroyCards where
           (i, _) <- selectFromList' ("Select a card to " ++ show d ++ ":") names
           let c = (cfst : crst) !! i
           liftIO $ putStrLn (show d ++ "ing " ++ cardName c ++ " from the " ++ show other)
-          playerState' <&> findIndex ((== cardID c) . cardID) . toLens other >>= \case
+          playerState' <&> findIndex ((== _cardID c) . _cardID) . toLens other >>= \case
             Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in " ++ show other)
             Just j -> lift $ do
               upWithout other j
@@ -150,11 +150,11 @@ instance Requirement DestroyCards where
     where
       moveOn = testRequirement $ Destroy d $ FindCards (n - 1) t l
       handleDiscard c = unless (d == Banish) $ do
-        updatePlayerState $ \p -> p {graveyard = c : graveyard p}
+        updatePlayerState $ \p -> p {_graveyard = c : _graveyard p}
         void $ trigger OnDiscard c
       upWithout loc i = updatePlayerState $ \p -> case loc of
-        Hand -> p {hand = hand p `without` i}
-        Field -> p {field = field p `without` i}
+        Hand -> p {_hand = _hand p `without` i}
+        Field -> p {_field = _field p `without` i}
         _ -> p
 
 -- Destroy their cards as an effect
@@ -178,44 +178,44 @@ instance Effect DestroyTheirs where
   performEffect (DestroyTheirs _ 0 _) = return () -- Base case
   performEffect (DestroyTheirs d n l) = asOpponent' $ case l of
     Graveyard -> when (d == Banish) $ do
-      playerState' <&> graveyard >>= \case
+      playerState' <&> _graveyard >>= \case
         [] -> return ()
-        (_ : gy) -> updatePlayerState' $ \p -> p {graveyard = gy}
+        (_ : gy) -> updatePlayerState' $ \p -> p {_graveyard = gy}
       moveOn
     Deck ->
-      playerState' <&> deck >>= \case
+      playerState' <&> _deck >>= \case
         [] -> lift deckout
         (c : deck) -> do
-          updatePlayerState' $ \p -> p {deck = deck}
+          updatePlayerState' $ \p -> p {_deck = deck}
           handleDiscard c
           moveOn
     Hand -> do
-      let setHand h p = p {hand = h}
+      let setHand h p = p {_hand = h}
       -- Randomly shuffle the hand
-      playerState' <&> hand >>= shuffleM >>= updatePlayerState' . setHand
+      playerState' <&> _hand >>= shuffleM >>= updatePlayerState' . setHand
 
       -- Discard the first card in the hand
-      playerState' <&> hand >>= \case
+      playerState' <&> _hand >>= \case
         [] -> return ()
         (c : h) -> do
           updatePlayerState' $ setHand h
           handleDiscard c
       moveOn
     Field ->
-      playerState' <&> field >>= \case
+      playerState' <&> _field >>= \case
         [] -> return ()
         (cfst : crst) -> do
           let names = cardName cfst :| map cardName crst
           (i, _) <- selectFromList' ("Select one of the opponent's monsters to " ++ show d ++ ":") names
-          c <- playerState' <&> (!! i) . field
-          updatePlayerState' $ \p -> p {field = field p `without` i}
+          c <- playerState' <&> (!! i) . _field
+          updatePlayerState' $ \p -> p {_field = _field p `without` i}
           handleDiscard c
           moveOn
     where
       moveOn = asOpponent' $ performEffect $ DestroyTheirs d (n - 1) l
       handleDiscard c =
         when (d == Discard) $ lift $ do
-          updatePlayerState $ \p -> p {graveyard = c : graveyard p}
+          updatePlayerState $ \p -> p {_graveyard = c : _graveyard p}
           void $ trigger OnDiscard c
 
 data Deckout = Deckout deriving (Eq, Ord)
@@ -257,7 +257,7 @@ instance HasScale Peek where
   scale (Peek n) = 2 ^ n
 
 instance Effect Peek where
-  performEffect (Peek n) = playerState' <&> deck >>= liftIO . mapM_ print . take (natToInt n)
+  performEffect (Peek n) = playerState' <&> _deck >>= liftIO . mapM_ print . take (natToInt n)
 
 newtype PopGraveyard = PopGraveyard Natural deriving (Eq, Ord)
 
@@ -276,11 +276,11 @@ instance HasScale PopGraveyard where
 
 instance Requirement PopGraveyard where
   testRequirement (PopGraveyard n) = do
-    gy <- playerState' <&> graveyard
+    gy <- playerState' <&> _graveyard
     if length gy < natToInt n
       then return False
       else do
-        updatePlayerState' $ \p -> p {graveyard = drop (natToInt n) $ graveyard p}
+        updatePlayerState' $ \p -> p {_graveyard = drop (natToInt n) $ _graveyard p}
         return True
 
 newtype Choose = Choose (NonEmpty (Ex Effect))
@@ -308,7 +308,7 @@ instance HasScale Attack where
 
 instance Effect Attack where
   performEffect AttackDirectly = do
-    ft <- gets isFirstTurn
+    ft <- gets _isFirstTurn
     if not ft
       then ask >>= cardElim (const $ return ()) attackDirectly
       else liftIO $ putStrLn "You cannot attack on the first turn."
@@ -319,39 +319,39 @@ instance Effect Attack where
         when didKill $ lift $ asOpponent deckout
 
       takeDamage m = do
-        let toDiscard = natToInt $ combatPower m
-        updatePlayerState $ \p -> p {graveyard = take toDiscard (deck p) ++ graveyard p}
-        updatePlayerState $ \p -> p {deck = drop toDiscard $ deck p}
-        playerState <&> null . deck
+        let toDiscard = natToInt $ _combatPower m
+        updatePlayerState $ \p -> p {_graveyard = take toDiscard (_deck p) ++ _graveyard p}
+        updatePlayerState $ \p -> p {_deck = drop toDiscard $ _deck p}
+        playerState <&> null . _deck
   performEffect Attack = do
-    ft <- gets isFirstTurn
+    ft <- gets _isFirstTurn
     if not ft
       then ask >>= cardElim (const $ return ()) attack
       else liftIO $ putStrLn "You cannot attack on the first turn."
     where
       attack m =
-        lift (asOpponent playerState) <&> field >>= \case
+        lift (asOpponent playerState) <&> _field >>= \case
           [] -> performEffect AttackDirectly
           (efst : erst) -> do
             (i, _) <- selectFromList' "Select the monster to attack:" $ NonE.map cardName (efst :| erst)
             let target = (efst : erst) !! i
-            let targetP = cardElim (const 0) combatPower target
-            if targetP > combatPower m then defeatThis else defeatTarget target
+            let targetP = cardElim (const 0) _combatPower target
+            if targetP > _combatPower m then defeatThis else defeatTarget target
 
       defeatTarget = lift . asOpponent . runReaderT defeatThis
       defeatThis = do
         ask >>= lift . void . trigger OnDefeat
 
         -- Get the location of this card and send it to the graveyard
-        cid <- asks cardID
-        mbIndex <- playerState' <&> findIndex ((==) cid . cardID) . field
+        cid <- asks _cardID
+        mbIndex <- playerState' <&> findIndex ((==) cid . _cardID) . _field
         case mbIndex of
           Nothing -> liftIO (putStrLn "Error: Cannot find this card on the field.")
           Just i -> do
             -- Send to the graveyard
-            updatePlayerState' $ \p -> p {graveyard = (field p !! i) : graveyard p}
+            updatePlayerState' $ \p -> p {_graveyard = (_field p !! i) : _graveyard p}
             -- Remove from field
-            updatePlayerState' $ \p -> p {field = field p `without` i}
+            updatePlayerState' $ \p -> p {_field = _field p `without` i}
 
         ask >>= lift . void . trigger OnDiscard
   monsterOnlyEffect = const True
@@ -368,7 +368,7 @@ instance HasScale SearchForCard where
 
 instance Effect SearchForCard where
   performEffect (DrillFor t) =
-    playerState' <&> deck >>= \case
+    playerState' <&> _deck >>= \case
       [] -> lift deckout
       (c : cs) ->
         if not $ toPredicate t c
@@ -377,25 +377,25 @@ instance Effect SearchForCard where
             performEffect (DrillFor t)
           else do
             setDeck cs
-            updatePlayerState' $ \p -> p {hand = c : hand p}
+            updatePlayerState' $ \p -> p {_hand = c : _hand p}
             lift $ void $ trigger OnDraw c
     where
-      setDeck cs = updatePlayerState' $ \p -> p {deck = cs}
+      setDeck cs = updatePlayerState' $ \p -> p {_deck = cs}
   performEffect (SearchFor t) =
     options >>= \case
       [] -> liftIO $ putStrLn ("No " ++ show t ++ "s in the deck.")
       (cfst : crst) -> do
-        ids <- options <&> map cardID
+        ids <- options <&> map _cardID
         (i', _) <- selectFromList' "Select card to draw:" $ NonE.map cardName $ cfst :| crst
-        playerState' <&> findIndex ((ids !! i' ==) . cardID) . deck >>= \case
+        playerState' <&> findIndex ((ids !! i' ==) . _cardID) . _deck >>= \case
           Nothing -> liftIO $ putStrLn $ cardName ((cfst : crst) !! i') ++ " not found in deck?!"
           Just i -> do
-            c <- playerState' <&> (!! i) . deck
-            updatePlayerState' $ \p -> p {hand = c : hand p, deck = deck p `without` i}
+            c <- playerState' <&> (!! i) . _deck
+            updatePlayerState' $ \p -> p {_hand = c : _hand p, _deck = _deck p `without` i}
             lift shuffleDeck
             lift $ void $ trigger OnDraw c
     where
-      options = playerState' <&> filter (toPredicate t) . deck
+      options = playerState' <&> filter (toPredicate t) . _deck
 
 data Healing = Heal Natural | DrawGY | PlayGY
 
@@ -413,37 +413,37 @@ instance Show Healing where
 instance Effect Healing where
   performEffect (Heal 0) = return ()
   performEffect (Heal n) =
-    playerState' <&> graveyard >>= \case
+    playerState' <&> _graveyard >>= \case
       [] -> liftIO $ putStrLn "No more cards in the Graveyard."
       (c : cs) -> do
-        updatePlayerState' $ \p -> p {deck = c : deck p, graveyard = cs}
+        updatePlayerState' $ \p -> p {_deck = c : _deck p, _graveyard = cs}
         performEffect $ Heal (n - 1)
   performEffect DrawGY =
     lift $
-      playerState <&> graveyard >>= \case
+      playerState <&> _graveyard >>= \case
         [] -> liftIO $ putStrLn "No more cards in the Graveyard."
         (c : cs) -> do
-          updatePlayerState (\p -> p {hand = c : hand p, graveyard = cs})
+          updatePlayerState (\p -> p {_hand = c : _hand p, _graveyard = cs})
           void $ trigger OnDraw c
   performEffect PlayGY =
     lift $
-      playerState <&> graveyard >>= \case
+      playerState <&> _graveyard >>= \case
         [] -> liftIO $ putStrLn "No more cards in the Graveyard."
         (c : _) ->
-          if not $ cardElim ((OnPlay ==) . spellTrigger) (const True) c
+          if not $ cardElim ((OnPlay ==) . _spellTrigger) (const True) c
             then liftIO $ putStrLn (cardName c ++ " is not playable.")
             else
-              let playSpell = test castingConditions triggerPlay
-                  playMonster = test summoningConditions monstGY
+              let playSpell = test _castingConditions triggerPlay
+                  playMonster = test _summoningConditions monstGY
                in cardElim' playSpell playMonster c
     where
       test = flip (.) (flip when) . (>=>) . (checkAll .)
       triggerPlay = ask >>= lift . void . trigger OnPlay
       monstGY = do
         -- Move to Field
-        playerState' <&> graveyard >>= \case
+        playerState' <&> _graveyard >>= \case
           [] -> return ()
-          (c : cs) -> updatePlayerState' $ \p -> p {field = c : field p, graveyard = cs}
+          (c : cs) -> updatePlayerState' $ \p -> p {_field = c : _field p, _graveyard = cs}
 
         triggerPlay
 
@@ -458,16 +458,16 @@ instance HasScale Attach where
 instance Effect Attach where
   performEffect =
     const $
-      playerState' <&> filter (cardElim (const True) (const False)) . hand >>= \case
+      playerState' <&> filter (cardElim (const True) (const False)) . _hand >>= \case
         [] -> liftIO $ putStrLn "There are no spell cards in your hand."
         (sfst : srst) -> do
           (i, s) <- selectFromList' "Select a spell to attach:" (sfst :| srst)
-          updatePlayerState' $ \p -> p {hand = hand p `without` i}
+          updatePlayerState' $ \p -> p {_hand = _hand p `without` i}
           findThisCard >>= \case
             Nothing -> liftIO $ putStrLn ("Error, " ++ cardName s ++ " cannot be found!")
             Just p -> do
               liftIO $ putStr ("Attaching " ++ cardName s ++ " to ")
-              lift $ updateCard p $ \c -> cardElim (const c) (flip attach c $ cardStats s) c
+              lift $ updateCard p $ \c -> cardElim (const c) (flip attach c $ _cardStats s) c
     where
       updateCard :: (Int, CardLocation) -> (Card -> Card) -> GameOperation ()
       updateCard (i, loc) f = do
@@ -476,12 +476,12 @@ instance Effect Attach where
         liftIO $ putStrLn $ cardName c
         let setTo = take i before ++ [f c] ++ drop (i + 1) before
         updatePlayerState $ setLoc loc setTo
-      setLoc Hand cs p = p {hand = cs}
-      setLoc Deck cs p = p {deck = cs}
-      setLoc Field cs p = p {field = cs}
-      setLoc Graveyard cs p = p {graveyard = cs}
+      setLoc Hand cs p = p {_hand = cs}
+      setLoc Deck cs p = p {_deck = cs}
+      setLoc Field cs p = p {_field = cs}
+      setLoc Graveyard cs p = p {_graveyard = cs}
 
       attach :: CardStats -> Card -> Monster -> Card
       attach (MonsterStats _) c _ = c
-      attach (SpellStats s) c m = c {cardStats = MonsterStats $ m {monsterSpells = s : monsterSpells m}}
+      attach (SpellStats s) c m = c {_cardStats = MonsterStats $ m {_monsterSpells = s : _monsterSpells m}}
   monsterOnlyEffect = const True

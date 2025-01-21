@@ -14,19 +14,19 @@ initGameState d1 d2 = do
   let (d1', d2') = prepareDecks d1'' d2''
   return
     GameState
-      { player1State = PlayerState {hand = take 4 d1', graveyard = [], field = [], deck = drop 4 d1'},
-        player2State = PlayerState {hand = take 5 d2', graveyard = [], field = [], deck = drop 5 d2'},
-        isFirstTurn = True
+      { _player1State = PlayerState {_hand = take 4 d1', _graveyard = [], _field = [], _deck = drop 4 d1'},
+        _player2State = PlayerState {_hand = take 5 d2', _graveyard = [], _field = [], _deck = drop 5 d2'},
+        _isFirstTurn = True
       }
   where
     prepareDecks :: [Card] -> [Card] -> ([Card], [Card])
     prepareDecks cs1 cs2 =
-      let h a b = zipWith (\n c -> c {cardID = fromIntegral n}) [a .. a + b]
+      let h a b = zipWith (\n c -> c {_cardID = fromIntegral n}) [a .. a + b]
        in (h 0 (length cs1) cs1, h (length cs1) (length cs2) cs2)
 
 runGame :: [Card] -> [Card] -> IO ()
 runGame d1 d2 =
-  if not (isLegalDeck $ map cardStats d1) || not (isLegalDeck $ map cardStats d2)
+  if not (isLegalDeck $ map _cardStats d1) || not (isLegalDeck $ map _cardStats d2)
     then putStrLn "At least one deck is illegal sorry."
     else do
       gs <- initGameState d1 d2

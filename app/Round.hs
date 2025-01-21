@@ -22,7 +22,7 @@ gameRound :: Control.Monad.Trans.Except.ExceptT Player (StateT GameState IO) ()
 gameRound = do
   let takeTurn = runReaderT $ draw >> untapAll >> action
   takeTurn Player1
-  lift $ modify $ \s -> s {isFirstTurn = False}
+  lift $ modify $ \s -> s {_isFirstTurn = False}
   takeTurn Player2
   gameRound
 
@@ -69,7 +69,7 @@ action = do
     printHP = do
       ask >>= liftIO . putStr . show
       liftIO $ putStr ": "
-      playerState >>= liftIO . print . length . deck
+      playerState >>= liftIO . print . length . _deck
     yourLoc s l = do
       liftIO $ do
         putStr $ s ++ " "
@@ -81,8 +81,8 @@ action = do
 playCard :: GameOperation ()
 playCard = do
   -- Select a playable card from your hand
-  let playable = flip cardElim (const True) $ (== OnPlay) . spellTrigger
-  playerState <&> filter playable . hand >>= \case
+  let playable = flip cardElim (const True) $ (== OnPlay) . _spellTrigger
+  playerState <&> filter playable . _hand >>= \case
     [] -> liftIO $ putStrLn "No cards to play."
     canPlay -> do
       res <- selectFromListCancelable "Select a card to play:" $ map cardName canPlay
@@ -92,30 +92,30 @@ playCard = do
   where
     -- Find c in the hand and remove it
     fromHand c =
-      playerState <&> findIndex ((== cardID c) . cardID) . hand >>= \case
+      playerState <&> findIndex ((== _cardID c) . _cardID) . _hand >>= \case
         Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in Hand")
-        Just i -> updatePlayerState $ \p -> p {hand = hand p `without` i}
+        Just i -> updatePlayerState $ \p -> p {_hand = _hand p `without` i}
     -- Spell: trigger OnPlay, move it to the GY
     playSpell c =
       const $
         trigger OnPlay c >>= \case
           False -> liftIO $ putStrLn ("Cannot play " ++ cardName c)
           True -> do
-            updatePlayerState $ \p -> p {graveyard = c : graveyard p}
+            updatePlayerState $ \p -> p {_graveyard = c : _graveyard p}
             fromHand c
     -- Monster: Test summoning conditions, move to field, trigger OnPlay
     playMonster c m = do
-      success <- runReaderT (checkAll $ summoningConditions m) c
+      success <- runReaderT (checkAll $ _summoningConditions m) c
       if not success
-        then liftIO $ putStrLn ("Failed to summon " ++ monsterName m)
+        then liftIO $ putStrLn ("Failed to summon " ++ _monsterName m)
         else do
-          updatePlayerState $ \p -> p {field = c : field p}
+          updatePlayerState $ \p -> p {_field = c : _field p}
           fromHand c
           void $ trigger OnPlay c
 
 activateCard :: GameOperation ()
 activateCard =
-  playerState <&> filter isActivatable . field >>= \case
+  playerState <&> filter isActivatable . _field >>= \case
     [] -> liftIO $ putStrLn "No monsters on the field can be activated."
     activatable -> do
       res <- selectFromListCancelable "Select a monster to activate:" (map cardName activatable)
@@ -123,20 +123,20 @@ activateCard =
         let target = activatable !! i
          in cardElim (const $ return ()) (activateMonster target) target
   where
-    manualSpell = (`elem` [Infinity, OnTap]) . spellTrigger
-    isActivatable = cardElim (const False) $ \m -> not (isTapped m) && any manualSpell (monsterSpells m)
+    manualSpell = (`elem` [Infinity, OnTap]) . _spellTrigger
+    isActivatable = cardElim (const False) $ \m -> not (_isTapped m) && any manualSpell (_monsterSpells m)
     activateMonster c m = do
-      let options = filter manualSpell $ monsterSpells m
+      let options = filter manualSpell $ _monsterSpells m
       res <- selectFromListCancelable "Select a monster spell to activate:" options
       ifNotCancelled res $ \(i, _) -> do
         let spell = options !! i
-        let t = spellTrigger spell
+        let t = _spellTrigger spell
         -- Cast spell with c as the card context
         didCast <- flip runReaderT c $ actSpell spell t
         when (didCast && t == OnTap) $ runReaderT tapThisCard c
 
 untapAll :: GameOperation ()
-untapAll = updatePlayerState $ \p -> p {field = map untapCard $ field p}
+untapAll = updatePlayerState $ \p -> p {_field = map untapCard $ _field p}
   where
     untapCard c = cardElim (const c) (untapMonster c) c
-    untapMonster c m = c {cardStats = MonsterStats $ m {isTapped = False}}
+    untapMonster c m = c {_cardStats = MonsterStats $ m {_isTapped = False}}
