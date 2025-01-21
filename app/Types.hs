@@ -49,6 +49,7 @@ module Types
     isFirstTurn,
     player1State,
     player2State,
+    playerLens,
   )
 where
 
@@ -86,9 +87,9 @@ instance HasScale Monster where
       + sum (map (max 0 . scale) ss)
       + punishment * max 0 (length ss - 1)
       + sp p
-      + if ut && t then -5 else 0 -- Enters the field tapped
+      + if anyTap ss && t then -5 else 0 -- Enters the field tapped
     where
-      ut = any ((==) OnTap . _spellTrigger) ss
+      anyTap = any ((OnTap ==) . (^. spellTrigger))
       sp v =
         let f :: Float = fromIntegral v
             sc :: Scale = fromIntegral v
@@ -102,7 +103,7 @@ isLegal (SpellStats s) =
     moe = any monsterOnlyEffect $ _effects s
     mor = any monsterOnlyRequirement $ _castingConditions s
     mot = isMonsterOnly $ _spellTrigger s
-isLegal (MonsterStats m) = scale m <= 10 && all ((<= 15) . scale) (_monsterSpells m)
+isLegal (MonsterStats m) = scale m <= 10 && (m ^. monsterSpells & all ((<= 15) . scale))
 
 isLegalDeck :: [CardStats] -> Bool
 isLegalDeck cs =
@@ -321,11 +322,11 @@ data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord, Enu
 allCardLocations :: [CardLocation]
 allCardLocations = enumFrom $ toEnum 0
 
-toLens :: CardLocation -> PlayerState -> [Card]
-toLens Hand = _hand
-toLens Deck = _deck
-toLens Field = _field
-toLens Graveyard = _graveyard
+toLens :: CardLocation -> Lens' PlayerState [Card]
+toLens Hand = hand
+toLens Deck = deck
+toLens Field = field
+toLens Graveyard = graveyard
 
 data GameState = GameState
   { _player1State :: PlayerState,
@@ -341,6 +342,9 @@ player2State = lens _player2State $ \g p -> g {_player2State = p}
 
 isFirstTurn :: Lens' GameState Bool
 isFirstTurn = lens _isFirstTurn $ \g b -> g {_isFirstTurn = b}
+
+playerLens :: Player -> Lens' GameState PlayerState
+playerLens = \case Player1 -> player1State; Player2 -> player2State
 
 getPlayerState :: Player -> GameState -> PlayerState
 getPlayerState Player1 = _player1State

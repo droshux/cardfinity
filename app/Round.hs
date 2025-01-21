@@ -14,6 +14,7 @@ import Control.Monad.Trans.State (StateT, modify)
 import Data.Functor ((<&>))
 import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty (..))
+import Optics.Operators ((^.))
 import System.Console.ANSI (clearScreen)
 import Types
 import Utils
@@ -69,20 +70,20 @@ action = do
     printHP = do
       ask >>= liftIO . putStr . show
       liftIO $ putStr ": "
-      playerState >>= liftIO . print . length . _deck
+      player's deck >>= liftIO . print . length
     yourLoc s l = do
       liftIO $ do
         putStr $ s ++ " "
         putStr $ show l
         putStrLn ": "
       printCardsIn l
-    displayLoc = mapM_ (liftIO . print) <=< ((playerState <&>) . toLens)
+    displayLoc = mapM_ (liftIO . print) <=< player's . toLens
 
 playCard :: GameOperation ()
 playCard = do
   -- Select a playable card from your hand
   let playable = flip cardElim (const True) $ (== OnPlay) . _spellTrigger
-  playerState <&> filter playable . _hand >>= \case
+  player's hand <&> filter playable >>= \case
     [] -> liftIO $ putStrLn "No cards to play."
     canPlay -> do
       res <- selectFromListCancelable "Select a card to play:" $ map cardName canPlay
@@ -92,16 +93,16 @@ playCard = do
   where
     -- Find c in the hand and remove it
     fromHand c =
-      playerState <&> findIndex ((== _cardID c) . _cardID) . _hand >>= \case
+      player's hand <&> findIndex (\c' -> c ^. cardID == c' ^. cardID) >>= \case
         Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in Hand")
-        Just i -> updatePlayerState $ \p -> p {_hand = _hand p `without` i}
+        Just i -> hand -= i
     -- Spell: trigger OnPlay, move it to the GY
     playSpell c =
       const $
         trigger OnPlay c >>= \case
           False -> liftIO $ putStrLn ("Cannot play " ++ cardName c)
           True -> do
-            updatePlayerState $ \p -> p {_graveyard = c : _graveyard p}
+            graveyard =: c
             fromHand c
     -- Monster: Test summoning conditions, move to field, trigger OnPlay
     playMonster c m = do
@@ -109,13 +110,13 @@ playCard = do
       if not success
         then liftIO $ putStrLn ("Failed to summon " ++ _monsterName m)
         else do
-          updatePlayerState $ \p -> p {_field = c : _field p}
+          field =: c
           fromHand c
           void $ trigger OnPlay c
 
 activateCard :: GameOperation ()
 activateCard =
-  playerState <&> filter isActivatable . _field >>= \case
+  player's field <&> filter isActivatable >>= \case
     [] -> liftIO $ putStrLn "No monsters on the field can be activated."
     activatable -> do
       res <- selectFromListCancelable "Select a monster to activate:" (map cardName activatable)
@@ -136,7 +137,7 @@ activateCard =
         when (didCast && t == OnTap) $ runReaderT tapThisCard c
 
 untapAll :: GameOperation ()
-untapAll = updatePlayerState $ \p -> p {_field = map untapCard $ _field p}
+untapAll = field %= map untapCard
   where
     untapCard c = cardElim (const c) (untapMonster c) c
     untapMonster c m = c {_cardStats = MonsterStats $ m {_isTapped = False}}

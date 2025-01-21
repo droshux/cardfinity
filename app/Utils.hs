@@ -16,10 +16,6 @@ module Utils
     selectFromListCancelable,
     selectFromListCancelable',
     ifNotCancelled,
-    playerState,
-    playerState',
-    updatePlayerState,
-    updatePlayerState',
     deckout,
     draw,
     shuffleDeck,
@@ -28,6 +24,14 @@ module Utils
     tapThisCard,
     findThisCard,
     printCardsIn,
+    (.=),
+    (=:),
+    (%=),
+    (?=),
+    player's,
+    opponent's,
+    player's',
+    (-=),
   )
 where
 
@@ -43,6 +47,8 @@ import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Set.Ordered (OSet)
 import GHC.Natural (Natural, naturalToInteger)
 import GHC.Num (integerToInt)
+import Optics (Lens, Lens', over, view, (%), (^.))
+import Optics.State.Operators qualified as OP
 import System.Random.Shuffle (shuffleM)
 import Text.Read (readMaybe)
 import Types
@@ -91,8 +97,6 @@ selectFromList prompt options = do
   liftIO $ putStrLn prompt
   helper $ toList options
   where
-    -- (>>) (liftIO $ putStrLn prompt) . liftIO . helper . toList
-
     printOptions = mapM_ printOption . zip [0 ..]
     helper xs = do
       liftIO $ printOptions xs
@@ -129,38 +133,49 @@ ifNotCancelled c f = case c of
   Cancel -> liftIO $ putStrLn "Cancelled."
   Option p -> f p
 
-playerState :: GameOperation PlayerState
-playerState = do
-  stateGetter <- asks getPlayerState
-  gets stateGetter
+wps :: (Lens GameState GameState a b1 -> t -> GameOperation b2) -> Lens PlayerState PlayerState a b1 -> t -> GameOperation b2
+wps f lens x = asks playerLens >>= flip f x . (% lens)
 
-playerState' :: GameOpWithCardContext PlayerState
-playerState' = lift playerState
+-- Modify operations to depend on the current player
 
-updatePlayerState :: (PlayerState -> PlayerState) -> GameOperation ()
-updatePlayerState f = asks h >>= modify
-  where
-    h Player1 gs = gs {_player1State = f $ _player1State gs}
-    h Player2 gs = gs {_player2State = f $ _player2State gs}
+(?=) :: Lens PlayerState PlayerState (Maybe a) (Maybe t) -> t -> GameOperation ()
+(?=) = wps (OP.?=)
 
-updatePlayerState' :: (PlayerState -> PlayerState) -> GameOpWithCardContext ()
-updatePlayerState' = lift . updatePlayerState
+(.=) :: Lens' PlayerState a -> a -> GameOperation ()
+(.=) = wps (OP..=)
+
+(%=) :: Lens PlayerState PlayerState a b -> (a -> b) -> GameOperation ()
+(%=) = wps (OP.%=)
+
+(=:) :: Lens' PlayerState [a] -> a -> GameOperation ()
+(=:) lns v = asks playerLens >>= modify . flip over (v :) . (% lns)
+
+(-=) :: Lens' PlayerState [a] -> Int -> GameOperation ()
+(-=) lns = (%=) lns . flip without
+
+player's :: Lens' PlayerState a -> GameOperation a
+player's lens = asks playerLens >>= gets . view . (% lens)
+
+player's' :: Lens' PlayerState a -> GameOpWithCardContext a
+player's' = lift . player's
+
+opponent's :: Lens' PlayerState a -> GameOperation a
+opponent's = asOpponent . player's
 
 deckout :: GameOperation a
 deckout = ask >>= throwError
 
 draw :: GameOperation ()
 draw =
-  playerState <&> _deck >>= \case
-    [] -> ask >>= throwError
-    (c : deck) -> do
-      updatePlayerState $ \p -> p {_deck = deck, _hand = c : _hand p}
+  player's deck >>= \case
+    [] -> deckout
+    (c : cs) -> do
+      deck .= cs
+      hand =: c
       void $ trigger OnDraw c
 
 shuffleDeck :: GameOperation ()
-shuffleDeck = do
-  r <- playerState >>= shuffleM . _deck
-  updatePlayerState $ \p -> p {_deck = r}
+shuffleDeck = player's deck >>= shuffleM >>= (deck .=)
 
 trigger :: Trigger -> Card -> GameOperation Bool
 trigger t = runReaderT activateCard
@@ -205,10 +220,10 @@ actMonster m t
 tapThisCard :: GameOpWithCardContext ()
 tapThisCard = do
   cid <- asks _cardID
-  res <- lift playerState <&> findIndex ((==) cid . _cardID) . _field
+  res <- player's' field <&> findIndex (\c -> c ^. cardID == cid)
   case res of
     Nothing -> return ()
-    Just i -> lift $ updatePlayerState $ \p -> p {_field = tapAtI i $ _field p}
+    Just i -> lift $ field %= tapAtI i
   where
     tapAtI i cs = take i cs ++ [tap (cs !! i)] ++ drop (i + 1) cs
     tap c = c {_cardStats = tapm $ _cardStats c}
@@ -223,10 +238,10 @@ findThisCard = mapM findThisIn allCardLocations <&> fmap (second toEnum) . first
     firstIndex i ((Just x) : _) = Just (x, i)
     findThisIn loc = do
       cid <- asks _cardID
-      playerState' <&> findIndex ((== cid) . _cardID) . toLens loc
+      player's' (toLens loc) <&> findIndex (\c -> c ^. cardID == cid)
 
 printCardsIn :: CardLocation -> GameOperation ()
-printCardsIn l = playerState >>= liftIO . putStrLn . showFold "\t" . map cardName . toLens l
+printCardsIn l = player's (toLens l) >>= liftIO . putStrLn . showFold "\t" . map cardName
 
 instance Show Spell where
   show (Spell n t cs es) = concat [show n, " ", show t, if null cs then ": " else scs, ses]
