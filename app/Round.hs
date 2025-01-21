@@ -96,12 +96,13 @@ playCard = do
         Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in Hand")
         Just i -> updatePlayerState $ \p -> p {hand = hand p `without` i}
     -- Spell: trigger OnPlay, move it to the GY
-    playSpell c _ =
-      trigger OnPlay c >>= \case
-        False -> liftIO $ putStrLn ("Cannot play " ++ cardName c)
-        True -> do
-          updatePlayerState $ \p -> p {graveyard = c : graveyard p}
-          fromHand c
+    playSpell c =
+      const $
+        trigger OnPlay c >>= \case
+          False -> liftIO $ putStrLn ("Cannot play " ++ cardName c)
+          True -> do
+            updatePlayerState $ \p -> p {graveyard = c : graveyard p}
+            fromHand c
     -- Monster: Test summoning conditions, move to field, trigger OnPlay
     playMonster c m = do
       success <- runReaderT (checkAll $ summoningConditions m) c
@@ -124,16 +125,6 @@ activateCard =
   where
     manualSpell = (`elem` [Infinity, OnTap]) . spellTrigger
     isActivatable = cardElim (const False) $ \m -> not (isTapped m) && any manualSpell (monsterSpells m)
-    {-activateMonster c m = case filter manualSpell $ monsterSpells m of
-      -- Impossible case
-      [] -> liftIO $ putStrLn "This monster has no spells that can be activated."
-      (sfst : srst) -> do
-        liftIO $ putStrLn ("Current monster: " ++ monsterName m)
-        (i, _) <- selectFromList "Select a monster spell to activate:" $ sfst :| srst
-        let spell = (sfst : srst) !! i
-        let t = spellTrigger spell
-        didCast <- flip runReaderT c $ actSpell spell t
-        when (didCast && t == OnTap) $ runReaderT tapThisCard c-}
     activateMonster c m = do
       let options = filter manualSpell $ monsterSpells m
       res <- selectFromListCancelable "Select a monster spell to activate:" options

@@ -31,6 +31,9 @@ sampleDeck2 =
       (5, divineRetribution)
     ]
 
+sampleDeck3 :: [Card]
+sampleDeck3 = concatMap (uncurry replicate) $ (20, hermitCrab) : map (5,) [staboCrabo, fancyHat, shrimpPistol, crabcaine, crabCycle]
+
 sciomancy :: Card
 sciomancy =
   Card
@@ -317,4 +320,102 @@ raphael =
             },
       cardID = 0,
       cardFamilies = fromList ["Angel", "Archangel"]
+    }
+
+hermitCrab :: Card
+hermitCrab =
+  Card
+    { cardStats =
+        MonsterStats $
+          Monster
+            { summoningConditions = reqs $ Destroy Discard $ FindCards 2 ForCard Hand,
+              monsterSpells =
+                [ Spell
+                    { spellTrigger = OnTap,
+                      spellName = "Scavenge Shell",
+                      effects = [Ex Attach],
+                      castingConditions = empty
+                    }
+                ],
+              monsterName = "Hermit Crab",
+              isTapped = False,
+              combatPower = 5
+            },
+      cardID = 0,
+      cardFamilies = singleton "Crab"
+    }
+
+staboCrabo :: Card
+staboCrabo =
+  Card
+    { cardStats =
+        SpellStats $
+          Spell
+            { spellTrigger = OnTap,
+              spellName = "Stabbo Crabbo",
+              effects = [Ex AttackDirectly],
+              castingConditions = reqs $ Destroy Discard (FindCards 3 ForCard Deck)
+            },
+      cardID = 0,
+      cardFamilies = singleton "Crabcessory"
+    }
+
+fancyHat :: Card
+fancyHat =
+  Card
+    { cardStats =
+        SpellStats $
+          Spell
+            { spellTrigger = OnTap,
+              spellName = "Fancy Hat",
+              effects = [Ex DrawGY],
+              castingConditions = reqs (PopGraveyard 1) ~> Destroy Discard (FindCards 1 (ForFamily "Crabcessory") Deck)
+            },
+      cardID = 0,
+      cardFamilies = singleton "Crabcessory"
+    }
+
+shrimpPistol :: Card
+shrimpPistol =
+  Card
+    { cardStats =
+        SpellStats $
+          Spell
+            { spellTrigger = OnTap,
+              spellName = "Shrimp Pistol",
+              effects = [Ex $ DestroyTheirs Discard 1 Field],
+              castingConditions = reqs $ Destroy Discard $ FindCards 1 ForCard Hand
+            },
+      cardID = 0,
+      cardFamilies = singleton "Crabcessory"
+    }
+
+crabcaine :: Card
+crabcaine =
+  Card
+    { cardStats =
+        SpellStats $
+          Spell
+            { spellTrigger = OnTap,
+              spellName = "Crabcaine",
+              effects = [Ex $ SearchFor $ ForFamily "Crabcessory"],
+              castingConditions = reqs (IfCards $ FindCards 20 ForCard Graveyard) ~> Destroy Discard (FindCards 1 ForSpell Hand)
+            },
+      cardID = 0,
+      cardFamilies = singleton "Crabcessory"
+    }
+
+crabCycle :: Card
+crabCycle =
+  Card
+    { cardStats =
+        SpellStats $
+          Spell
+            { spellTrigger = OnDiscard,
+              spellName = "The Crab Cycle",
+              effects = [Ex DrawGY],
+              castingConditions = reqs $ Destroy Banish $ FindCards 1 ForCard Deck
+            },
+      cardID = 0,
+      cardFamilies = singleton "Crabcessory"
     }

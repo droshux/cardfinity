@@ -10,6 +10,7 @@ import Control.Monad ((<=<))
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), runExceptT, throwError, void, when)
 import Control.Monad.Reader (MonadReader (ask, local), ReaderT (runReaderT), asks)
 import Control.Monad.State (MonadState (get, put), StateT (runStateT), gets, modify)
+import Data.Bifunctor (second)
 import Data.Foldable (Foldable (toList))
 import Data.Functor ((<&>))
 import Data.List (findIndex)
@@ -191,6 +192,16 @@ tapThisCard = do
     tap c = c {cardStats = tapm $ cardStats c}
     tapm (MonsterStats m) = MonsterStats $ m {isTapped = True}
     tapm (SpellStats s) = SpellStats s
+
+findThisCard :: GameOpWithCardContext (Maybe (Int, CardLocation))
+findThisCard = mapM findThisIn allCardLocations <&> fmap (second toEnum) . firstIndex 0
+  where
+    firstIndex _ [] = Nothing
+    firstIndex i (Nothing : xs) = firstIndex (i + 1) xs
+    firstIndex i ((Just x) : _) = Just (x, i)
+    findThisIn loc = do
+      cid <- asks cardID
+      playerState' <&> findIndex ((== cid) . cardID) . toLens loc
 
 printCardsIn :: CardLocation -> GameOperation ()
 printCardsIn l = playerState >>= liftIO . putStrLn . showFold "\t" . map cardName . toLens l

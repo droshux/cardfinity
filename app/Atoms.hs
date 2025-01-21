@@ -429,4 +429,41 @@ instance Effect Healing where
 
         triggerPlay
 
--- PlayGY should void trigger OnPlay?
+data Attach = Attach
+
+instance Show Attach where
+  show = const "Attach a spell card from your hand to this card."
+
+instance HasScale Attach where
+  scale = const 10
+
+instance Effect Attach where
+  performEffect =
+    const $
+      playerState' <&> filter (cardElim (const True) (const False)) . hand >>= \case
+        [] -> liftIO $ putStrLn "There are no spell cards in your hand."
+        (sfst : srst) -> do
+          (i, s) <- selectFromList' "Select a spell to attach:" (sfst :| srst)
+          updatePlayerState' $ \p -> p {hand = hand p `without` i}
+          findThisCard >>= \case
+            Nothing -> liftIO $ putStrLn ("Error, " ++ cardName s ++ " cannot be found!")
+            Just p -> do
+              liftIO $ putStr ("Attaching " ++ cardName s ++ " to ")
+              lift $ updateCard p $ \c -> cardElim (const c) (flip attach c $ cardStats s) c
+    where
+      updateCard :: (Int, CardLocation) -> (Card -> Card) -> GameOperation ()
+      updateCard (i, loc) f = do
+        before <- playerState <&> toLens loc
+        let c = before !! i
+        liftIO $ putStrLn $ cardName c
+        let setTo = take i before ++ [f c] ++ drop (i + 1) before
+        updatePlayerState $ setLoc loc setTo
+      setLoc Hand cs p = p {hand = cs}
+      setLoc Deck cs p = p {deck = cs}
+      setLoc Field cs p = p {field = cs}
+      setLoc Graveyard cs p = p {graveyard = cs}
+
+      attach :: CardStats -> Card -> Monster -> Card
+      attach (MonsterStats _) c _ = c
+      attach (SpellStats s) c m = c {cardStats = MonsterStats $ m {monsterSpells = s : monsterSpells m}}
+  monsterOnlyEffect = const True

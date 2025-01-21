@@ -42,10 +42,12 @@ instance HasScale Monster where
 
 isLegal :: CardStats -> Bool
 isLegal (SpellStats s) =
-  scale s <= 10
-    && not (isMonsterOnly $ spellTrigger s)
-    && not (any monsterOnlyEffect $ effects s)
-    && not (any monsterOnlyRequirement $ castingConditions s)
+  -- MonsterOnly effects cannot appear on spells that could be played as cards
+  scale s <= 10 && (mot || (not moe && not mor))
+  where
+    moe = any monsterOnlyEffect $ effects s
+    mor = any monsterOnlyRequirement $ castingConditions s
+    mot = isMonsterOnly $ spellTrigger s
 isLegal (MonsterStats m) = scale m <= 10 && all ((<= 15) . scale) (monsterSpells m)
 
 isLegalDeck :: [CardStats] -> Bool
@@ -171,6 +173,9 @@ cardElim' fs fm c = cardElim (flip runReaderT c . fs) (flip runReaderT c . fm) c
 cardName :: Card -> String
 cardName = cardElim spellName monsterName
 
+isMonster :: Card -> Bool
+isMonster = cardElim (const False) (const True)
+
 instance HasScale Card where
   scale c = scale $ cardStats c
 
@@ -184,7 +189,10 @@ data PlayerState = PlayerState
     graveyard :: [Card]
   }
 
-data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord)
+data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord, Enum)
+
+allCardLocations :: [CardLocation]
+allCardLocations = enumFrom $ toEnum 0
 
 toLens :: CardLocation -> PlayerState -> [Card]
 toLens Hand = hand
