@@ -8,6 +8,7 @@ module Types
     Trigger (..),
     isMonsterOnly,
     Requirement (..),
+    Conditions,
     (~>),
     reqs,
     Effect (..),
@@ -100,9 +101,9 @@ isLegal (SpellStats s) =
   -- MonsterOnly effects cannot appear on spells that could be played as cards
   scale s <= 10 && (mot || (not moe && not mor))
   where
-    moe = any monsterOnlyEffect $ _effects s
-    mor = any monsterOnlyRequirement $ _castingConditions s
-    mot = isMonsterOnly $ _spellTrigger s
+    moe = any monsterOnlyEffect $ s ^. effects
+    mor = any monsterOnlyRequirement $ s ^. castingConditions
+    mot = isMonsterOnly $ s ^. spellTrigger
 isLegal (MonsterStats m) = scale m <= 10 && (m ^. monsterSpells & all ((<= 15) . scale))
 
 isLegalDeck :: [CardStats] -> Bool
@@ -245,13 +246,13 @@ isTapped = lens _isTapped $ \m x -> m {_isTapped = x}
 
 data CardStats = SpellStats Spell | MonsterStats Monster
 
-spellStats :: Prism' CardStats Spell
-spellStats = prism SpellStats $ \case
+prismSpellStats :: Prism' CardStats Spell
+prismSpellStats = prism SpellStats $ \case
   SpellStats s -> Right s
   m -> Left m
 
-monsterStats :: Prism' CardStats Monster
-monsterStats = prism MonsterStats $ \case
+prismMonsterStats :: Prism' CardStats Monster
+prismMonsterStats = prism MonsterStats $ \case
   MonsterStats m -> Right m
   s -> Left s
 
@@ -276,6 +277,12 @@ cardFamilies = lens _cardFamilies $ \c x -> c {_cardFamilies = x}
 cardStats :: CardLens CardStats
 cardStats = lens _cardStats $ \c x -> c {_cardStats = x}
 
+spellStats :: AffineTraversal' Card Spell
+spellStats = cardStats % prismSpellStats
+
+monsterStats :: AffineTraversal' Card Monster
+monsterStats = cardStats % prismMonsterStats
+
 cardElim :: (Spell -> a) -> (Monster -> a) -> Card -> a
 cardElim fs fm c = case _cardStats c of
   SpellStats s -> fs s
@@ -288,7 +295,7 @@ cardName :: Card -> String
 cardName = cardElim _spellName _monsterName
 
 isMonster :: Card -> Bool
-isMonster = isJust . preview (cardStats % monsterStats)
+isMonster = isJust . preview monsterStats
 
 instance HasScale Card where
   scale c = scale $ _cardStats c

@@ -14,7 +14,9 @@ import Control.Monad.Trans.State (StateT, modify)
 import Data.Functor ((<&>))
 import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty (..))
-import Optics.Operators ((^.))
+import Data.Maybe (fromMaybe)
+import Optics.Operators ((.~), (^.), (^?))
+import Optics.Optic ((%))
 import System.Console.ANSI (clearScreen)
 import Types
 import Utils
@@ -23,7 +25,8 @@ gameRound :: Control.Monad.Trans.Except.ExceptT Player (StateT GameState IO) ()
 gameRound = do
   let takeTurn = runReaderT $ draw >> untapAll >> action
   takeTurn Player1
-  lift $ modify $ \s -> s {_isFirstTurn = False}
+  -- lift $ modify $ \s -> s {_isFirstTurn = False}
+  lift $ modify $ isFirstTurn .~ False
   takeTurn Player2
   gameRound
 
@@ -82,7 +85,7 @@ action = do
 playCard :: GameOperation ()
 playCard = do
   -- Select a playable card from your hand
-  let playable = flip cardElim (const True) $ (== OnPlay) . _spellTrigger
+  let playable c = c ^? (spellStats % spellTrigger) == Just OnPlay
   player's hand <&> filter playable >>= \case
     [] -> liftIO $ putStrLn "No cards to play."
     canPlay -> do
@@ -106,9 +109,9 @@ playCard = do
             fromHand c
     -- Monster: Test summoning conditions, move to field, trigger OnPlay
     playMonster c m = do
-      success <- runReaderT (checkAll $ _summoningConditions m) c
+      success <- runReaderT (checkAll $ m ^. summoningConditions) c
       if not success
-        then liftIO $ putStrLn ("Failed to summon " ++ _monsterName m)
+        then liftIO $ putStrLn ("Failed to summon " ++ m ^. monsterName)
         else do
           field =: c
           fromHand c
@@ -124,20 +127,22 @@ activateCard =
         let target = activatable !! i
          in cardElim (const $ return ()) (activateMonster target) target
   where
-    manualSpell = (`elem` [Infinity, OnTap]) . _spellTrigger
-    isActivatable = cardElim (const False) $ \m -> not (_isTapped m) && any manualSpell (_monsterSpells m)
+    manualSpell s = s ^. spellTrigger `elem` [Infinity, OnTap]
+    -- isActivatable = cardElim (const False) $ \m -> not (_isTapped m) && any manualSpell (_monsterSpells m)
+    isActivatable c =
+      let getStats = monsterStats
+          tapped = fromMaybe True $ c ^? getStats % isTapped
+          manualSpells = maybe False (any manualSpell) (c ^? getStats % monsterSpells)
+       in not tapped && manualSpells
     activateMonster c m = do
-      let options = filter manualSpell $ _monsterSpells m
+      let options = filter manualSpell $ m ^. monsterSpells
       res <- selectFromListCancelable "Select a monster spell to activate:" options
       ifNotCancelled res $ \(i, _) -> do
         let spell = options !! i
-        let t = _spellTrigger spell
+        let t = spell ^. spellTrigger
         -- Cast spell with c as the card context
         didCast <- flip runReaderT c $ actSpell spell t
         when (didCast && t == OnTap) $ runReaderT tapThisCard c
 
 untapAll :: GameOperation ()
-untapAll = field %= map untapCard
-  where
-    untapCard c = cardElim (const c) (untapMonster c) c
-    untapMonster c m = c {_cardStats = MonsterStats $ m {_isTapped = False}}
+untapAll = field %= map (monsterStats % isTapped .~ False)

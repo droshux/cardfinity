@@ -3,6 +3,8 @@ module Game (runGame) where
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Random (MonadRandom)
 import Control.Monad.State (StateT (runStateT))
+import Optics ((^.))
+import Optics.Operators ((.~))
 import Round (gameRound)
 import System.Random.Shuffle (shuffleM)
 import Types
@@ -21,12 +23,13 @@ initGameState d1 d2 = do
   where
     prepareDecks :: [Card] -> [Card] -> ([Card], [Card])
     prepareDecks cs1 cs2 =
-      let h a b = zipWith (\n c -> c {_cardID = fromIntegral n}) [a .. a + b]
-       in (h 0 (length cs1) cs1, h (length cs1) (length cs2) cs2)
+      let setID n = cardID .~ fromIntegral n
+          setIDsToRange a b = zipWith setID [a .. a + b]
+       in (setIDsToRange 0 (length cs1) cs1, setIDsToRange (length cs1) (length cs2) cs2)
 
 runGame :: [Card] -> [Card] -> IO ()
 runGame d1 d2 =
-  if not (isLegalDeck $ map _cardStats d1) || not (isLegalDeck $ map _cardStats d2)
+  if not (isLegalDeck $ map (^. cardStats) d1) || not (isLegalDeck $ map (^. cardStats) d2)
     then putStrLn "At least one deck is illegal sorry."
     else do
       gs <- initGameState d1 d2

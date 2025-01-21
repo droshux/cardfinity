@@ -47,7 +47,7 @@ import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Set.Ordered (OSet)
 import GHC.Natural (Natural, naturalToInteger)
 import GHC.Num (integerToInt)
-import Optics (Lens, Lens', over, view, (%), (^.))
+import Optics (Lens, Lens', over, view, (%), (.~), (^.))
 import Optics.State.Operators qualified as OP
 import System.Random.Shuffle (shuffleM)
 import Text.Read (readMaybe)
@@ -184,25 +184,25 @@ trigger t = runReaderT activateCard
 
 actSpell :: Spell -> Trigger -> ReaderT Card GameOperation Bool
 actSpell s t =
-  if _spellTrigger s == t
+  if s ^. spellTrigger == t
     then do
-      liftIO $ putStrLn ("Attempting to cast " ++ _spellName s)
-      r <- checkAll (_castingConditions s)
+      liftIO $ putStrLn ("Attempting to cast " ++ s ^. spellName)
+      r <- checkAll (s ^. castingConditions)
       if not r
         then
-          liftIO $ putStrLn ("Can't cast " ++ _spellName s)
-        else mapM_ performEffect $ _effects s
+          liftIO $ putStrLn ("Can't cast " ++ s ^. spellName)
+        else mapM_ performEffect $ s ^. effects
       return r
     else return False
 
 actMonster :: Monster -> Trigger -> ReaderT Card GameOperation Bool
 actMonster m t
-  | _isTapped m = do
-      liftIO $ putStrLn (_monsterName m ++ " is tapped so no spells can trigger.")
+  | m ^. isTapped = do
+      liftIO $ putStrLn (m ^. monsterName ++ " is tapped so no spells can trigger.")
       return False
   | isMonsterOnly t = case validMSpells m of
       [] -> do
-        liftIO $ putStrLn (_monsterName m ++ " has no spells that can be activated in that way.")
+        liftIO $ putStrLn (m ^. monsterName ++ " has no spells that can be activated in that way.")
         return False
       options ->
         selectFromListCancelable' "Select a monster spell to activate:" options >>= \case
@@ -215,20 +215,18 @@ actMonster m t
       spellResults <- mapM (`actSpell` t) $ validMSpells m
       return $ or spellResults
   where
-    validMSpells = filter ((t ==) . _spellTrigger) . _monsterSpells
+    validMSpells monster = filter (\s -> s ^. spellTrigger == t) $ monster ^. monsterSpells
 
 tapThisCard :: GameOpWithCardContext ()
 tapThisCard = do
-  cid <- asks _cardID
+  cid <- asks (^. cardID)
   res <- player's' field <&> findIndex (\c -> c ^. cardID == cid)
   case res of
     Nothing -> return ()
     Just i -> lift $ field %= tapAtI i
   where
     tapAtI i cs = take i cs ++ [tap (cs !! i)] ++ drop (i + 1) cs
-    tap c = c {_cardStats = tapm $ _cardStats c}
-    tapm (MonsterStats m) = MonsterStats $ m {_isTapped = True}
-    tapm (SpellStats s) = SpellStats s
+    tap = monsterStats % isTapped .~ True
 
 findThisCard :: GameOpWithCardContext (Maybe (Int, CardLocation))
 findThisCard = mapM findThisIn allCardLocations <&> fmap (second toEnum) . firstIndex 0
@@ -237,7 +235,7 @@ findThisCard = mapM findThisIn allCardLocations <&> fmap (second toEnum) . first
     firstIndex i (Nothing : xs) = firstIndex (i + 1) xs
     firstIndex i ((Just x) : _) = Just (x, i)
     findThisIn loc = do
-      cid <- asks _cardID
+      cid <- asks (^. cardID)
       player's' (toLens loc) <&> findIndex (\c -> c ^. cardID == cid)
 
 printCardsIn :: CardLocation -> GameOperation ()
