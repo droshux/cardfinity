@@ -3,7 +3,25 @@
 
 {-# HLINT ignore "Redundant <&>" #-}
 
-module Atoms where
+module Atoms
+  ( SearchType (..),
+    toPredicate,
+    FindCards (..),
+    IfCards (..),
+    DestroyType (..),
+    DestroyCards (..),
+    DestroyTheirs (..),
+    Deckout (..),
+    Draw (..),
+    Peek (..),
+    PopGraveyard (..),
+    Choose (..),
+    Attack (..),
+    SearchForCard (..),
+    Healing (..),
+    Attach (..),
+  )
+where
 
 import Control.Monad (void, (>=>))
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), replicateM_, when)
@@ -383,8 +401,8 @@ data Healing = Heal Natural | DrawGY | PlayGY
 
 instance HasScale Healing where
   scale (Heal n) = 7 * natToInt n
-  scale DrawGY = 12
-  scale PlayGY = 12
+  scale DrawGY = 30
+  scale PlayGY = 30
 
 instance Show Healing where
   show DrawGY = "Draw the top card of the Graveyard"

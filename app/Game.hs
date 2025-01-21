@@ -1,4 +1,4 @@
-module Game where
+module Game (runGame) where
 
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Random (MonadRandom)

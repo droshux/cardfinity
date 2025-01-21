@@ -4,7 +4,32 @@
 
 {-# HLINT ignore "Redundant <&>" #-}
 
-module Utils where
+module Utils
+  ( natToInt,
+    without,
+    showFold,
+    checkAll,
+    asOpponent,
+    asOpponent',
+    selectFromList,
+    selectFromList',
+    selectFromListCancelable,
+    selectFromListCancelable',
+    ifNotCancelled,
+    playerState,
+    playerState',
+    updatePlayerState,
+    updatePlayerState',
+    deckout,
+    draw,
+    shuffleDeck,
+    trigger,
+    actSpell,
+    tapThisCard,
+    findThisCard,
+    printCardsIn,
+  )
+where
 
 import Control.Monad ((<=<))
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), runExceptT, throwError, void, when)
@@ -58,9 +83,6 @@ asOpponent op = do
 
 asOpponent' :: GameOpWithCardContext a -> GameOpWithCardContext a
 asOpponent' op = ask >>= lift . asOpponent . runReaderT op
-
-promoteMonsterSpell :: Card -> Spell -> Card
-promoteMonsterSpell m s = m {cardStats = SpellStats s}
 
 selectFromList :: (Show a) => String -> NonEmpty a -> GameOperation (Int, a)
 selectFromList _ (option :| []) = return (0, option)

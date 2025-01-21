@@ -1,4 +1,4 @@
-module ExampleCards where
+module ExampleCards (sampleDeck, sampleDeck2, sampleDeck3) where
 
 import Atoms
 import Data.Set.Ordered

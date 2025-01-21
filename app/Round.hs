@@ -3,7 +3,7 @@
 
 {-# HLINT ignore "Redundant <&>" #-}
 
-module Round where
+module Round (gameRound) where
 
 import Control.Monad (void, when, (<=<))
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift))
