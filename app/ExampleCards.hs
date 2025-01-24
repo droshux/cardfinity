@@ -1,6 +1,7 @@
 module ExampleCards (sampleDeck, sampleDeck2, sampleDeck3) where
 
 import Atoms
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Set.Ordered
 import Types
 
@@ -10,11 +11,12 @@ sampleDeck =
     (uncurry replicate)
     [ (10, imp),
       (9, demonWarrior),
-      (5, sciomancy),
+      (5, grandsciomancy),
       (5, mysteriousSacrifice),
       (5, darkEngine),
-      (5, darkPortal),
-      (5, arcaneburst)
+      -- (5, darkPortal),
+      (5, arcaneburst),
+      (3, freshStart)
     ]
 
 sampleDeck2 :: [Card]
@@ -34,6 +36,21 @@ sampleDeck2 =
 sampleDeck3 :: [Card]
 sampleDeck3 = concatMap (uncurry replicate) $ (20, hermitCrab) : map (5,) [staboCrabo, fancyHat, shrimpPistol, crabcaine, crabCycle]
 
+freshStart :: Card
+freshStart =
+  Card
+    { _cardStats =
+        SpellStats $
+          Spell
+            { _spellTrigger = OnPlay,
+              _spellName = "Fresh Start",
+              _effects = [Ex $ RequirementEffect $ Ex $ Destroy Discard $ FindCards 100 ForCard Hand, Ex $ Draw 3],
+              _castingConditions = reqs $ Destroy Discard $ FindCards 3 ForCard Hand
+            },
+      _cardID = 0,
+      _cardFamilies = empty
+    }
+
 sciomancy :: Card
 sciomancy =
   Card
@@ -43,6 +60,24 @@ sciomancy =
             { _spellTrigger = OnPlay,
               _spellName = "Sciomancy",
               _effects = [Ex $ Peek 1],
+              _castingConditions = reqs $ PopGraveyard 1
+            },
+      _cardID = 0,
+      _cardFamilies = fromList ["Occult", "Necromancy", "Divination"]
+    }
+
+grandsciomancy :: Card
+grandsciomancy =
+  Card
+    { _cardStats =
+        SpellStats $
+          Spell
+            { _spellTrigger = OnPlay,
+              _spellName = "Grand Sciomancy",
+              _effects =
+                [ Ex $ Peek 1,
+                  Ex $ YouMay $ Ex $ Choose (Ex (RequirementEffect $ Ex $ PopGraveyard 1) :| [Ex $ RequirementEffect $ Ex (Destroy Discard (FindCards 1 ForCard Deck) :: DestroyCards)])
+                ],
               _castingConditions = reqs $ PopGraveyard 1
             },
       _cardID = 0,

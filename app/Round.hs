@@ -85,7 +85,7 @@ action = do
 playCard :: GameOperation ()
 playCard = do
   -- Select a playable card from your hand
-  let playable c = c ^? (spellStats % spellTrigger) == Just OnPlay
+  let playable = cardElim ((OnPlay ==) . (^. spellTrigger)) (const True)
   player's hand <&> filter playable >>= \case
     [] -> liftIO $ putStrLn "No cards to play."
     canPlay -> do

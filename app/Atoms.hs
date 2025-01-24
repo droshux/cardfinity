@@ -20,6 +20,8 @@ module Atoms
     SearchForCard (..),
     Healing (..),
     Attach (..),
+    YouMay (..),
+    RequirementEffect (..),
   )
 where
 
@@ -287,7 +289,7 @@ instance Requirement PopGraveyard where
 newtype Choose = Choose (NonEmpty (Ex Effect))
 
 instance Show Choose where
-  show (Choose es) = showFold " or " es
+  show (Choose es) = "Choose one of " ++ showFold " or " es
 
 instance HasScale Choose where
   scale (Choose es) = maximum (NonE.map scale es)
@@ -486,3 +488,27 @@ instance Effect Attach where
         toLens loc .= setTo
       attach s = monsterStats % monsterSpells %~ (s :)
   monsterOnlyEffect = const True
+
+newtype YouMay = YouMay (Ex Effect)
+
+instance HasScale YouMay where
+  scale (YouMay e) = max (-10) $ scale e
+
+instance Show YouMay where
+  show (YouMay e) = "You may " ++ show e
+
+instance Effect YouMay where
+  performEffect (YouMay e) = do
+    r <- selectFromList' ("Would you like to " ++ show e) ("Yes" :| ["No"])
+    when (fst r == 0) $ performEffect e
+
+newtype RequirementEffect = RequirementEffect (Ex Requirement)
+
+instance HasScale RequirementEffect where
+  scale (RequirementEffect r) = max (-10) $ scale r
+
+instance Show RequirementEffect where
+  show (RequirementEffect r) = show r
+
+instance Effect RequirementEffect where
+  performEffect (RequirementEffect r) = void $ testRequirement r
