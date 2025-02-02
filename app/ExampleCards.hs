@@ -1,4 +1,4 @@
-module ExampleCards (sampleDeck, sampleDeck2, sampleDeck3) where
+module ExampleCards where
 
 import Atoms
 import Data.List.NonEmpty (NonEmpty (..))
@@ -6,6 +6,245 @@ import Data.Set.Ordered
 import Types
 
 sampleDeck :: [Card]
+sampleDeck =
+  concatMap
+    (uncurry replicate)
+    [ (8, imp),
+      (6, hellishPustule),
+      (5, demonWarrior),
+      (5, demonBrute),
+      (5, demonArcher),
+      (3, emergencyRetreat),
+      (5, sciomancy),
+      (3, grandSciomancy),
+      (8, arcaneburst),
+      (7, darkEngine),
+      (5, darkPortal)
+    ]
+
+sciomancy :: Card
+sciomancy =
+  Card
+    { _cardStats =
+        SpellStats $
+          Spell
+            { _spellTrigger = OnPlay,
+              _spellName = "Sciomancy",
+              _effects = [peek 1],
+              _castingConditions = singleton $ destroyCards Banish $ FindCards 1 ForCard Graveyard
+            },
+      _cardID = 0,
+      _cardFamilies = empty
+    }
+
+grandSciomancy :: Card
+grandSciomancy =
+  Card
+    { _cardStats =
+        SpellStats $
+          Spell
+            { _spellTrigger = OnPlay,
+              _spellName = "Grand Sciomancy",
+              _effects = [peek 1, youMay $ choose (dd Discard :| [dd Banish])],
+              _castingConditions = singleton $ destroyCards Banish $ FindCards 1 ForCard Graveyard
+            },
+      _cardID = 0,
+      _cardFamilies = empty
+    }
+  where
+    dd = asEffect . flip destroyCards (FindCards 1 ForCard Deck)
+
+emergencyRetreat :: Card
+emergencyRetreat =
+  Card
+    { _cardStats =
+        SpellStats $
+          Spell
+            { _spellTrigger = OnPlay,
+              _spellName = "Emergency Retreat",
+              _effects = [heal 1, drawEffect 1],
+              _castingConditions = singleton (destroyCards Banish $ FindCards 3 ForCard Graveyard) |> destroyCards Discard (FindCards 1 ForMonster Field)
+            },
+      _cardID = 0,
+      _cardFamilies = empty
+    }
+
+imp :: Card
+imp =
+  Card
+    { _cardStats =
+        MonsterStats $
+          Monster
+            { _summoningConditions = empty,
+              _monsterSpells =
+                [ Spell
+                    { _spellTrigger = OnDiscard,
+                      _spellName = "Chaos Burst",
+                      _effects = [destroyTheirCards Discard 1 Deck],
+                      _castingConditions = singleton $ destroyCards Discard $ FindCards 1 (ForName "Arcane Burst") Hand
+                    }
+                ],
+              _monsterName = "Imp",
+              _isTapped = False,
+              _combatPower = 0
+            },
+      _cardID = 0,
+      _cardFamilies = singleton "Demon"
+    }
+
+demonWarrior :: Card
+demonWarrior =
+  Card
+    { _cardStats =
+        MonsterStats $
+          Monster
+            { _summoningConditions = singleton $ destroyCards Discard $ FindCards 1 (ForFamily "Demon") Field,
+              _monsterSpells = [Spell {_spellTrigger = OnTap, _spellName = "Flame Spear", _effects = [attack False], _castingConditions = empty}],
+              _monsterName = "Demon Warrior",
+              _isTapped = False,
+              _combatPower = 5
+            },
+      _cardID = 0,
+      _cardFamilies = fromList ["Demon"]
+    }
+
+demonBrute :: Card
+demonBrute =
+  Card
+    { _cardStats =
+        MonsterStats $
+          Monster
+            { _summoningConditions = empty,
+              _monsterSpells =
+                [ Spell
+                    { _spellTrigger = OnTap,
+                      _spellName = "Desperate Rage",
+                      _effects = [attack False],
+                      _castingConditions = singleton $ destroyCards Banish $ FindCards 8 ForCard Graveyard
+                    }
+                ],
+              _monsterName = "Demon Berzerker",
+              _isTapped = False,
+              _combatPower = 8
+            },
+      _cardID = 0,
+      _cardFamilies = singleton "Demon"
+    }
+
+demonArcher :: Card
+demonArcher =
+  Card
+    { _cardStats =
+        MonsterStats $
+          Monster
+            { _summoningConditions = singleton (destroyCards Discard $ FindCards 1 (ForFamily "Demon") Field) |> destroyCards Discard (FindCards 1 ForCard Deck),
+              _monsterSpells =
+                [ Spell
+                    { _spellTrigger = OnTap,
+                      _spellName = "Hellfire Rain",
+                      _effects = [attack True],
+                      _castingConditions = singleton $ destroyCards Discard $ FindCards 1 ForCard Hand
+                    }
+                ],
+              _monsterName = "Demon Archer",
+              _isTapped = False,
+              _combatPower = 5
+            },
+      _cardID = 0,
+      _cardFamilies = singleton "Demon"
+    }
+
+hellishPustule :: Card
+hellishPustule =
+  Card
+    { _cardStats =
+        MonsterStats $
+          Monster
+            { _summoningConditions = empty,
+              _monsterSpells =
+                [ Spell
+                    { _spellTrigger = OnDefeat,
+                      _spellName = "Pus Explosion",
+                      _effects = [destroyTheirCards Discard 1 Field],
+                      _castingConditions = singleton $ destroyCards Discard $ FindCards 2 ForCard Hand
+                    }
+                ],
+              _monsterName = "Hellish Pustule",
+              _isTapped = False,
+              _combatPower = 0
+            },
+      _cardID = 0,
+      _cardFamilies = singleton "Demon"
+    }
+
+arcaneburst :: Card
+arcaneburst =
+  Card
+    { _cardStats =
+        SpellStats $
+          Spell
+            { _spellTrigger = OnDiscard,
+              _spellName = "Arcane Burst",
+              _effects = [destroyTheirCards Discard 2 Deck],
+              _castingConditions = singleton $ destroyCards Discard $ FindCards 1 ForSpell Hand
+            },
+      _cardID = 0,
+      _cardFamilies = empty
+    }
+
+darkEngine :: Card
+darkEngine =
+  Card
+    { _cardStats =
+        MonsterStats $
+          Monster
+            { _summoningConditions = singleton $ destroyCards Banish $ FindCards 2 ForCard Graveyard,
+              _monsterSpells =
+                [ Spell
+                    { _spellTrigger = OnTap,
+                      _spellName = "Dark Cycle",
+                      _effects = [drawEffect 1],
+                      _castingConditions = singleton $ destroyCards Discard $ FindCards 1 ForCard Hand
+                    }
+                ],
+              _monsterName = "Dark Engine",
+              _isTapped = False,
+              _combatPower = 0
+            },
+      _cardID = 0,
+      _cardFamilies = fromList ["Dark Machine"]
+    }
+
+darkPortal :: Card
+darkPortal =
+  Card
+    { _cardStats =
+        MonsterStats $
+          Monster
+            { _summoningConditions = singleton (destroyCards Discard $ FindCards 1 (ForFamily "Dark Machine") Hand) |> destroyCards Discard (FindCards 1 (ForFamily "Demon") Field),
+              _monsterSpells =
+                [ Spell
+                    { _spellTrigger = OnTap,
+                      _spellName = "Dark Summoning",
+                      _effects = [drawEffect 1],
+                      _castingConditions = empty
+                    },
+                  Spell
+                    { _spellTrigger = OnDefeat,
+                      _spellName = "Dimensional Rift",
+                      _effects = [destroyTheirCards Discard 1 Field],
+                      _castingConditions = singleton $ destroyCards Discard $ FindCards 2 ForCard Deck
+                    }
+                ],
+              _monsterName = "Dark Portal",
+              _isTapped = False,
+              _combatPower = 0
+            },
+      _cardID = 0,
+      _cardFamilies = singleton "Dark Machine"
+    }
+
+{-sampleDeck :: [Card]
 sampleDeck =
   concatMap
     (uncurry replicate)
@@ -97,29 +336,6 @@ mysteriousSacrifice =
             },
       _cardID = 0,
       _cardFamilies = empty
-    }
-
-darkEngine :: Card
-darkEngine =
-  Card
-    { _cardStats =
-        MonsterStats $
-          Monster
-            { _summoningConditions = empty,
-              _monsterSpells =
-                [ Spell
-                    { _spellTrigger = OnTap,
-                      _spellName = "Dark Cycle",
-                      _effects = [Ex $ Draw 1],
-                      _castingConditions = reqs $ Destroy Discard $ FindCards 1 ForMonster Hand
-                    }
-                ],
-              _monsterName = "Dark Engine",
-              _isTapped = False,
-              _combatPower = 0
-            },
-      _cardID = 0,
-      _cardFamilies = fromList ["Dark Machine"]
     }
 
 portalSummoning :: OSet (Ex Requirement)
@@ -454,3 +670,4 @@ crabCycle =
       _cardID = 0,
       _cardFamilies = singleton "Crabcessory"
     }
+    -}

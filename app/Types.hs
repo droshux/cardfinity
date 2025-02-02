@@ -1,7 +1,8 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Types
-  ( isLegalDeck,
+  ( isLegal,
+    isLegalDeck,
     Ex (..),
     Scale,
     HasScale (..),
@@ -9,8 +10,6 @@ module Types
     isMonsterOnly,
     Requirement (..),
     Conditions,
-    (~>),
-    reqs,
     Effect (..),
     Spell (..),
     Monster (..),
@@ -57,11 +56,11 @@ where
 import Control.Monad.Except
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Control.Monad.State
-import Data.Data (Typeable, cast)
+import Data.Default (Default (def))
 import Data.Foldable (Foldable (toList))
 import Data.Kind (Constraint, Type)
 import Data.Maybe (isJust)
-import Data.Set.Ordered qualified as OS (OSet, singleton, (|>))
+import Data.Set.Ordered qualified as OS (OSet)
 import GHC.Natural (Natural)
 import Optics
 
@@ -140,66 +139,65 @@ isMonsterOnly OnDefeat = True
 isMonsterOnly Infinity = True
 isMonsterOnly _ = False
 
-class (HasScale a, Ord a, Typeable a, Show a) => Requirement a where
-  testRequirement :: a -> GameOpWithCardContext Bool
-  monsterOnlyRequirement :: a -> Bool
-  monsterOnlyRequirement = const False
+data Requirement = Requirement
+  { testRequirement :: GameOpWithCardContext Bool,
+    monsterOnlyRequirement :: Bool,
+    requirementScale :: Scale,
+    displayRequirement :: String
+  }
 
-instance Eq (Ex Requirement) where
-  (==) (Ex a) (Ex b) = case cast b of
-    Just b' -> a == b'
-    Nothing -> False
+instance HasScale Requirement where
+  scale = requirementScale
 
--- Symmetric => Not an Ordering Relation
-instance Ord (Ex Requirement) where
-  (<=) (Ex a) (Ex b) = case cast b of
-    Just b' -> a <= b'
-    Nothing -> False
+instance Show Requirement where
+  show = displayRequirement
 
--- Sugar to for creating requirement lists
-(~>) :: (c a, Ord (Ex c)) => OS.OSet (Ex c) -> a -> OS.OSet (Ex c)
-(~>) a b = (OS.|>) a (Ex b)
+instance Eq Requirement where
+  (==) r1 r2 = displayRequirement r1 == displayRequirement r2
 
--- This is supposed to be the start of the list
-reqs :: (c a) => a -> OS.OSet (Ex c)
-reqs = OS.singleton . Ex
+instance Ord Requirement where
+  (<=) r1 r2 = displayRequirement r1 <= displayRequirement r2
 
--- reqs a ~> b ~> c ~> ...
+instance Default Requirement where
+  def =
+    Requirement
+      { testRequirement = return False,
+        monsterOnlyRequirement = False,
+        requirementScale = 0,
+        displayRequirement = "Always"
+      }
 
-instance Requirement (Ex Requirement) where
-  testRequirement (Ex r) = testRequirement r
-  monsterOnlyRequirement (Ex r) = monsterOnlyRequirement r
+data Effect = Effect
+  { performEffect :: GameOpWithCardContext (),
+    monsterOnlyEffect :: Bool,
+    effectScale :: Scale,
+    displayEffect :: String
+  }
 
-instance HasScale (Ex Requirement) where
-  scale (Ex r) = scale r
+instance HasScale Effect where
+  scale = effectScale
 
-instance Show (Ex Requirement) where
-  show (Ex r) = show r
+instance Show Effect where
+  show = displayEffect
 
-class (HasScale a, Show a) => Effect a where
-  performEffect :: a -> GameOpWithCardContext ()
-  monsterOnlyEffect :: a -> Bool
-  monsterOnlyEffect = const False
+instance Default Effect where
+  def =
+    Effect
+      { performEffect = return (),
+        monsterOnlyEffect = False,
+        effectScale = 0,
+        displayEffect = "Do nothing"
+      }
 
-instance Effect (Ex Effect) where
-  performEffect (Ex e) = performEffect e
-  monsterOnlyEffect (Ex e) = monsterOnlyEffect e
+type Effects = [Effect]
 
-instance Show (Ex Effect) where
-  show (Ex e) = show e
-
-instance HasScale (Ex Effect) where
-  scale (Ex e) = scale e
-
-type Effects = [Ex Effect]
-
-type Conditions = OS.OSet (Ex Requirement)
+type Conditions = OS.OSet Requirement
 
 data Spell = Spell
   { _spellName :: String,
     _spellTrigger :: Trigger,
     _castingConditions :: Conditions,
-    _effects :: [Ex Effect]
+    _effects :: Effects
   }
 
 -- Due to a dependency loop at the core of the problem, macros cannot be used to
@@ -222,7 +220,7 @@ effects = lens _effects $ \s x -> s {_effects = x}
 data Monster = Monster
   { _monsterName :: String,
     _monsterSpells :: [Spell],
-    _summoningConditions :: OS.OSet (Ex Requirement),
+    _summoningConditions :: Conditions,
     _combatPower :: Natural,
     _isTapped :: Bool
   }

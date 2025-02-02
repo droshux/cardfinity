@@ -84,6 +84,7 @@ executable cardgame
       MonadRandom,
       ansi-terminal,
       optics,
+      data-default
 
     -- Directories containing source files.
     hs-source-dirs:   app

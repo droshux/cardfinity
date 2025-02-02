@@ -44,7 +44,6 @@ import Data.Foldable (Foldable (toList))
 import Data.Functor ((<&>))
 import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty ((:|)))
-import Data.Set.Ordered (OSet)
 import GHC.Natural (Natural, naturalToInteger)
 import GHC.Num (integerToInt)
 import Optics (Lens, Lens', over, view, (%), (.~), (^.))
@@ -63,7 +62,7 @@ showFold :: (Show a, Foldable t) => String -> t a -> String
 showFold connector as = helper connector $ toList as
   where
     helper _ [] = ""
-    helper c (x : xs) = foldr (\x' a -> a ++ c ++ show x') (show x) xs
+    helper c (x : xs) = foldr (\x' a -> a ++ c ++ show x') (show x) $ reverse xs
 
 sandbox :: GameOpWithCardContext a -> GameOpWithCardContext (Either Player a, GameState)
 sandbox op = do
@@ -74,7 +73,7 @@ sandbox op = do
   let runMisc = flip runStateT initialState . runExceptT
   liftIO $ runMisc $ runReaders op
 
-checkAll :: OSet (Ex Requirement) -> GameOpWithCardContext Bool
+checkAll :: Conditions -> GameOpWithCardContext Bool
 checkAll rs = do
   (res, fstate) <- sandbox $ mapM testRequirement (toList rs) <&> and
   case res of
