@@ -1,8 +1,8 @@
 {-# LANGUAGE LambdaCase #-}
+{-# HLINT ignore "Redundant <&>" #-}
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Redundant <&>" #-}
 
 module Utils
   ( natToInt,
@@ -27,15 +27,17 @@ module Utils
     (.=),
     (=:),
     (%=),
-    (?=),
+    (-=),
     player's,
     opponent's,
     player's',
-    (-=),
+    SearchType (..),
+    toPredicate,
+    playCard,
   )
 where
 
-import Control.Monad ((<=<))
+import Control.Monad (mfilter, (<=<))
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), runExceptT, throwError, void, when)
 import Control.Monad.Reader (MonadReader (ask, local), ReaderT (runReaderT), asks)
 import Control.Monad.State (MonadState (get, put), StateT (runStateT), gets, modify)
@@ -46,8 +48,7 @@ import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import GHC.Natural (Natural, naturalToInteger)
 import GHC.Num (integerToInt)
-import Optics (Lens, Lens', over, view, (%), (.~), (^.))
-import Optics.State.Operators qualified as OP
+import Optics (Lens', over, set, view, (%), (.~), (^.))
 import System.Random.Shuffle (shuffleM)
 import Text.Read (readMaybe)
 import Types
@@ -63,6 +64,29 @@ showFold connector as = helper connector $ toList as
   where
     helper _ [] = ""
     helper c (x : xs) = foldr (\x' a -> a ++ c ++ show x') (show x) $ reverse xs
+
+data SearchType = ForName String | ForFamily String | ForSpell | ForMonster | ForCard deriving (Ord)
+
+instance Eq SearchType where
+  (==) (ForName _) (ForName _) = True
+  (==) (ForFamily _) (ForFamily _) = True
+  (==) ForSpell ForSpell = True
+  (==) ForMonster ForMonster = True
+  (==) ForCard ForCard = True
+  (==) _ _ = False
+
+toPredicate :: SearchType -> Card -> Bool
+toPredicate (ForName n) = (n ==) . cardName
+toPredicate (ForFamily f) = elem f . (^. cardFamilies)
+toPredicate ForCard = const True
+toPredicate t = cardElim (const $ t == ForSpell) (const $ t == ForMonster)
+
+instance Show SearchType where
+  show ForCard = "card"
+  show ForSpell = "spell"
+  show ForMonster = "monster"
+  show (ForName n) = show n
+  show (ForFamily f) = show f ++ " card"
 
 sandbox :: GameOpWithCardContext a -> GameOpWithCardContext (Either Player a, GameState)
 sandbox op = do
@@ -99,12 +123,13 @@ selectFromList prompt options = do
     printOptions = mapM_ printOption . zip [0 ..]
     helper xs = do
       liftIO $ printOptions xs
-      liftIO getLine <&> readMaybe >>= \case
+      liftIO getLine <&> mfilter (inRange xs) . readMaybe >>= \case
         Just i -> return (i, xs !! i)
         Nothing -> do
           liftIO $ putStrLn "Invalid input, please try again..."
           helper xs
     printOption (i :: Int, s) = putStrLn (show i ++ ": " ++ show s)
+    inRange xs i = 0 <= i && i < length xs
 
 selectFromList' :: (Show a) => String -> NonEmpty a -> GameOpWithCardContext (Int, a)
 selectFromList' prompt = lift . selectFromList prompt
@@ -132,30 +157,22 @@ ifNotCancelled c f = case c of
   Cancel -> liftIO $ putStrLn "Cancelled."
   Option p -> f p
 
-wps :: (Lens GameState GameState a b1 -> t -> GameOperation b2) -> Lens PlayerState PlayerState a b1 -> t -> GameOperation b2
-wps f lens x = asks playerLens >>= flip f x . (% lens)
+-- Set a lens on the current player
+(.=) optic x = asks playerLens >>= modify . flip set x . (% optic)
 
--- Modify operations to depend on the current player
+-- Update a lens on the current plater
+(%=) optic f = asks playerLens >>= modify . flip over f . (% optic)
 
-(?=) :: Lens PlayerState PlayerState (Maybe a) (Maybe t) -> t -> GameOperation ()
-(?=) = wps (OP.?=)
+-- Cons a lens
+(=:) optic v = (%=) optic (v :)
 
-(.=) :: Lens' PlayerState a -> a -> GameOperation ()
-(.=) = wps (OP..=)
+-- Without a lens
+(-=) optic = (%=) optic . flip without
 
-(%=) :: Lens PlayerState PlayerState a b -> (a -> b) -> GameOperation ()
-(%=) = wps (OP.%=)
-
-(=:) :: Lens' PlayerState [a] -> a -> GameOperation ()
-(=:) lns v = asks playerLens >>= modify . flip over (v :) . (% lns)
-
-(-=) :: Lens' PlayerState [a] -> Int -> GameOperation ()
-(-=) lns = (%=) lns . flip without
-
-player's :: Lens' PlayerState a -> GameOperation a
+-- player's :: Lens' PlayerState a -> GameOperation a
 player's lens = asks playerLens >>= gets . view . (% lens)
 
-player's' :: Lens' PlayerState a -> GameOpWithCardContext a
+-- player's' :: Lens' PlayerState a -> GameOpWithCardContext a
 player's' = lift . player's
 
 opponent's :: Lens' PlayerState a -> GameOperation a
@@ -177,8 +194,16 @@ shuffleDeck :: GameOperation ()
 shuffleDeck = player's deck >>= shuffleM >>= (deck .=)
 
 trigger :: Trigger -> Card -> GameOperation Bool
-trigger t = runReaderT activateCard
+trigger t
+  | t == OnDiscard = runReaderT activateIfInGY
+  | otherwise = runReaderT activateCard
   where
+    activateIfInGY =
+      findThisCard >>= \case
+        Just (_, Graveyard) -> activateCard
+        _ -> liftIO $ do
+          putStrLn "Discard effects can only trigger on cards in the graveyard."
+          return False
     activateCard = ask >>= cardElim (`actSpell` t) (`actMonster` t)
 
 actSpell :: Spell -> Trigger -> ReaderT Card GameOperation Bool
@@ -215,6 +240,42 @@ actMonster m t
       return $ or spellResults
   where
     validMSpells monster = filter (\s -> s ^. spellTrigger == t) $ monster ^. monsterSpells
+
+playCard :: SearchType -> GameOperation ()
+playCard t =
+  player's hand <&> filter canPlay . filter (toPredicate t) >>= \case
+    [] -> liftIO $ putStrLn ("No " ++ show t ++ " in the hand.")
+    cs -> do
+      let select = selectFromListCancelable "Choose a card to play: "
+      r <- select $ map cardName cs
+      ifNotCancelled r (cardElim' playSpell playMonster . (cs !!) . fst)
+  where
+    canPlay = cardElim ((== OnPlay) . (^. spellTrigger)) (const True)
+    -- Find c in the hand and remove it
+    fromHand c =
+      player's hand <&> findIndex (\c' -> c ^. cardID == c' ^. cardID) >>= \case
+        Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in Hand")
+        Just i -> hand -= i
+    -- Spell: trigger OnPlay, move it to the GY
+    -- Triggering OnPlay tests the summoning conditions
+    -- If it returns false then the conditions were not met
+    playSpell s =
+      ask >>= lift . trigger OnPlay >>= \case
+        False -> liftIO $ putStrLn ("Cannot play " ++ s ^. spellName)
+        True ->
+          ask >>= \c -> lift $ do
+            graveyard =: c
+            fromHand c
+    -- Monster: Test summoning conditions, move to field, trigger OnPlay
+    playMonster m = do
+      success <- checkAll $ m ^. summoningConditions
+      if not success
+        then liftIO $ putStrLn ("Failed to summon " ++ m ^. monsterName)
+        else
+          ask >>= \c -> lift $ do
+            field =: c
+            fromHand c
+            void $ trigger OnPlay c
 
 tapThisCard :: GameOpWithCardContext ()
 tapThisCard = do

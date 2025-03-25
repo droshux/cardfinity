@@ -1,28 +1,37 @@
 {-# LANGUAGE LambdaCase #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
 {-# HLINT ignore "Redundant <&>" #-}
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 module Atoms
-  ( SearchType (..),
-    toPredicate,
-    FindCards (..),
-    ifCards,
+  ( FindCards (..),
+    -- ifCards,
     DestroyType (..),
     destroyCards,
     destroyTheirCards,
+    takeDamage,
+    dealDamage,
     deckoutEffect,
     drawEffect,
     peek,
+    scry,
     popGraveyard,
     choose,
     attack,
+    discardDeck,
+    discardTheirDeck,
     heal,
+    healOpponent,
     attach,
     youMay,
     search,
-    SearchMethod,
+    SearchMethod (..),
     asEffect,
+    alterPower,
+    reqYouMay,
+    -- destroyThis,
+    playCardEffect,
   )
 where
 
@@ -37,197 +46,247 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonE
 import Data.Maybe (fromMaybe, mapMaybe)
 import GHC.Natural (Natural)
+import Optics (Ixed (ix))
 import Optics.Operators ((%~), (^.), (^?))
 import Optics.Optic ((%))
-import System.Random.Shuffle (shuffleM)
 import Types
 import Utils
 
-data SearchType = ForName String | ForFamily String | ForSpell | ForMonster | ForCard deriving (Ord)
+data FindCards = FindCardsField Natural SearchType | FindCardsHand Natural SearchType deriving (Eq)
 
-instance Eq SearchType where
-  (==) (ForName _) (ForName _) = True
-  (==) (ForFamily _) (ForFamily _) = True
-  (==) ForSpell ForSpell = True
-  (==) ForMonster ForMonster = True
-  (==) ForCard ForCard = True
-  (==) _ _ = False
+getCount :: FindCards -> Natural
+getCount (FindCardsField n _) = n
+getCount (FindCardsHand n _) = n
 
-toPredicate :: SearchType -> Card -> Bool
-toPredicate (ForName n) = (n ==) . cardName
-toPredicate (ForFamily f) = elem f . (^. cardFamilies)
-toPredicate ForCard = const True
-toPredicate t = cardElim (const $ t == ForSpell) (const $ t == ForMonster)
+getLocation (FindCardsField _ _) = field
+getLocation (FindCardsHand _ _) = hand
 
-instance Show SearchType where
-  show ForCard = "card"
-  show ForSpell = "spell"
-  show ForMonster = "monster"
-  show (ForName n) = show n
-  show (ForFamily f) = show f ++ " card"
+getSearchType :: FindCards -> SearchType
+getSearchType (FindCardsHand _ t) = t
+getSearchType (FindCardsField _ t) = t
 
-data FindCards = FindCards Natural SearchType CardLocation deriving (Eq)
+isField :: FindCards -> Bool
+isField (FindCardsField _ _) = True
+isField (FindCardsHand _ _) = False
 
 instance Show FindCards where
-  show (FindCards n t l) =
-    concat
-      [ show n,
-        " ",
-        show t,
-        if n == 1 then " " else "s ",
-        case l of Field -> "o"; _ -> "i",
-        "n the ",
-        show l
-      ]
+  show f = case f of
+    FindCardsHand n t -> part1 n t ++ "in the hand"
+    FindCardsField n t -> part1 n t ++ "on the field"
+    where
+      part1 n t = concat [show n, " ", show t, if n == 1 then " " else "s "]
 
 ifCards :: FindCards -> Requirement
-ifCards (FindCards n t l) =
-  def
-    { displayRequirement = "If there" ++ isare n ++ "at least " ++ show (FindCards n t l),
-      requirementScale = case l of
-        Deck -> 0
-        Field -> 4 * (-natToInt n)
-        _ -> -natToInt n,
-      testRequirement = player's' (toLens l) <&> h
+ifCards f =
+  Requirement
+    { testRequirement =
+        player's' (getLocation f) <&> (>= natToInt (getCount f)) . length . h f,
+      requirementScale = (if isField f then 4 else 1) * (-natToInt (getCount f)),
+      monsterOnlyRequirement = False,
+      displayRequirement = "If there " ++ isare f ++ "at least " ++ show f
     }
   where
-    isare i = if i == 1 then " is " else " are "
-    h = (>= natToInt n) . length . filter (toPredicate t)
+    isare i = if getCount i == 1 then " is " else " are "
+    h f' = filter (toPredicate $ getSearchType f')
 
 data DestroyType = Discard | Banish deriving (Eq, Ord, Show)
 
 chooseToDestroy :: DestroyType -> FindCards -> GameOpWithCardContext Bool
--- No effect => Always succeeds, Base Case => Always succeeds
-chooseToDestroy _ (FindCards 0 _ _) = return True
--- Cannot discard from graveyard
-chooseToDestroy Discard (FindCards _ _ Graveyard) = return False
-chooseToDestroy d (FindCards n t l) = case l of
-  Deck ->
-    player's' deck >>= \case
-      [] -> lift deckout
-      dck -> case findIndex (toPredicate t) dck of
-        Nothing -> return False
-        Just i -> do
-          let c = dck !! i
-          liftIO $ putStrLn (show d ++ "ing " ++ cardName c ++ " from the Deck")
-          lift $ do
-            deck -= i
-            handleDiscard c
+chooseToDestroy d f
+  | getCount f == 0 = return True
+  | otherwise = do
+      cid <- asks (^. cardID)
+      let validTarget c = toPredicate (getSearchType f) c && c ^. cardID /= cid
+      player's' (getLocation f) <&> filter validTarget >>= \case
+        [] -> liftIO $ do
+          putStr "Could not find enough "
+          putStr $ show (getSearchType f)
+          putStrLn $ case f of
+            FindCardsField _ _ -> "s on the Field."
+            FindCardsHand _ _ -> "s in the Hand."
+          return False
+        (cfst : crst) -> do
+          let names = cardName cfst :| map cardName crst
+          (i, _) <- selectFromList' ("Select a card to " ++ show d ++ ":") names
+          let c = (cfst : crst) !! i
+          liftIO $ putStrLn (show d ++ "ing " ++ cardName c ++ " from the " ++ show f)
+          -- playerState' <&> findIndex ((== _cardID c) . _cardID) . toLens other >>= \case
+          player's' (getLocation f) <&> findIndex (\c' -> c' ^. cardID == c ^. cardID) >>= \case
+            Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in " ++ show f)
+            Just j -> lift $ do
+              getLocation f -= j
+              handleDiscard c
           moveOn
-  other -> do
-    cid <- asks (^. cardID)
-    let validTarget c = toPredicate t c && c ^. cardID /= cid
-    player's' (toLens other) <&> filter validTarget >>= \case
-      [] -> liftIO $ do
-        putStr "Could not find a "
-        putStr $ show t
-        putStr $ if l == Field then " on the " else " in the "
-        print l
-        return False
-      (cfst : crst) -> do
-        let names = cardName cfst :| map cardName crst
-        (i, _) <- selectFromList' ("Select a card to " ++ show d ++ ":") names
-        let c = (cfst : crst) !! i
-        liftIO $ putStrLn (show d ++ "ing " ++ cardName c ++ " from the " ++ show other)
-        -- playerState' <&> findIndex ((== _cardID c) . _cardID) . toLens other >>= \case
-        player's' (toLens other) <&> findIndex (\c' -> c' ^. cardID == c ^. cardID) >>= \case
-          Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in " ++ show other)
-          Just j -> lift $ do
-            toLens other -= j
-            handleDiscard c
-        moveOn
   where
-    moveOn = chooseToDestroy d $ FindCards (n - 1) t l
+    moveOn = chooseToDestroy d $ case f of
+      FindCardsHand n t -> FindCardsHand (n - 1) t
+      FindCardsField n t -> FindCardsField (n - 1) t
     handleDiscard c = unless (d == Banish) $ do
       graveyard =: c
       void $ trigger OnDiscard c
 
-destroyForced :: DestroyType -> Natural -> CardLocation -> GameOpWithCardContext ()
-destroyForced _ 0 _ = return () -- Base case
-destroyForced d n l = case l of
-  Graveyard -> when (d == Banish) $ do
-    player's' graveyard >>= \case
-      [] -> return ()
-      (_ : gy) -> lift $ graveyard .= gy
-    moveOn
-  Deck ->
-    player's' deck >>= \case
-      [] -> lift deckout
-      (c : dck) -> do
-        lift $ deck .= dck
-        handleDiscard c
-        moveOn
-  Hand -> do
-    -- Randomly shuffle the hand
-    lift $ player's hand >>= shuffleM >>= (hand .=)
-
-    -- Discard the first card in the hand
-    player's' hand >>= \case
-      [] -> return ()
-      (c : h) -> do
-        lift $ hand .= h
-        handleDiscard c
-    moveOn
-  Field ->
-    player's' field >>= \case
-      [] -> return ()
-      (cfst : crst) -> do
-        let names = cardName cfst :| map cardName crst
-        (i, _) <- selectFromList' ("Select one of the opponent's monsters to " ++ show d ++ ":") names
-        c <- player's' field <&> (!! i)
-        lift $ field -= i
-        handleDiscard c
-        moveOn
+destroyForced :: DestroyType -> FindCards -> GameOpWithCardContext ()
+destroyForced d f
+  | getCount f == 0 = return ()
+  | otherwise =
+      player's' (getLocation f) <&> filter (toPredicate $ getSearchType f) >>= \case
+        [] -> liftIO $ do
+          putStrLn "Couldn't find enough "
+          putStr $ show $ getSearchType f
+          putStrLn "s in the hand."
+        (cfst : crst) -> do
+          cp <- lift ask
+          (i, _) <- selectFromList' (prompt cp) $ cardName cfst :| map cardName crst
+          lift $ getLocation f -= i
+          lift $ handleDiscard $ (cfst : crst) !! i
+          moveOn
   where
-    moveOn = destroyForced d (n - 1) l
-    handleDiscard c =
-      when (d == Discard) $ lift $ do
-        graveyard =: c
-        void $ trigger OnDiscard c
+    handleDiscard c = unless (d == Banish) $ do
+      graveyard =: c
+      void $ trigger OnDiscard c
+    moveOn = destroyForced d $ case f of
+      FindCardsHand n t -> FindCardsHand (n - 1) t
+      FindCardsField n t -> FindCardsField (n - 1) t
+    prompt cp =
+      concat
+        [ show (otherPlayer cp),
+          ": choose a ",
+          show (getSearchType f),
+          " from ",
+          show cp,
+          "'s ",
+          if isField f then "Field" else "Hand"
+        ]
 
--- Destroy your own cards as a requirement
+-- Destroy your own cards as a Requirement
 destroyCards :: DestroyType -> FindCards -> Requirement
-destroyCards d (FindCards n t l) =
-  def
-    { requirementScale = case (d, t, l) of
-        (_, ForSpell, Field) -> 0
-        (Discard, _, Graveyard) -> 0
-        (Banish, _, Graveyard) -> -(2 * natToInt n)
-        (Banish, _, _) -> requirementScale (destroyCards Discard fc) - (2 * natToInt n)
-        _ ->
-          natToInt n * case l of
-            Deck -> -5
-            Hand -> -10
-            Field -> -15,
-      displayRequirement = show d ++ " " ++ show fc,
-      testRequirement = chooseToDestroy d fc
+destroyCards d f =
+  Requirement
+    { testRequirement = chooseToDestroy d f,
+      requirementScale = natToInt (getCount f) * (-multiplier),
+      monsterOnlyRequirement = False,
+      displayRequirement = show d ++ " " ++ show f
     }
   where
-    fc = FindCards n t l
+    multiplier = (if isField f then 15 else 10) + (if d == Banish then 2 else 0)
 
 -- Destroy their cards as an effect
-destroyTheirCards :: DestroyType -> Natural -> CardLocation -> Effect
-destroyTheirCards d n l =
-  def
-    { effectScale = -scale inverted,
-      displayEffect =
-        let destroyOurs = show inverted
-         in replaceLast " the " " the enemy " destroyOurs,
-      performEffect = asOpponent' $ destroyForced d n l
+destroyTheirCards :: DestroyType -> FindCards -> Effect
+destroyTheirCards d f =
+  Effect
+    { performEffect = asOpponent' $ destroyForced d f,
+      monsterOnlyEffect = False,
+      effectScale = -scale inverted,
+      displayEffect = let destOurs = show inverted in replaceLast " the " " the enemy " destOurs
     }
   where
-    inverted = destroyCards d $ FindCards n ForCard l
+    inverted = destroyCards d f
     replaceLast b a s = reverse $ replaceFirst (reverse b) (reverse a) (reverse s)
     replaceFirst _ _ [] = []
     replaceFirst b a (c : cs) = case stripPrefix b (c : cs) of
       Just cs' -> a ++ cs'
       Nothing -> c : replaceFirst b a cs
 
+-- Only destoys the top card of the deck
+discardDeck :: Requirement
+discardDeck =
+  Requirement
+    { testRequirement =
+        lift $
+          player's deck >>= \case
+            [] -> deckout
+            (c : cs) -> do
+              deck .= cs
+              graveyard =: c
+              void $ trigger OnDiscard c
+              return True,
+      requirementScale = -4,
+      monsterOnlyRequirement = False,
+      displayRequirement = "Discard the top card of the deck"
+    }
+
+discardTheirDeck :: Effect
+discardTheirDeck =
+  Effect
+    { performEffect = void $ asOpponent' $ testRequirement discardDeck,
+      monsterOnlyEffect = False,
+      effectScale = -requirementScale discardDeck,
+      displayEffect = "Discard the top card of the opponent's deck"
+    }
+
+takeDamage :: Natural -> Bool -> Requirement
+takeDamage n isTrue =
+  Requirement
+    { testRequirement = takeDamageHelper n isTrue,
+      requirementScale = natToInt n * (if isTrue then -7 else -5),
+      monsterOnlyRequirement = False,
+      displayRequirement = concat ["Take ", show n, if isTrue then " True" else "", " damage"]
+    }
+
+dealDamage :: Natural -> Bool -> Effect
+dealDamage n isTrue =
+  Effect
+    { performEffect = void $ asOpponent' $ takeDamageHelper n isTrue,
+      monsterOnlyEffect = False,
+      effectScale = -(scale $ takeDamage n isTrue),
+      displayEffect = concat ["Deal ", show n, if isTrue then " True" else "", " damage"]
+    }
+
+takeDamageHelper :: Natural -> Bool -> GameOpWithCardContext Bool
+takeDamageHelper 0 _ = return True
+takeDamageHelper n isTrue =
+  player's' deck >>= \case
+    [] -> lift deckout
+    (c : dck) -> do
+      lift $ deck .= dck
+      lift $ unless isTrue $ graveyard =: c
+      takeDamageHelper (n - 1) isTrue
+
+heal :: Natural -> Effect
+heal n =
+  Effect
+    { performEffect = healHelper n,
+      monsterOnlyEffect = False,
+      effectScale = 7 * natToInt n,
+      displayEffect = "Heal " ++ show n ++ " damage"
+    }
+
+healOpponent :: Natural -> Requirement
+healOpponent n =
+  Requirement
+    { testRequirement = do
+        r <- asOpponent' $ player's' graveyard <&> length
+        if r < natToInt n
+          then return False
+          else asOpponent' $ healHelper n >> return True,
+      requirementScale = -(scale $ heal n),
+      monsterOnlyRequirement = False,
+      displayRequirement = "Heal the opponent for " ++ show n ++ " damage"
+    }
+
+{-Effect
+  { performEffect = asOpponent' $ healHelper n,
+    monsterOnlyEffect = False,
+    effectScale = -(scale $ heal n),
+    displayEffect = "Heal the opponent for " ++ show n ++ " damage"
+  }-}
+
+healHelper :: Natural -> GameOpWithCardContext ()
+healHelper 0 = return ()
+healHelper n =
+  player's' graveyard >>= \case
+    [] -> liftIO $ putStrLn "No more cards in the Graveyard."
+    (c : cs) -> do
+      lift $ do
+        deck =: c
+        graveyard .= cs
+      performEffect $ heal (n - 1)
+
 deckoutEffect :: Effect
 deckoutEffect =
   def
     { displayEffect = "DECKOUT",
-      effectScale = -50,
+      effectScale = -punishment,
       performEffect = lift deckout
     }
 
@@ -253,6 +312,21 @@ peek n =
             " of the deck"
           ]
     }
+
+scry :: Natural -> Effect
+scry n =
+  let p = peek n
+   in p
+        { performEffect = asOpponent' $ performEffect p,
+          displayEffect =
+            concat
+              [ "See the top ",
+                if n == 1 then "" else show n ++ " ",
+                "card",
+                if n == 1 then "" else "s",
+                " of the opponent's deck"
+              ]
+        }
 
 popGraveyard :: Natural -> Requirement
 popGraveyard n =
@@ -301,7 +375,7 @@ attack directly =
   where
     attackDirectly m = do
       liftIO $ putStrLn "Attacking Directly!"
-      didKill <- lift $ asOpponent $ takeDamage m
+      didKill <- lift $ asOpponent $ takeBattleDamage m
       when didKill $ lift $ asOpponent deckout
     attackIndirect m =
       lift (opponent's field) >>= \case
@@ -310,9 +384,10 @@ attack directly =
         (efst : erst) -> do
           (i, _) <- selectFromList' "Select the monster to attack:" $ NonE.map cardName (efst :| erst)
           let target = (efst : erst) !! i
-          let targetP = fromMaybe 0 $ target ^? monsterStats % combatPower
-          if targetP > m ^. combatPower then defeatThis else defeatTarget target
-    takeDamage m = do
+          let iWon = (m ^. combatPower) >= fromMaybe 0 (target ^? monsterStats % combatPower)
+          if iWon then defeatTarget target else defeatThis
+          when iWon $ ask >>= lift . void . trigger OnVictory
+    takeBattleDamage m = do
       let toDiscard = natToInt $ m ^. combatPower
       dtop <- player's deck <&> take toDiscard
       graveyard %= (++ dtop)
@@ -320,8 +395,6 @@ attack directly =
       player's deck <&> null
     defeatTarget = lift . asOpponent . runReaderT defeatThis
     defeatThis = do
-      ask >>= lift . void . trigger OnDefeat
-
       -- Get the location of this card and send it to the graveyard
       cid <- asks (^. cardID)
       mbIndex <- player's' field <&> findIndex (\c -> c ^. cardID == cid)
@@ -334,6 +407,7 @@ attack directly =
           -- Remove from field
           field -= i
 
+      ask >>= lift . void . trigger OnDefeat
       ask >>= lift . void . trigger OnDiscard
 
 data SearchMethod = SearchFor SearchType | DrillFor SearchType
@@ -377,31 +451,11 @@ search (DrillFor t) =
                 void $ trigger OnDraw c
     }
 
-heal :: Natural -> Effect
-heal n =
-  Effect
-    { performEffect = healHelper n,
-      monsterOnlyEffect = False,
-      effectScale = 7 * natToInt n,
-      displayEffect = "Heal " ++ show n ++ " HP"
-    }
-
-healHelper :: Natural -> GameOpWithCardContext ()
-healHelper 0 = return ()
-healHelper n =
-  player's' graveyard >>= \case
-    [] -> liftIO $ putStrLn "No more cards in the Graveyard."
-    (c : cs) -> do
-      lift $ do
-        deck =: c
-        graveyard .= cs
-      performEffect $ heal (n - 1)
-
-attach :: Effect
-attach =
+attach :: SearchType -> Effect
+attach t =
   Effect
     { performEffect =
-        player's' hand <&> mapMaybe (^? spellStats) >>= \case
+        player's' hand <&> mapMaybe (^? spellStats) . filter (toPredicate t) >>= \case
           [] -> liftIO $ putStrLn "There are no spell cards in your hand."
           (sfst : srst) -> do
             (i, s) <- selectFromList' "Select a spell to attach:" (sfst :| srst)
@@ -413,7 +467,7 @@ attach =
                 updateCard p $ monsterStats % monsterSpells %~ (s :),
       monsterOnlyEffect = True,
       effectScale = 10,
-      displayEffect = "Attach a spell card from your hand to this card"
+      displayEffect = "Attach a " ++ show t ++ " from your hand to this card"
     }
   where
     updateCard (i, loc) f = do
@@ -433,7 +487,7 @@ youMay e =
         r <- selectFromList' prompt ("Yes" :| ["No"])
         when (fst r == 0) $ performEffect e,
       monsterOnlyEffect = False,
-      effectScale = max (-10) $ scale e,
+      effectScale = max (-punishment) $ scale e,
       displayEffect = "You may " ++ show e
     }
 
@@ -442,6 +496,103 @@ asEffect r =
   Effect
     { performEffect = void $ testRequirement r,
       monsterOnlyEffect = False,
-      effectScale = max (-10) $ scale r,
+      effectScale = max (-punishment) $ scale r,
       displayEffect = displayRequirement r
     }
+
+alterPower :: Integer -> Bool -> Effect
+alterPower by forItself =
+  Effect
+    { performEffect = (if forItself then alterMy else alterTarget) by,
+      monsterOnlyEffect = forItself,
+      effectScale = max (-punishment) $ if forItself then 2 * fromIntegral by else 3 * fromIntegral by,
+      displayEffect =
+        (++ show by) $
+          if forItself
+            then "Increase this card's power by "
+            else "Increase a card on the Field's power by "
+    }
+  where
+    alterMy n = do
+      cid <- asks (^. cardID)
+      player's' field <&> findIndex (\c -> cid == c ^. cardID) >>= \case
+        Nothing -> do
+          name <- asks cardName
+          liftIO $ putStrLn ("Error " ++ name ++ " not found on ")
+        Just i -> lift $ do
+          addPower i n
+    alterTarget n = do
+      player's' field >>= \case
+        [] -> liftIO $ putStrLn "Could not find another card on the field."
+        (cfst : crst) -> do
+          let names = cardName cfst :| map cardName crst
+          (i, _) <- selectFromList' "Select a card to alter:" names
+          lift $ addPower i n
+    addPower i n = field % ix i %= (monsterStats % combatPower %~ (+ fromIntegral n))
+
+reqYouMay :: Requirement -> Requirement
+reqYouMay req =
+  Requirement
+    { testRequirement = do
+        let prompt = "Would you like to " ++ displayRequirement req
+        r <- selectFromList' prompt ("Continue" :| ["Cancel Spell"])
+        if fst r == 0 then testRequirement req else return False,
+      requirementScale = scale req - 2,
+      monsterOnlyRequirement = False,
+      displayRequirement = "You can " ++ displayRequirement req
+    }
+
+destroyThis :: DestroyType -> Requirement
+destroyThis d =
+  Requirement
+    { testRequirement = case d of
+        Discard -> discardSelf
+        Banish -> banishSelf,
+      requirementScale = case d of
+        Discard -> -12
+        Banish -> -14,
+      monsterOnlyRequirement = False,
+      displayRequirement = show d ++ " this card"
+    }
+  where
+    cantFind = do
+      name <- asks cardName
+      liftIO $ putStrLn ("Cannot find " ++ name ++ ".")
+      return False
+    discardSelf =
+      findThisCard >>= \case
+        Nothing -> cantFind
+        Just (_, Graveyard) -> do
+          name <- asks cardName
+          liftIO $ putStrLn (name ++ " is already in the Graveyard")
+          return False
+        Just (i, loc) -> do
+          this <- ask
+          lift $ do
+            graveyard =: this
+            toLens loc -= i
+            void $ trigger OnDiscard this
+            return True
+    banishSelf =
+      findThisCard >>= \case
+        Nothing -> cantFind
+        Just (i, loc) -> lift $ do
+          toLens loc -= i
+          return True
+
+playCardEffect :: SearchType -> Effect
+playCardEffect t =
+  Effect
+    { performEffect = lift $ playCard t,
+      monsterOnlyEffect = False,
+      effectScale = case t of
+        ForSpell -> 0
+        _ -> 3,
+      displayEffect = "Play a " ++ show t
+    }
+
+-- See cards in the enemy hand?
+-- Return to hand or deck from field without triggering  (req)
+-- Return enemy
+-- Modify search to let you pull from GY and optionally first rather than choice
+-- Modify alterPower to target enemys

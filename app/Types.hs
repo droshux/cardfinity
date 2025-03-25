@@ -1,7 +1,8 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Types
-  ( isLegal,
+  ( punishment,
+    isLegal,
     isLegalDeck,
     Ex (..),
     Scale,
@@ -20,6 +21,7 @@ module Types
     cardName,
     isMonster,
     Player (..),
+    otherPlayer,
     PlayerState (..),
     CardLocation (..),
     allCardLocations,
@@ -67,7 +69,7 @@ import Optics
 --------------------------------------------------------------------------------
 -- CARD BALANCING AREA:
 punishment :: Scale
-punishment = 10
+punishment = 5
 
 instance HasScale Trigger where
   scale Infinity = 50
@@ -85,7 +87,7 @@ instance HasScale Monster where
   scale (Monster _ ss c p t) =
     sum (map scale $ toList c)
       + sum (map (max 0 . scale) ss)
-      + punishment * max 0 (length ss - 1)
+      + (2 * punishment) * max 0 (length ss - 1)
       + sp p
       + if anyTap ss && t then -5 else 0 -- Enters the field tapped
     where
@@ -93,7 +95,7 @@ instance HasScale Monster where
       sp v =
         let f :: Float = fromIntegral v
             sc :: Scale = fromIntegral v
-         in sc * ceiling (logBase 10.0 f)
+         in sc * ceiling (logBase 9.0 f)
 
 isLegal :: CardStats -> Bool
 isLegal (SpellStats s) =
@@ -123,7 +125,7 @@ type Scale = Int
 class HasScale a where
   scale :: a -> Scale
 
-data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnDefeat | Infinity deriving (Eq)
+data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnVictory | OnDefeat | Infinity deriving (Eq)
 
 instance Show Trigger where
   show OnPlay = "When played"
@@ -131,6 +133,7 @@ instance Show Trigger where
   show OnDraw = "When drawn"
   show OnTap = "Tap this card"
   show OnDefeat = "When defeated"
+  show OnVictory = "When defeating a monster"
   show Infinity = "On your turn"
 
 isMonsterOnly :: Trigger -> Bool
@@ -299,6 +302,10 @@ instance HasScale Card where
   scale c = scale $ _cardStats c
 
 data Player = Player1 | Player2 deriving (Eq, Show)
+
+otherPlayer :: Player -> Player
+otherPlayer Player1 = Player2
+otherPlayer Player2 = Player1
 
 data PlayerState = PlayerState
   { _hand :: [Card],

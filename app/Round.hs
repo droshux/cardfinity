@@ -5,14 +5,13 @@
 
 module Round (gameRound) where
 
-import Control.Monad (void, when, (<=<))
+import Control.Monad (when, (<=<))
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift))
 import Control.Monad.RWS (MonadReader (ask))
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.State (StateT, modify)
 import Data.Functor ((<&>))
-import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (fromMaybe)
 import Optics.Operators ((.~), (^.), (^?))
@@ -67,7 +66,7 @@ action = do
       (res, _) <- selectFromList "Would you like to see more details?" $ "Yes" :| ["No"]
       when (res == 0) $ displayLoc Graveyard
       action
-    Play -> playCard >> action
+    Play -> playCard ForCard >> action
     Activate -> activateCard >> action
   where
     printHP = do
@@ -81,41 +80,6 @@ action = do
         putStrLn ": "
       printCardsIn l
     displayLoc = mapM_ (liftIO . print) <=< player's . toLens
-
-playCard :: GameOperation ()
-playCard = do
-  -- Select a playable card from your hand
-  let playable = cardElim ((OnPlay ==) . (^. spellTrigger)) (const True)
-  player's hand <&> filter playable >>= \case
-    [] -> liftIO $ putStrLn "No cards to play."
-    canPlay -> do
-      res <- selectFromListCancelable "Select a card to play:" $ map cardName canPlay
-      ifNotCancelled res $ \(i, _) ->
-        let toPlay = canPlay !! i
-         in cardElim (playSpell toPlay) (playMonster toPlay) toPlay
-  where
-    -- Find c in the hand and remove it
-    fromHand c =
-      player's hand <&> findIndex (\c' -> c ^. cardID == c' ^. cardID) >>= \case
-        Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in Hand")
-        Just i -> hand -= i
-    -- Spell: trigger OnPlay, move it to the GY
-    playSpell c =
-      const $
-        trigger OnPlay c >>= \case
-          False -> liftIO $ putStrLn ("Cannot play " ++ cardName c)
-          True -> do
-            graveyard =: c
-            fromHand c
-    -- Monster: Test summoning conditions, move to field, trigger OnPlay
-    playMonster c m = do
-      success <- runReaderT (checkAll $ m ^. summoningConditions) c
-      if not success
-        then liftIO $ putStrLn ("Failed to summon " ++ m ^. monsterName)
-        else do
-          field =: c
-          fromHand c
-          void $ trigger OnPlay c
 
 activateCard :: GameOperation ()
 activateCard =
