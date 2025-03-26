@@ -68,7 +68,8 @@ executable cardgame
       Atoms
       Round
       Game
-      Parser
+      ParserCore
+      CardParser
       AtomParsers
       ExampleCards
       FleurDeck
