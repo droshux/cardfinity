@@ -69,6 +69,7 @@ executable cardgame
       Round
       Game
       Parser
+      AtomParsers
       ExampleCards
       FleurDeck
 
@@ -90,7 +91,11 @@ executable cardgame
       megaparsec
 
     -- Directories containing source files.
-    hs-source-dirs:   app
+    hs-source-dirs:   
+      app
+      game
+      parser
+      excards
 
     -- Base language which the package is written in.
     default-language: GHC2021

@@ -76,7 +76,7 @@ instance Show FindCards where
     where
       part1 n t = concat [show n, " ", show t, if n == 1 then " " else "s "]
 
-ifCards :: FindCards -> Requirement
+{-ifCards :: FindCards -> Requirement
 ifCards f =
   Requirement
     { testRequirement =
@@ -88,6 +88,7 @@ ifCards f =
   where
     isare i = if getCount i == 1 then " is " else " are "
     h f' = filter (toPredicate $ getSearchType f')
+-}
 
 data DestroyType = Discard | Banish deriving (Eq, Ord, Show)
 

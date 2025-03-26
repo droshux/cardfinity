@@ -1,4 +1,12 @@
-module Parser where
+module Parser
+  ( CardParser,
+    card,
+    space,
+    hspace,
+    name,
+    gap,
+  )
+where
 
 import Atoms (discardDeck, drawEffect)
 import Control.Applicative ((<|>))
@@ -99,7 +107,7 @@ monster = do
       }
 
 requirement :: CardParser Requirement
-requirement = (string' "discard" $> discardDeck) <?> "req dbg"
+requirement = string' "discard" $> discardDeck
 
 requirements :: CardParser (OSet Requirement)
 requirements = option empty $ fromList <$> requirement `sepBy` (char ',' *> hspace)
