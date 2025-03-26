@@ -265,13 +265,6 @@ healOpponent n =
       displayRequirement = "Heal the opponent for " ++ show n ++ " damage"
     }
 
-{-Effect
-  { performEffect = asOpponent' $ healHelper n,
-    monsterOnlyEffect = False,
-    effectScale = -(scale $ heal n),
-    displayEffect = "Heal the opponent for " ++ show n ++ " damage"
-  }-}
-
 healHelper :: Natural -> GameOpWithCardContext ()
 healHelper 0 = return ()
 healHelper n =
@@ -543,7 +536,7 @@ reqYouMay req =
       displayRequirement = "You can " ++ displayRequirement req
     }
 
-destroyThis :: DestroyType -> Requirement
+{-destroyThis :: DestroyType -> Requirement
 destroyThis d =
   Requirement
     { testRequirement = case d of
@@ -580,6 +573,7 @@ destroyThis d =
         Just (i, loc) -> lift $ do
           toLens loc -= i
           return True
+-}
 
 playCardEffect :: SearchType -> Effect
 playCardEffect t =

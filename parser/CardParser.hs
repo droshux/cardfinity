@@ -1,20 +1,20 @@
-module CardParser ( card ) where
+module CardParser (card) where
 
-import Atoms (discardDeck, drawEffect)
+import AtomParsers (effect, requirement)
 import Control.Applicative ((<|>))
 import Control.Monad (void)
-import Data.Functor (($>))
 import Data.Set.Ordered (OSet, empty, fromList)
 import ParserCore
-import Text.Megaparsec (choice, manyTill, option, optional, sepBy, sepBy1)
+import Text.Megaparsec (MonadParsec (..), choice, manyTill, option, optional, sepBy, sepBy1)
 import Text.Megaparsec.Char (char, string')
-import Text.Megaparsec.Char.Lexer (decimal, nonIndented)
-import Types (Card (..), CardStats (..), Effect, Monster (..), Requirement, Spell (..), Trigger (..))
+import Text.Megaparsec.Char.Lexer (decimal)
+import Types (Card (..), CardStats (..), Monster (..), Requirement, Spell (..), Trigger (..))
 
 card :: CardParser Card
 card = do
-  let n = nonIndented hspace
-  stats <- MonsterStats <$> n monster <|> SpellStats <$> n spell
+  space
+  stats <- MonsterStats <$> try monster <|> SpellStats <$> try spell
+  space
   f <- families
   return
     Card
@@ -76,11 +76,5 @@ monster = do
         _combatPower = power
       }
 
-requirement :: CardParser Requirement
-requirement = string' "discard" $> discardDeck
-
 requirements :: CardParser (OSet Requirement)
 requirements = option empty $ fromList <$> requirement `sepBy` (char ',' *> hspace)
-
-effect :: CardParser Effect
-effect = string' "draw" $> drawEffect 1
