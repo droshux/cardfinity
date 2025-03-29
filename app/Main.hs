@@ -1,7 +1,12 @@
 module Main where
 
-import ExampleCards (chaosFlame, sampleDeck)
-import Game (runGame)
+import CardParser (card)
+import Control.Applicative (empty)
+import Options.Applicative.Simple (metavar, short, simpleOptions, strOption)
+import Text.Megaparsec (parseTest)
 
 main :: IO ()
-main = runGame (replicate 60 chaosFlame) sampleDeck
+main = do
+  let opt = strOption (short 'f' <> metavar "Card File")
+  (path :: String, ()) <- simpleOptions "ver" "header" "desc" opt empty
+  readFile path >>= parseTest card

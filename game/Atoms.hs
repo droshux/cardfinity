@@ -581,8 +581,8 @@ playCardEffect t =
     { performEffect = lift $ playCard t,
       monsterOnlyEffect = False,
       effectScale = case t of
-        ForSpell -> 0
-        _ -> 3,
+        ForSpell -> -3
+        _ -> 0,
       displayEffect = "Play a " ++ show t
     }
 

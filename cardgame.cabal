@@ -89,7 +89,8 @@ executable cardgame
       ansi-terminal,
       optics,
       data-default,
-      megaparsec
+      megaparsec,
+      optparse-simple
 
     -- Directories containing source files.
     hs-source-dirs:   
