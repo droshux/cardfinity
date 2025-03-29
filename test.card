@@ -1,6 +1,4 @@
 ! Run the following vim command to make card dev easy
 ! :au BufWritePost test.card !cabal run exes -- -f test.card
 
-"Warning light":
-"react js" defeat: ?play spell
-power: 0
+"Road of Sacrifice" on play discard 1 card hand: drill "Lord of Sacrifice"

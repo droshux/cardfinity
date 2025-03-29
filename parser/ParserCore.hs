@@ -2,8 +2,9 @@ module ParserCore where
 
 import Control.Applicative ((<|>))
 import Control.Monad (void)
+import Data.Functor (($>))
 import Data.Void (Void)
-import Text.Megaparsec (Parsec, someTill)
+import Text.Megaparsec (Parsec, option, someTill)
 import Text.Megaparsec.Char qualified as Mega
 import Text.Megaparsec.Char.Lexer qualified as MegaLex
 
@@ -26,3 +27,6 @@ gap = void $ Mega.char ',' *> hspace
 
 name :: CardParser String
 name = Mega.char '"' *> someTill MegaLex.charLiteral (Mega.char '"')
+
+thereIs :: CardParser a -> CardParser Bool
+thereIs a = option False $ a $> True

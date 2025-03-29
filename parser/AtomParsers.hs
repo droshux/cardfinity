@@ -6,7 +6,7 @@ import Control.Monad (void)
 import Data.Functor (($>))
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import GHC.Natural (Natural)
-import ParserCore (CardParser, gap, hspace, name)
+import ParserCore (CardParser, gap, hspace, name, thereIs)
 import Text.Megaparsec (MonadParsec (..), between, choice, option, sepBy1)
 import Text.Megaparsec.Char (char, string')
 import Text.Megaparsec.Char.Lexer (decimal)
@@ -43,7 +43,8 @@ effect = choice (map try es) <|> asEff
         playCardEffectParse,
         searchParse,
         attachParse,
-        mbEff
+        mbEff,
+        buff
       ]
 
 searchType :: CardParser SearchType
@@ -98,7 +99,7 @@ discardTheir = do
   string' "enemy" $> discardTheirDeck
 
 tortrue :: CardParser Bool
-tortrue = option False $ (<$) True $ try (hspace >> string' "true") <|> string' "t"
+tortrue = thereIs $ try (hspace >> string' "true") <|> string' "t"
 
 takeD :: CardParser Requirement
 takeD = do
@@ -154,13 +155,13 @@ chooseParse = do
 attackParse :: CardParser Effect
 attackParse = do
   string' "attack" *> hspace
-  d <- option False $ string' "directly" $> True
+  d <- thereIs $ string' "directly"
   return $ attack d
 
 searchParse :: CardParser Effect
 searchParse = try (h "search" SearchFor) <|> h "drill" DrillFor
   where
-    h s m = search . m <$> (string' s *> searchType)
+    h s m = search . m <$> (string' s *> hspace *> searchType)
 
 attachParse :: CardParser Effect
 attachParse = helper searchType "attach" attach
@@ -173,3 +174,11 @@ mbReq = reqYouMay <$> (char '?' *> requirement)
 
 playCardEffectParse :: CardParser Effect
 playCardEffectParse = helper searchType "play" playCardEffect
+
+buff :: CardParser Effect
+buff = do
+  string' "buff" *> hspace
+  self <- thereIs $ string' "this" *> hspace
+  neg <- thereIs $ char '-'
+  power <- decimal
+  return $ alterPower (if neg then -power else power) self
