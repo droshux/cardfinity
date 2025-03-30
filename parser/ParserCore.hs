@@ -4,7 +4,7 @@ import Control.Applicative ((<|>))
 import Control.Monad (void)
 import Data.Functor (($>))
 import Data.Void (Void)
-import Text.Megaparsec (Parsec, option, someTill)
+import Text.Megaparsec (MonadParsec (try), Parsec, choice, option, someTill)
 import Text.Megaparsec.Char qualified as Mega
 import Text.Megaparsec.Char.Lexer qualified as MegaLex
 
@@ -30,3 +30,6 @@ name = Mega.char '"' *> someTill MegaLex.charLiteral (Mega.char '"')
 
 thereIs :: CardParser a -> CardParser Bool
 thereIs a = option False $ a $> True
+
+anyOf :: [CardParser a] -> CardParser a
+anyOf = choice . map try

@@ -6,28 +6,27 @@ import Control.Monad (void)
 import Data.Functor (($>))
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import GHC.Natural (Natural)
-import ParserCore (CardParser, gap, hspace, name, thereIs)
-import Text.Megaparsec (MonadParsec (..), between, choice, option, sepBy1)
+import ParserCore (CardParser, anyOf, gap, hspace, name, thereIs)
+import Text.Megaparsec (MonadParsec (..), between, option, sepBy1)
 import Text.Megaparsec.Char (char, string')
 import Text.Megaparsec.Char.Lexer (decimal)
 import Types (Effect, Requirement)
 import Utils (SearchType (..))
 
 requirement :: CardParser Requirement
-requirement = choice $ map try rs
-  where
-    rs =
-      [ destroy,
-        discard,
-        takeD,
-        healThem,
-        pop,
-        mbReq
-      ]
+requirement =
+  anyOf
+    [ destroy,
+      discard,
+      takeD,
+      healThem,
+      pop,
+      mbReq
+    ]
 
 effect :: CardParser Effect
 -- Try all effects but fallback to asEff
-effect = choice (map try es) <|> asEff
+effect = anyOf es <|> asEff
   where
     es =
       [ destroyTheir,
@@ -49,7 +48,7 @@ effect = choice (map try es) <|> asEff
 
 searchType :: CardParser SearchType
 searchType =
-  choice
+  anyOf
     [ string' "card" $> ForCard,
       ForFamily <$> (try (string' "family") <|> string' "f" >> hspace >> name) <* mbcard,
       ForName <$> name,
@@ -65,7 +64,7 @@ findCards = do
   hspace
   typ <- searchType
   hspace
-  choice
+  anyOf
     [ FindCardsField n typ <$ string' "field",
       FindCardsHand n typ <$ string' "hand"
     ]

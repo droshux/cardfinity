@@ -22,9 +22,9 @@ import Types
 
 deck :: CardParser [Card]
 deck = do
-  cardDefs <- manyTill (card <* space) (string' "deck" *> space)
-  cards <- cardInclude cardDefs `sepBy` space
-  return $ flip concatMap cards $ uncurry replicate
+  cardDefs <- manyTill (card <* space) (string' "deck:" *> space)
+  cardIncls <- manyTill (cardInclude cardDefs <* space) eof
+  return $ flip concatMap cardIncls $ uncurry replicate
 
 cardInclude :: [Card] -> CardParser (Int, Card)
 cardInclude cs = do
@@ -87,6 +87,7 @@ monster = do
   space
   reqs <- requirements
   space
+  -- \*> string' "spells:" *> space
   spells <- manyTill (spell <* space) (string' "power")
   optional (char ':') *> hspace
   power <- decimal

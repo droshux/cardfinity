@@ -1,0 +1,12 @@
+"Imp":
+"Chaos Burst" on discard discard 1 "Arcane Burst" hand: deal 1
+power: 0
+"Demon" 
+"Demon Warrior":
+discard 1 card field
+"Flame Spear" tap: attack
+power: 5
+"Demon"
+deck:
+"Imp" 20
+"Demon Warrior" 40
