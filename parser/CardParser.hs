@@ -1,14 +1,39 @@
-module CardParser (card) where
+module CardParser (card, deck) where
 
 import AtomParsers (effect, requirement)
 import Control.Applicative ((<|>))
 import Control.Monad (void)
+import Data.Foldable (find)
+import Data.Functor (($>))
 import Data.Set.Ordered (OSet, empty, fromList)
 import ParserCore
 import Text.Megaparsec (MonadParsec (..), choice, manyTill, option, optional, sepBy, sepBy1)
 import Text.Megaparsec.Char (char, string')
 import Text.Megaparsec.Char.Lexer (decimal)
-import Types (Card (..), CardStats (..), Monster (..), Requirement, Spell (..), Trigger (..))
+import Types
+  ( Card (..),
+    CardStats (MonsterStats, SpellStats),
+    Monster (..),
+    Requirement,
+    Spell (..),
+    Trigger (..),
+    cardName,
+  )
+
+deck :: CardParser [Card]
+deck = do
+  cardDefs <- manyTill (card <* space) (string' "deck" *> space)
+  cards <- cardInclude cardDefs `sepBy` space
+  return $ flip concatMap cards $ uncurry replicate
+
+cardInclude :: [Card] -> CardParser (Int, Card)
+cardInclude cs = do
+  cname <- name
+  case find ((==) cname . cardName) cs of
+    Nothing -> fail ("Undeclared card name: " ++ cname)
+    Just c -> do
+      count <- hspace *> decimal
+      return (count, c)
 
 card :: CardParser Card
 card = do
@@ -37,7 +62,7 @@ trigger = do
     ]
 
 families :: CardParser (OSet String)
-families = fromList <$> name `sepBy` gap
+families = (string' "N/A" $> empty) <|> fromList <$> name `sepBy1` gap
 
 spell :: CardParser Spell
 spell = do

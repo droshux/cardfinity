@@ -1,4 +1,0 @@
-! Run the following vim command to make card dev easy
-! :au BufWritePost test.card !cabal run exes -- -f test.card
-
-"Road of Sacrifice" on play discard 1 card hand: drill "Lord of Sacrifice"

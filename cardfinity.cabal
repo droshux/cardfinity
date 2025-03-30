@@ -11,7 +11,7 @@ cabal-version:      3.0
 --   http://haskell.org/cabal/users-guide/
 --
 -- The name of the package.
-name:               cardgame
+name:               cardfinity
 
 -- The package version.
 -- See the Haskell package versioning policy (PVP) for standards
@@ -46,7 +46,7 @@ category:           Game
 build-type:         Simple
 
 -- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
-extra-doc-files:    CHANGELOG.md
+-- extra-doc-files:    CHANGELOG.md
 
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 -- extra-source-files:
@@ -73,6 +73,7 @@ executable cardgame
       AtomParsers
       ExampleCards
       FleurDeck
+      Paths_cardfinity
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
