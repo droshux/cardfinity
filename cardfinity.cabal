@@ -71,8 +71,6 @@ executable cardgame
       ParserCore
       CardParser
       AtomParsers
-      ExampleCards
-      FleurDeck
       Paths_cardfinity
 
     -- LANGUAGE extensions used by modules in this package.

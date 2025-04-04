@@ -7,15 +7,15 @@
 module Main where
 
 import CardParser (card, deck)
-import Control.Monad ((>=>))
 import Data.Functor ((<&>))
 import Data.Version (showVersion)
 import Game (runGame)
+import Optics.Operators ((^.))
 import Options.Applicative.Simple (addCommand, help, metavar, simpleOptions, strArgument)
 import Paths_cardfinity (version)
 import System.Exit (exitFailure)
-import Text.Megaparsec (errorBundlePretty, parse, parseTest)
-import Types (Card)
+import Text.Megaparsec (errorBundlePretty, parse)
+import Types (Card, cardStats, isLegal)
 
 main :: IO ()
 main = do
@@ -34,11 +34,21 @@ dev =
   addCommand
     "dev"
     "Show the first card in a file"
-    (readFile >=> parseTest card)
+    readCard
     $ strArgument
       ( metavar "Deck File"
           <> help "The file to read the first card of."
       )
+
+readCard path = do
+  readFile path <&> parse card path >>= \case
+    Left err -> do
+      putStrLn $ errorBundlePretty err
+      exitFailure
+    Right c -> do
+      print c
+      putStr "Legal: "
+      print $ isLegal (c ^. cardStats)
 
 play =
   addCommand

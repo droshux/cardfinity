@@ -1,12 +1,122 @@
-"Imp":
-"Chaos Burst" on discard discard 1 "Arcane Burst" hand: deal 1
+*
+! (0)
+! The main fodder of the deck
+"Imp": 
+"Chaos Burst" on discard ?discard spell hand: deal 1
 power: 0
 "Demon" 
+
+! (3)
+! However the fodder can start a chain of these!
+"Arcane Burst" on discard discard spell hand: deal 2
+N/A
+*
+
+! (5)
+! Common damage dealer that is easy to get out but not very powerful
 "Demon Warrior":
-discard 1 card field
-"Flame Spear" tap: attack
+discard field
+"Flame Spear" tap take 1t: ( attack, banish enemy field )
 power: 5
 "Demon"
+
+! (3)
+! However you can make them stronger later in the game
+"Stimulants" play pop 3: buff 3
+N/A
+
+! (4)
+! Useful to clean up lots of low power fodder
+"Wheel Demon":
+discard 2 field
+"Let's get rolling!" play: attack
+"Momentum" victory take 1: attack
+power: 4
+"Demon"
+
+! (3)
+! Defense fodder that's harder to get rid of because it can blast your best monster
+"Hellish Pustule":
+take 1
+"Pus Explosion" discard ?discard hand: discard enemy field
+power: 0
+"Demon"
+
+! (0)
+! Lets you swap out cards you don't like.
+! Don't forget drawing is technically damage
+"Dark Engine":
+take 1
+"Dark Cycle" on tap discard hand: draw 1
+power: 0
+"Dark Machine"
+
+"Dark Portal":
+discard hand
+"Dark Summoning" on tap: draw
+power: 0
+"Dark Machine"
+
+! (3)
+! Hard to use but you can use this to search powerful spells
+"Dark Processor":
+discard hand
+"Demonic Analysis" tap take 1, discard spell hand: search spell
+power: 0
+"Dark Machine"
+
+! (5)
+! A fun thing to search with the Dark Processor
+"Deadly Sacrifice" play discard 3 field: deal 10
+N/A
+
+! (10)
+! One of the boss monsters in the deck, it's just a big beatstick but the more cards in your GY the more power
+"Lord of Sacrifice":
+take 7
+"Power in blood" on play pop 10: buff this 10 
+"Glory in injury" on play pop 10: buff this 10 
+"Divinity in suffering" on play pop 10: buff this 10 
+"Blade of Vengeance" tap: attack
+power: 0
+"Demon", "Demon Lord"
+
+! (3)
+! Helps you summon the Lord of Sacrifice, probably with a lot of power
+"Road of Sacrifice" on play discard spell hand: drill "Lord of Sacrifice"
+N/A
+
+! (10)
+! A different boss monster in the deck Beefy but it has the has Hellish Pustule's discard effect. If it attacks on a turn it'll be tapped so it's discard effect can't actually go off so be careful
+"Lord of Revulsion":
+banish field,banish spell hand, pop 4
+"Revolting Maw" tap: attack
+"Bloated Mass" discard take 1: discard enemy field
+power: 9
+"Demon Lord"
+
+! (10)
+! A third boss monster, all about many attacks and increasing power
+"Lord of Grey Steel":
+banish field, banish 2 hand, pop 7
+"Let's get rolling!" play: attack
+"Momentum" victory take 3: buff this 5, attack
+"Accelerate" tap discard field: buff this 5, attack
+power: 5
+"Demon Lord"
+
 deck:
-"Imp" 20
-"Demon Warrior" 40
+"Imp" 10
+"Arcane Burst" 5
+"Hellish Pustule" 5
+"Demon Warrior" 10
+"Stimulants" 5
+"Wheel Demon" 3
+"Dark Engine" 5
+"Dark Portal" 5
+"Dark Processor" 5
+"Demon-Heimer"
+"Road of Sacrifice" 3
+"Lord of Sacrifice"
+"Lord of Revulsion"
+"Lord of Grey Steel"

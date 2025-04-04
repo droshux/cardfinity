@@ -7,7 +7,7 @@ import Data.Foldable (find)
 import Data.Functor (($>))
 import Data.Set.Ordered (OSet, empty, fromList)
 import ParserCore
-import Text.Megaparsec (MonadParsec (..), choice, manyTill, option, optional, sepBy, sepBy1)
+import Text.Megaparsec (MonadParsec (..), choice, manyTill, option, optional, sepBy, sepBy1, someTill)
 import Text.Megaparsec.Char (char, string')
 import Text.Megaparsec.Char.Lexer (decimal)
 import Types
@@ -32,7 +32,7 @@ cardInclude cs = do
   case find ((==) cname . cardName) cs of
     Nothing -> fail ("Undeclared card name: " ++ cname)
     Just c -> do
-      count <- hspace *> decimal
+      count <- hspace *> option 1 decimal
       return (count, c)
 
 card :: CardParser Card
@@ -88,7 +88,7 @@ monster = do
   reqs <- requirements
   space
   -- \*> string' "spells:" *> space
-  spells <- manyTill (spell <* space) (string' "power")
+  spells <- someTill (spell <* space) (string' "power")
   optional (char ':') *> hspace
   power <- decimal
   space

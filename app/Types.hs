@@ -92,10 +92,11 @@ instance HasScale Monster where
       + if anyTap ss && t then -5 else 0 -- Enters the field tapped
     where
       anyTap = any ((OnTap ==) . (^. spellTrigger))
-      sp v =
-        let f :: Float = fromIntegral v
-            sc :: Scale = fromIntegral v
-         in sc * ceiling (logBase 9.0 f)
+      sp v = fromIntegral v * length (show v)
+
+{-let f :: Float = fromIntegral v
+    sc :: Scale = fromIntegral v
+ in sc * ceiling (logBase 9.0 f)-}
 
 isLegal :: CardStats -> Bool
 isLegal (SpellStats s) =

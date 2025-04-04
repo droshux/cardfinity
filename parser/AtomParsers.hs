@@ -48,19 +48,18 @@ effect = anyOf es <|> asEff
 
 searchType :: CardParser SearchType
 searchType =
-  anyOf
-    [ string' "card" $> ForCard,
-      ForFamily <$> (try (string' "family") <|> string' "f" >> hspace >> name) <* mbcard,
-      ForName <$> name,
-      string' "spell" $> ForSpell <* mbcard,
-      string' "monster" $> ForMonster <* mbcard
-    ]
-  where
-    mbcard = option () $ hspace <* string' "card"
+  option ForCard $
+    anyOf
+      [ string' "card" $> ForCard,
+        string' "spell" $> ForSpell,
+        string' "monster" $> ForMonster,
+        ForFamily <$> (try (string' "family") <|> string' "f" >> hspace >> name),
+        ForName <$> name
+      ]
 
 findCards :: CardParser FindCards
 findCards = do
-  n <- decimal
+  n <- option 1 decimal
   hspace
   typ <- searchType
   hspace
@@ -112,13 +111,13 @@ dealD = do
   n <- decimal
   dealDamage n <$> tortrue
 
-helper :: CardParser a -> String -> (a -> Effect) -> CardParser Effect
-helper d s a = do
+helper :: CardParser a -> a -> String -> (a -> Effect) -> CardParser Effect
+helper d def s a = do
   string' s *> hspace
-  a <$> d
+  a <$> option def d
 
 natHelper :: String -> (Natural -> Effect) -> CardParser Effect
-natHelper = helper decimal
+natHelper = helper decimal 1
 
 healMe :: CardParser Effect
 healMe = natHelper "heal" heal
@@ -148,7 +147,7 @@ pop = do
 
 chooseParse :: CardParser Effect
 chooseParse = do
-  (e : es) <- between (char '(') (char ')') $ effect `sepBy1` gap
+  (e : es) <- between (char '(' *> hspace) (hspace <* char ')') $ effect `sepBy1` gap
   return $ choose (e :| es)
 
 attackParse :: CardParser Effect
@@ -163,7 +162,7 @@ searchParse = try (h "search" SearchFor) <|> h "drill" DrillFor
     h s m = search . m <$> (string' s *> hspace *> searchType)
 
 attachParse :: CardParser Effect
-attachParse = helper searchType "attach" attach
+attachParse = helper searchType ForSpell "attach" attach
 
 mbEff :: CardParser Effect
 mbEff = youMay <$> (char '?' *> effect)
@@ -172,7 +171,7 @@ mbReq :: CardParser Requirement
 mbReq = reqYouMay <$> (char '?' *> requirement)
 
 playCardEffectParse :: CardParser Effect
-playCardEffectParse = helper searchType "play" playCardEffect
+playCardEffectParse = helper searchType ForSpell "play" playCardEffect
 
 buff :: CardParser Effect
 buff = do

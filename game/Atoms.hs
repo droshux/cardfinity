@@ -169,7 +169,10 @@ destroyCards d f =
       displayRequirement = show d ++ " " ++ show f
     }
   where
-    multiplier = (if isField f then 15 else 10) + (if d == Banish then 2 else 0)
+    multiplier =
+      (if isField f then 15 else 10)
+        + (if d == Banish then 2 else 0)
+        + (if getSearchType f == ForSpell then 2 else 0)
 
 -- Destroy their cards as an effect
 destroyTheirCards :: DestroyType -> FindCards -> Effect
@@ -409,7 +412,7 @@ data SearchMethod = SearchFor SearchType | DrillFor SearchType
 search :: SearchMethod -> Effect
 search (SearchFor t) =
   def
-    { effectScale = 30,
+    { effectScale = if t == ForSpell then 25 else 30,
       displayEffect = "Search the deck for a " ++ show t,
       performEffect =
         let options = player's' deck <&> filter (toPredicate t)
@@ -429,7 +432,7 @@ search (SearchFor t) =
     }
 search (DrillFor t) =
   def
-    { effectScale = 15,
+    { effectScale = if t == ForSpell then 10 else 15,
       displayEffect = "Drill the deck for a " ++ show t,
       performEffect =
         player's' deck >>= \case
@@ -460,7 +463,7 @@ attach t =
                 hand -= i
                 updateCard p $ monsterStats % monsterSpells %~ (s :),
       monsterOnlyEffect = True,
-      effectScale = 10,
+      effectScale = 5,
       displayEffect = "Attach a " ++ show t ++ " from your hand to this card"
     }
   where
