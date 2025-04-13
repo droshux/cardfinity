@@ -74,6 +74,7 @@ punishment = 5
 instance HasScale Trigger where
   scale Infinity = 50
   scale OnPlay = 0
+  scale OnAttach = 0
   scale _ = 5
 
 instance HasScale Spell where
@@ -126,7 +127,7 @@ type Scale = Int
 class HasScale a where
   scale :: a -> Scale
 
-data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnVictory | OnDefeat | Infinity deriving (Eq)
+data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnVictory | OnDefeat | OnAttach | Infinity deriving (Eq)
 
 instance Show Trigger where
   show OnPlay = "When played"
@@ -135,11 +136,14 @@ instance Show Trigger where
   show OnTap = "Tap this card"
   show OnDefeat = "When defeated"
   show OnVictory = "When defeating a monster"
+  show OnAttach = "When this spell is attached to a monster"
   show Infinity = "On your turn"
 
 isMonsterOnly :: Trigger -> Bool
 isMonsterOnly OnTap = True
 isMonsterOnly OnDefeat = True
+isMonsterOnly OnVictory = True
+isMonsterOnly OnAttach = True
 isMonsterOnly Infinity = True
 isMonsterOnly _ = False
 

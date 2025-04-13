@@ -441,6 +441,7 @@ search (DrillFor t) =
             if not $ toPredicate t c
               then do
                 lift $ deck .= cs
+                lift $ graveyard =: c
                 performEffect $ search (DrillFor t)
               else lift $ do
                 deck .= cs
@@ -471,10 +472,9 @@ attach t =
       before <- player's (toLens loc)
       let c = before !! i
 
-      liftIO $ putStrLn $ cardName c
-
       let setTo = take i before ++ [f c] ++ drop (i + 1) before
       toLens loc .= setTo
+      void $ trigger OnAttach c
 
 youMay :: Effect -> Effect
 youMay e =

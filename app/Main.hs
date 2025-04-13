@@ -6,7 +6,8 @@
 
 module Main where
 
-import CardParser (card, deck)
+import CardParser (deck)
+import Control.Monad (forM_)
 import Data.Functor ((<&>))
 import Data.Version (showVersion)
 import Game (runGame)
@@ -15,7 +16,7 @@ import Options.Applicative.Simple (addCommand, help, metavar, simpleOptions, str
 import Paths_cardfinity (version)
 import System.Exit (exitFailure)
 import Text.Megaparsec (errorBundlePretty, parse)
-import Types (Card, cardStats, isLegal)
+import Types (Card, HasScale (scale), cardStats, isLegal, isLegalDeck)
 
 main :: IO ()
 main = do
@@ -33,22 +34,25 @@ main = do
 dev =
   addCommand
     "dev"
-    "Show the first card in a file"
-    readCard
+    "Show a deck with extra information."
+    devMode
     $ strArgument
       ( metavar "Deck File"
-          <> help "The file to read the first card of."
+          <> help "The file to read the deck from."
       )
 
-readCard path = do
-  readFile path <&> parse card path >>= \case
-    Left err -> do
-      putStrLn $ errorBundlePretty err
-      exitFailure
-    Right c -> do
-      print c
-      putStr "Legal: "
-      print $ isLegal (c ^. cardStats)
+devMode path = do
+  cs <- tryParseDeck path
+  forM_ cs $ \c -> do
+    print c
+    putStr "Legal: "
+    print $ isLegal (c ^. cardStats)
+  putStr "Total deck scale: "
+  print $ sum $ map (max 0 . scale) cs
+  putStr "Card count: "
+  print $ length cs
+  putStr "Deck Legality: "
+  print $ isLegalDeck $ map (^. cardStats) cs
 
 play =
   addCommand

@@ -224,7 +224,12 @@ actMonster m t
   | m ^. isTapped = do
       liftIO $ putStrLn (m ^. monsterName ++ " is tapped so no spells can trigger.")
       return False
-  | isMonsterOnly t = case validMSpells m of
+  | t == OnAttach = case reverse $ validMSpells m of
+      [] -> do
+        liftIO $ putStrLn (m ^. monsterName ++ " has no spells that can be activated in that way.")
+        return False
+      (s : _) -> actSpell s t
+  | isManual t = case validMSpells m of
       [] -> do
         liftIO $ putStrLn (m ^. monsterName ++ " has no spells that can be activated in that way.")
         return False
@@ -240,6 +245,9 @@ actMonster m t
       return $ or spellResults
   where
     validMSpells monster = filter (\s -> s ^. spellTrigger == t) $ monster ^. monsterSpells
+    isManual OnTap = True
+    isManual Infinity = True
+    isManual _ = False
 
 playCard :: SearchType -> GameOperation ()
 playCard t =
@@ -298,8 +306,8 @@ findThisCard = mapM findThisIn allCardLocations <&> fmap (second toEnum) . first
       cid <- asks (^. cardID)
       player's' (toLens loc) <&> findIndex (\c -> c ^. cardID == cid)
 
-printCardsIn :: CardLocation -> GameOperation ()
-printCardsIn l = player's (toLens l) >>= liftIO . putStrLn . showFold "\t" . map cardName
+printCardsIn :: String -> CardLocation -> GameOperation ()
+printCardsIn delim l = player's (toLens l) >>= liftIO . putStrLn . showFold delim . map cardName
 
 instance Show Spell where
   show (Spell n t cs es) = concat [show n, " ", show t, if null cs then ": " else scs, ses]

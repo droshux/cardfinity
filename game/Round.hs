@@ -29,7 +29,7 @@ gameRound = do
   takeTurn Player2
   gameRound
 
-data RoundAction = Play | CheckHand | CheckField | CheckTheirField | CheckGY | Activate | Pass | Forfeit deriving (Enum)
+data RoundAction = Play | CheckHand | CheckField | CheckTheirField | CheckGY | CheckGYEnemy | Activate | Pass | Forfeit deriving (Enum)
 
 instance Show RoundAction where
   show Play = "Play a Card"
@@ -37,6 +37,7 @@ instance Show RoundAction where
   show CheckField = "See detailed information about your field."
   show CheckTheirField = "See detailed information about the opponent's field."
   show CheckGY = "See your graveyard."
+  show CheckGYEnemy = "See the enemy graveyard."
   show Activate = "Activate an effect of a card on the field."
   show Pass = "End your turn."
   show Forfeit = "Forfeit the game."
@@ -49,9 +50,11 @@ action = do
   -- Start of screen preamble:
   ask >>= liftIO . putStrLn . (++ "'s turn.") . show
   printHP >> asOpponent printHP
-  asOpponent $ yourLoc "Opponent's" Field
-  yourLoc "Your" Hand
-  yourLoc "Your" Field
+  asOpponent $ yourLoc " " "Opponent's" Field
+  liftIO $ putStr "Opponent's Hand:"
+  asOpponent $ player's hand >>= liftIO . print . length
+  yourLoc " " "Your" Hand
+  yourLoc " " "Your" Field
 
   act <- selectFromList "What do you do:" allRoundActions <&> snd
   liftIO clearScreen
@@ -61,11 +64,8 @@ action = do
     CheckHand -> displayLoc Hand >> action
     CheckField -> displayLoc Field >> action
     CheckTheirField -> asOpponent (displayLoc Field) >> action
-    CheckGY -> do
-      yourLoc "Your" Graveyard
-      (res, _) <- selectFromList "Would you like to see more details?" $ "Yes" :| ["No"]
-      when (res == 0) $ displayLoc Graveyard
-      action
+    CheckGY -> showGY "Your" >> action
+    CheckGYEnemy -> asOpponent (showGY "Their") >> action
     Play -> playCard ForCard >> action
     Activate -> activateCard >> action
   where
@@ -73,13 +73,17 @@ action = do
       ask >>= liftIO . putStr . show
       liftIO $ putStr ": "
       player's deck >>= liftIO . print . length
-    yourLoc s l = do
+    yourLoc delim s l = do
       liftIO $ do
         putStr $ s ++ " "
         putStr $ show l
         putStrLn ": "
-      printCardsIn l
+      printCardsIn delim l
     displayLoc = mapM_ (liftIO . print) <=< player's . toLens
+    showGY text = do
+      yourLoc "\n" text Graveyard
+      (res, _) <- selectFromList "Would you like to see more details?" $ "Yes" :| ["No"]
+      when (res == 0) $ displayLoc Graveyard
 
 activateCard :: GameOperation ()
 activateCard =

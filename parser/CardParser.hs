@@ -58,6 +58,7 @@ trigger = do
       OnDefeat <$ string' "defeat",
       OnVictory <$ string' "victory",
       OnTap <$ string' "tap",
+      OnAttach <$ string' "attach",
       Infinity <$ string' "infinity"
     ]
 
