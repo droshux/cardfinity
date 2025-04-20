@@ -152,9 +152,9 @@ chooseParse = do
 
 attackParse :: CardParser Effect
 attackParse = do
-  string' "attack" *> hspace
-  d <- thereIs $ string' "directly"
-  return $ attack d
+  p <- thereIs $ string' "piercing" <* hspace
+  void $ string' "attack"
+  return $ attack p
 
 searchParse :: CardParser Effect
 searchParse = try (h "search" SearchFor) <|> h "drill" DrillFor

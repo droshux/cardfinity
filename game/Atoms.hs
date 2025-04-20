@@ -44,7 +44,7 @@ import Data.Functor ((<&>))
 import Data.List (findIndex, stripPrefix)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonE
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (mapMaybe)
 import GHC.Natural (Natural)
 import Optics (Ixed (ix))
 import Optics.Operators ((%~), (^.), (^?))
@@ -357,39 +357,45 @@ choose es =
     }
 
 attack :: Bool -> Effect
-attack directly =
+attack piercing =
   Effect
-    { displayEffect = "Attack" ++ if directly then " directly " else " " ++ "with this monster",
-      effectScale = if directly then 20 else 10,
+    { displayEffect =
+        "Attack with this monster"
+          ++ if piercing then " dealing piercing damage" else "",
+      effectScale = if piercing then 20 else 10,
       monsterOnlyEffect = True,
       performEffect = do
-        let attackType = if directly then attackDirectly else attackIndirect
         ft <- gets (^. isFirstTurn)
-        if not ft
-          then ask >>= cardElim (const $ return ()) attackType
-          else liftIO $ putStrLn "You cannot attack on the first turn."
+        if ft
+          then liftIO $ putStrLn "You cannot attack on the first turn."
+          else do
+            l <- findThisCard <&> fmap snd -- Only monsters on the field can attack.
+            if l == Just Field
+              then ask >>= cardElim (const $ return ()) attackIndirect
+              else liftIO $ putStrLn "Only monsters on the field can attack."
     }
   where
     attackDirectly m = do
       liftIO $ putStrLn "Attacking Directly!"
-      didKill <- lift $ asOpponent $ takeBattleDamage m
-      when didKill $ lift $ asOpponent deckout
+      lift $ asOpponent $ takeBattleDamage m
     attackIndirect m =
-      lift (opponent's field) >>= \case
-        -- lift (asOpponent playerState) <&> _field >>= \case
-        [] -> performEffect $ attack True
-        (efst : erst) -> do
-          (i, _) <- selectFromList' "Select the monster to attack:" $ NonE.map cardName (efst :| erst)
-          let target = (efst : erst) !! i
-          let iWon = (m ^. combatPower) >= fromMaybe 0 (target ^? monsterStats % combatPower)
-          if iWon then defeatTarget target else defeatThis
-          when iWon $ ask >>= lift . void . trigger OnVictory
-    takeBattleDamage m = do
-      let toDiscard = natToInt $ m ^. combatPower
-      dtop <- player's deck <&> take toDiscard
+      let power = natToInt $ m ^. combatPower
+       in lift (opponent's field) >>= \case
+            [] -> attackDirectly power
+            (efst : erst) -> do
+              (i, _) <- selectFromList' "Select the monster to attack:" $ NonE.map cardName (efst :| erst)
+              let target = (efst : erst) !! i
+              let deltaPower = power - maybe 0 natToInt (target ^? monsterStats % combatPower)
+              let iWon = deltaPower >= 0
+              when (iWon && piercing) $ lift $ asOpponent $ takeBattleDamage $ max 0 deltaPower
+              if iWon then defeatTarget target else defeatThis
+              when iWon $ ask >>= lift . void . trigger OnVictory
+    takeBattleDamage n = do
+      dtop <- player's deck <&> take n
       graveyard %= (++ dtop)
-      deck %= drop toDiscard
-      player's deck <&> null
+      deck %= drop n
+      dead <- player's deck <&> null
+      when dead deckout
     defeatTarget = lift . asOpponent . runReaderT defeatThis
     defeatThis = do
       -- Get the location of this card and send it to the graveyard

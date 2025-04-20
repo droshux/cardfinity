@@ -221,7 +221,7 @@ actSpell s t =
 
 actMonster :: Monster -> Trigger -> ReaderT Card GameOperation Bool
 actMonster m t
-  | m ^. isTapped = do
+  | m ^. isTapped && t /= OnVictory = do
       liftIO $ putStrLn (m ^. monsterName ++ " is tapped so no spells can trigger.")
       return False
   | t == OnAttach = case reverse $ validMSpells m of
