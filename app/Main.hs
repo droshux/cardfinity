@@ -6,16 +6,18 @@
 
 module Main where
 
-import CardParser (deck)
+import CardParser (card, deck)
 import Control.Monad (forM_)
 import Data.Functor ((<&>))
 import Data.Version (showVersion)
 import Game (runGame)
 import Optics.Operators ((^.))
 import Options.Applicative.Simple (addCommand, help, metavar, simpleOptions, strArgument)
+import ParserCore (space)
 import Paths_cardfinity (version)
 import System.Exit (exitFailure)
-import Text.Megaparsec (errorBundlePretty, parse)
+import Text.Megaparsec (errorBundlePretty, manyTill, parse)
+import Text.Megaparsec.Byte (string')
 import Types (Card, HasScale (scale), cardStats, isLegal, isLegalDeck)
 
 main :: IO ()
@@ -42,17 +44,25 @@ dev =
       )
 
 devMode path = do
-  cs <- tryParseDeck path
-  forM_ cs $ \c -> do
-    print c
-    putStr "Legal: "
-    print $ isLegal (c ^. cardStats)
+  -- Read all unique cards and print
+  let cardsParse = manyTill (card <* space) (string' "deck:")
+  readFile path <&> parse cardsParse path >>= \case
+    Left err -> do
+      putStrLn $ errorBundlePretty err
+      exitFailure
+    Right cs -> forM_ cs $ \c -> do
+      print c
+      putStr "Legal: "
+      print $ isLegal (c ^. cardStats)
+
+  -- Read entire deck and print
+  dck <- tryParseDeck path
   putStr "Total deck scale: "
-  print $ sum $ map (max 0 . scale) cs
+  print $ sum $ map (max 0 . scale) dck
   putStr "Card count: "
-  print $ length cs
+  print $ length dck
   putStr "Deck Legality: "
-  print $ isLegalDeck $ map (^. cardStats) cs
+  print $ isLegalDeck $ map (^. cardStats) dck
 
 play =
   addCommand
