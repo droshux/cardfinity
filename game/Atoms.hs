@@ -46,7 +46,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonE
 import Data.Maybe (mapMaybe)
 import GHC.Natural (Natural)
-import Optics (Ixed (ix))
+import Optics (Ixed (ix), preview)
 import Optics.Operators ((%~), (^.), (^?))
 import Optics.Optic ((%))
 import Types
@@ -475,12 +475,9 @@ attach t =
     }
   where
     updateCard (i, loc) f = do
-      before <- player's (toLens loc)
-      let c = before !! i
-
-      let setTo = take i before ++ [f c] ++ drop (i + 1) before
-      toLens loc .= setTo
-      void $ trigger OnAttach c
+      let c = toLens loc % ix i
+      c %= f
+      asks playerLens >>= gets . preview . (% c) >>= whenJust (void . trigger OnAttach)
 
 youMay :: Effect -> Effect
 youMay e =

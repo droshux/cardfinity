@@ -8,6 +8,7 @@ module Utils
   ( natToInt,
     without,
     showFold,
+    whenJust,
     checkAll,
     asOpponent,
     asOpponent',
@@ -64,6 +65,10 @@ showFold connector as = helper connector $ toList as
   where
     helper _ [] = ""
     helper c (x : xs) = foldr (\x' a -> a ++ c ++ show x') (show x) $ reverse xs
+
+whenJust :: (Monad m) => (a -> m ()) -> Maybe a -> m ()
+whenJust _ Nothing = return ()
+whenJust op (Just x) = op x
 
 data SearchType = ForName String | ForFamily String | ForSpell | ForMonster | ForCard deriving (Ord)
 
@@ -226,7 +231,7 @@ actMonster m t
       return False
   | t == OnAttach = case reverse $ validMSpells m of
       [] -> do
-        liftIO $ putStrLn (m ^. monsterName ++ " has no spells that can be activated in that way.")
+        liftIO $ putStrLn (m ^. monsterName ++ " has no spells that trigger when attached.")
         return False
       (s : _) -> actSpell s t
   | isManual t = case validMSpells m of

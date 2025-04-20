@@ -11,7 +11,7 @@ N/A
 ! Common damage dealer that is easy to get out but not very powerful
 "Demon Warrior":
 discard field
-"Flame Spear" tap take 1t: ( attack, banish enemy field )
+"Flame Spear" tap take 1t: (attack, banish enemy field)
 power: 5
 "Demon"
 
@@ -65,7 +65,7 @@ take 7
 "Power in blood" on play pop 10: buff this 10 
 "Glory in injury" on play pop 10: buff this 10 
 "Divinity in suffering" on play pop 10: buff this 10 
-"Blade of Vengeance" tap: attack
+"Blade of Vengeance" tap discard hand: piercing attack
 power: 0
 "Demon", "Demon Lord"
 
