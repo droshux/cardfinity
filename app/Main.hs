@@ -61,7 +61,7 @@ devMode path = do
     print c
     case runScale dck c of
       Left err -> print err
-      Right s -> putStr "Scale: " >> print s
+      Right s -> putStr "Scale: " >> print s >> putStrLn ""
 
   void $ isLegal dck -- Exits if this fails!
   putStr "Number of cards: "

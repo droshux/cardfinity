@@ -81,7 +81,7 @@ instance HasScale Spell where
   scale (Spell n t r e) = do
     -- Some requirements and effects only make sense for monsters,
     -- these cannot be used on spells that can be cast from the hand.
-    spellable <- asks (not . inMonster) <&> (&& isMonsterOnly t)
+    spellable <- asks (not . inMonster) <&> (&& not (isMonsterOnly t))
     case (find monsterOnlyEffect e, find monsterOnlyRequirement r) of
       (Nothing, Nothing) -> return ()
       bad -> when spellable $ throwError $ MOonSpellable bad n
@@ -198,7 +198,7 @@ sumWithPunishment :: (HasScale a, Traversable t) => Int -> t a -> Scale
 sumWithPunishment mul xs = do
   total <- sumScale xs
   let count = max 0 (length xs - 1)
-  return $ total + mul * count
+  return $ total + mul * count * punishment
 
 -- Throws with nice error message if the input is an illegal deck.
 isLegal :: [Card] -> IO [Card]

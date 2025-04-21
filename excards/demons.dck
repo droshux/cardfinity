@@ -8,7 +8,7 @@ power: 0
 "Arcane Burst" on discard discard spell hand: deal 2
 N/A
 
-! Common damage dealer that is easy to get out but not very powerful
+! Common damage dealer that is very powerful and pretty easy to summon
 "Demon Warrior":
 discard field
 "Flame Spear" tap take 1t: (attack, banish enemy field)
@@ -21,7 +21,7 @@ N/A
 
 ! Useful to clean up lots of low power fodder
 "Wheel Demon":
-discard field, discard spell hand, pop 3
+banish field, banish spell hand, pop 1
 "Accelerate" tap: attack
 "Momentum" victory take 1: ?attack
 power: 5
@@ -91,14 +91,13 @@ power: 5
 
 deck:
 "Imp" 10
-"Arcane Burst" 5
 "Hellish Pustule" 5
 "Demon Warrior" 10
 "Stimulants" 5
 "Wheel Demon" 3
 "Dark Engine" 5
 "Dark Portal" 5
-"Dark Processor" 5
+"Dark Processor" 3
 "Deadly Sacrifice"
 "Road of Sacrifice" 3
 "Lord of Sacrifice"

@@ -538,7 +538,7 @@ reqYouMay req =
         let prompt = "Would you like to " ++ displayRequirement req
         r <- selectFromList' prompt ("Continue" :| ["Cancel Spell"])
         if fst r == 0 then testRequirement req else return False,
-      requirementScale = scale req <&> (\x -> x - 2),
+      requirementScale = scale req <&> (+ 2),
       monsterOnlyRequirement = False,
       displayRequirement = "You can " ++ displayRequirement req
     }
