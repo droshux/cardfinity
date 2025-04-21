@@ -7,18 +7,18 @@
 module Main where
 
 import CardParser (card, deck)
-import Control.Monad (forM_)
+import Control.Monad (forM_, void)
 import Data.Functor ((<&>))
+import Data.Maybe (mapMaybe)
 import Data.Version (showVersion)
 import Game (runGame)
-import Optics.Operators ((^.))
 import Options.Applicative.Simple (addCommand, help, metavar, simpleOptions, strArgument)
 import ParserCore (space)
 import Paths_cardfinity (version)
 import System.Exit (exitFailure)
 import Text.Megaparsec (errorBundlePretty, manyTill, parse)
 import Text.Megaparsec.Byte (string')
-import Types (Card, HasScale (scale), cardStats, isLegal, isLegalDeck)
+import Types (Card, isLegal, runScale)
 
 main :: IO ()
 main = do
@@ -44,25 +44,31 @@ dev =
       )
 
 devMode path = do
+  -- Read entire deck
+  dck <- tryParseDeck path
+
   -- Read all unique cards and print
   let cardsParse = manyTill (card <* space) (string' "deck:")
-  readFile path <&> parse cardsParse path >>= \case
-    Left err -> do
-      putStrLn $ errorBundlePretty err
-      exitFailure
-    Right cs -> forM_ cs $ \c -> do
-      print c
-      putStr "Legal: "
-      print $ isLegal (c ^. cardStats)
+  cs <-
+    readFile path <&> parse cardsParse path >>= \case
+      Left err -> do
+        putStrLn $ errorBundlePretty err
+        exitFailure
+      Right cs -> return cs
 
-  -- Read entire deck and print
-  dck <- tryParseDeck path
-  putStr "Total deck scale: "
-  print $ sum $ map (max 0 . scale) dck
-  putStr "Card count: "
+  -- Print all cards and their scale or any legality errors!
+  forM_ cs $ \c -> do
+    print c
+    case runScale dck c of
+      Left err -> print err
+      Right s -> putStr "Scale: " >> print s
+
+  void $ isLegal dck -- Exits if this fails!
+  putStr "Number of cards: "
   print $ length dck
-  putStr "Deck Legality: "
-  print $ isLegalDeck $ map (^. cardStats) dck
+  putStr "Total scale: "
+  print (sum $ mapMaybe ((\case Left _ -> Nothing; Right x -> Just x) . runScale dck) dck)
+  return ()
 
 play =
   addCommand

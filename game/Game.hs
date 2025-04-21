@@ -1,9 +1,10 @@
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
+
 module Game (runGame) where
 
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Random (MonadRandom)
 import Control.Monad.State (StateT (runStateT))
-import Optics ((^.))
 import Optics.Operators ((.~))
 import Round (gameRound)
 import System.Random.Shuffle (shuffleM)
@@ -29,13 +30,13 @@ initGameState d1 d2 = do
 
 runGame :: [Card] -> [Card] -> IO ()
 runGame d1 d2 =
-  if not (isLegalDeck $ map (^. cardStats) d1) || not (isLegalDeck $ map (^. cardStats) d2)
-    then putStrLn "At least one deck is illegal sorry."
-    else do
-      gs <- initGameState d1 d2
-      (result, _) <- flip runStateT gs $ runExceptT gameRound
-      case result of
-        Right () -> putStrLn "Somehow the game has ended without a winner! Most likely a glitch!"
-        Left loser -> putStrLn $ case loser of
-          Player1 -> "Player 2 wins!"
-          Player2 -> "Player 1 wins!"
+  do
+    d1 <- isLegal d1
+    d2 <- isLegal d2
+    gs <- initGameState d1 d2
+    (result, _) <- flip runStateT gs $ runExceptT gameRound
+    case result of
+      Right () -> putStrLn "Somehow the game has ended without a winner! Most likely a glitch!"
+      Left loser -> putStrLn $ case loser of
+        Player1 -> "Player 2 wins!"
+        Player2 -> "Player 1 wins!"

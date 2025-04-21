@@ -164,7 +164,7 @@ destroyCards :: DestroyType -> FindCards -> Requirement
 destroyCards d f =
   Requirement
     { testRequirement = chooseToDestroy d f,
-      requirementScale = natToInt (getCount f) * (-multiplier),
+      requirementScale = return $ natToInt (getCount f) * (-multiplier),
       monsterOnlyRequirement = False,
       displayRequirement = show d ++ " " ++ show f
     }
@@ -180,7 +180,7 @@ destroyTheirCards d f =
   Effect
     { performEffect = asOpponent' $ destroyForced d f,
       monsterOnlyEffect = False,
-      effectScale = -scale inverted,
+      effectScale = scale inverted <&> (\x -> -x),
       displayEffect = let destOurs = show inverted in replaceLast " the " " the enemy " destOurs
     }
   where
@@ -204,7 +204,7 @@ discardDeck =
               graveyard =: c
               void $ trigger OnDiscard c
               return True,
-      requirementScale = -4,
+      requirementScale = return $ -4,
       monsterOnlyRequirement = False,
       displayRequirement = "Discard the top card of the deck"
     }
@@ -214,7 +214,7 @@ discardTheirDeck =
   Effect
     { performEffect = void $ asOpponent' $ testRequirement discardDeck,
       monsterOnlyEffect = False,
-      effectScale = -requirementScale discardDeck,
+      effectScale = requirementScale discardDeck <&> (\x -> -x),
       displayEffect = "Discard the top card of the opponent's deck"
     }
 
@@ -222,7 +222,7 @@ takeDamage :: Natural -> Bool -> Requirement
 takeDamage n isTrue =
   Requirement
     { testRequirement = takeDamageHelper n isTrue,
-      requirementScale = natToInt n * (if isTrue then -7 else -5),
+      requirementScale = return $ natToInt n * (if isTrue then -7 else -5),
       monsterOnlyRequirement = False,
       displayRequirement = concat ["Take ", show n, if isTrue then " True" else "", " damage"]
     }
@@ -232,7 +232,7 @@ dealDamage n isTrue =
   Effect
     { performEffect = void $ asOpponent' $ takeDamageHelper n isTrue,
       monsterOnlyEffect = False,
-      effectScale = -(scale $ takeDamage n isTrue),
+      effectScale = scale (takeDamage n isTrue) <&> (\x -> -x),
       displayEffect = concat ["Deal ", show n, if isTrue then " True" else "", " damage"]
     }
 
@@ -251,7 +251,7 @@ heal n =
   Effect
     { performEffect = healHelper n,
       monsterOnlyEffect = False,
-      effectScale = 7 * natToInt n,
+      effectScale = return $ 7 * natToInt n,
       displayEffect = "Heal " ++ show n ++ " damage"
     }
 
@@ -263,7 +263,7 @@ healOpponent n =
         if r < natToInt n
           then return False
           else asOpponent' $ healHelper n >> return True,
-      requirementScale = -(scale $ heal n),
+      requirementScale = scale (heal n) <&> (\x -> -x),
       monsterOnlyRequirement = False,
       displayRequirement = "Heal the opponent for " ++ show n ++ " damage"
     }
@@ -283,14 +283,14 @@ deckoutEffect :: Effect
 deckoutEffect =
   def
     { displayEffect = "DECKOUT",
-      effectScale = -punishment,
+      effectScale = return $ -punishment,
       performEffect = lift deckout
     }
 
 drawEffect :: Natural -> Effect
 drawEffect n =
   def
-    { effectScale = natToInt n * 10,
+    { effectScale = return $ natToInt n * 10,
       displayEffect = "Draw " ++ show n ++ " card" ++ if n == 1 then " " else "s",
       performEffect = replicateM_ (natToInt n) (lift draw)
     }
@@ -298,7 +298,7 @@ drawEffect n =
 peek :: Natural -> Effect
 peek n =
   def
-    { effectScale = 2 ^ n,
+    { effectScale = return $ 2 ^ n,
       performEffect = player's' deck >>= liftIO . mapM_ print . take (natToInt n),
       displayEffect =
         concat
@@ -328,7 +328,7 @@ scry n =
 popGraveyard :: Natural -> Requirement
 popGraveyard n =
   def
-    { requirementScale = -(2 * natToInt n),
+    { requirementScale = return $ -(2 * natToInt n),
       displayRequirement =
         concat
           [ "Banish the top ",
@@ -350,7 +350,8 @@ choose :: NonEmpty Effect -> Effect
 choose es =
   def
     { displayEffect = "Choose one of " ++ showFold " or " es,
-      effectScale = maximum (NonE.map scale es),
+      -- effectScale = return $ maximum (mapM scale $ NonE.toList es),
+      effectScale = mapM scale (NonE.toList es) <&> maximum,
       performEffect = do
         (_, c) <- lift $ selectFromList "Choose one of the following:" es
         performEffect c
@@ -362,7 +363,7 @@ attack piercing =
     { displayEffect =
         "Attack with this monster"
           ++ if piercing then " dealing piercing damage" else "",
-      effectScale = if piercing then 20 else 10,
+      effectScale = return $ if piercing then 20 else 10,
       monsterOnlyEffect = True,
       performEffect = do
         ft <- gets (^. isFirstTurn)
@@ -418,7 +419,7 @@ data SearchMethod = SearchFor SearchType | DrillFor SearchType
 search :: SearchMethod -> Effect
 search (SearchFor t) =
   def
-    { effectScale = if t == ForSpell then 25 else 30,
+    { effectScale = return $ if t == ForSpell then 25 else 30,
       displayEffect = "Search the deck for a " ++ show t,
       performEffect =
         let options = player's' deck <&> filter (toPredicate t)
@@ -438,7 +439,7 @@ search (SearchFor t) =
     }
 search (DrillFor t) =
   def
-    { effectScale = if t == ForSpell then 10 else 15,
+    { effectScale = return $ if t == ForSpell then 10 else 15,
       displayEffect = "Drill the deck for a " ++ show t,
       performEffect =
         player's' deck >>= \case
@@ -470,7 +471,7 @@ attach t =
                 hand -= i
                 updateCard p $ monsterStats % monsterSpells %~ (s :),
       monsterOnlyEffect = True,
-      effectScale = 5,
+      effectScale = return 5,
       displayEffect = "Attach a " ++ show t ++ " from your hand to this card"
     }
   where
@@ -487,7 +488,7 @@ youMay e =
         r <- selectFromList' prompt ("Yes" :| ["No"])
         when (fst r == 0) $ performEffect e,
       monsterOnlyEffect = False,
-      effectScale = max (-punishment) $ scale e,
+      effectScale = scale e <&> max (-punishment),
       displayEffect = "You may " ++ show e
     }
 
@@ -496,7 +497,7 @@ asEffect r =
   Effect
     { performEffect = void $ testRequirement r,
       monsterOnlyEffect = False,
-      effectScale = max (-punishment) $ scale r,
+      effectScale = scale r <&> max (-punishment),
       displayEffect = displayRequirement r
     }
 
@@ -505,7 +506,7 @@ alterPower by forItself =
   Effect
     { performEffect = (if forItself then alterMy else alterTarget) by,
       monsterOnlyEffect = forItself,
-      effectScale = max (-punishment) $ if forItself then 2 * fromIntegral by else 3 * fromIntegral by,
+      effectScale = return $ max (-punishment) $ if forItself then 2 * fromIntegral by else 3 * fromIntegral by,
       displayEffect =
         (++ show by) $
           if forItself
@@ -537,7 +538,7 @@ reqYouMay req =
         let prompt = "Would you like to " ++ displayRequirement req
         r <- selectFromList' prompt ("Continue" :| ["Cancel Spell"])
         if fst r == 0 then testRequirement req else return False,
-      requirementScale = scale req - 2,
+      requirementScale = scale req <&> (\x -> x - 2),
       monsterOnlyRequirement = False,
       displayRequirement = "You can " ++ displayRequirement req
     }
@@ -586,7 +587,7 @@ playCardEffect t =
   Effect
     { performEffect = lift $ playCard t,
       monsterOnlyEffect = False,
-      effectScale = case t of
+      effectScale = return $ case t of
         ForSpell -> -3
         _ -> 0,
       displayEffect = "Play a " ++ show t

@@ -343,14 +343,10 @@ instance Show CardStats where
   show (MonsterStats s) = show s
 
 instance Show Card where
-  show (Card i fs cs) =
+  show (Card _ fs cs) =
     concat $
-      [ "(",
-        show $ scale (Card i fs cs),
-        ") ",
-        show cs
-      ]
-        ++ if null fs
+      show cs
+        : if null fs
           then []
           else
             [ "\n\t(",

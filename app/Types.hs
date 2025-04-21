@@ -3,12 +3,10 @@
 module Types
   ( punishment,
     isLegal,
-    isLegalDeck,
-    Ex (..),
     Scale,
+    runScale,
     HasScale (..),
     Trigger (..),
-    isMonsterOnly,
     Requirement (..),
     Conditions,
     Effect (..),
@@ -56,73 +54,162 @@ module Types
 where
 
 import Control.Monad.Except
-import Control.Monad.Reader (ReaderT (runReaderT))
+import Control.Monad.RWS (MonadReader (local), asks)
+import Control.Monad.Reader (Reader, ReaderT (runReaderT), runReader)
 import Control.Monad.State
 import Data.Default (Default (def))
-import Data.Foldable (Foldable (toList))
-import Data.Kind (Constraint, Type)
+import Data.Foldable (Foldable (toList), find)
 import Data.Maybe (isJust)
 import Data.Set.Ordered qualified as OS (OSet)
 import GHC.Natural (Natural)
 import Optics
+import System.Exit (exitFailure)
+import System.IO (hPrint, hPutStrLn, stderr)
 
 --------------------------------------------------------------------------------
 -- CARD BALANCING AREA:
-punishment :: Scale
+punishment :: Int
 punishment = 5
 
 instance HasScale Trigger where
-  scale Infinity = 50
-  scale OnPlay = 0
-  scale OnAttach = 0
-  scale _ = 5
+  scale Infinity = return 50
+  scale OnPlay = return 0
+  scale OnAttach = return 0
+  scale _ = return 5
 
 instance HasScale Spell where
-  scale (Spell _ t c e) =
-    scale t
-      + sum (map scale $ toList c)
-      + sum (map scale e)
-      + punishment * max 0 (length e - 1)
+  scale (Spell n t r e) = do
+    -- Some requirements and effects only make sense for monsters,
+    -- these cannot be used on spells that can be cast from the hand.
+    spellable <- asks (not . inMonster) <&> (&& isMonsterOnly t)
+    case (find monsterOnlyEffect e, find monsterOnlyRequirement r) of
+      (Nothing, Nothing) -> return ()
+      bad -> when spellable $ throwError $ MOonSpellable bad n
+
+    ts <- scale t
+    rs <- sumScale $ toList r
+    es <- sumWithPunishment 1 e
+    let total = ts + rs + es
+
+    -- Monster spells must be 15 scale or less but spell cards
+    -- must be 10 scale or less.
+    limit <- asks inMonster >>= \m -> return $ if m then 15 else 10
+    unless (total <= limit) $ throwError $ ScaleTooHigh limit total n
+
+    return total
 
 instance HasScale Monster where
-  scale (Monster _ ss c p t) =
-    sum (map scale $ toList c)
-      + sum (map (max 0 . scale) ss)
-      + (2 * punishment) * max 0 (length ss - 1)
-      + sp p
-      + if anyTap ss && t then -5 else 0 -- Enters the field tapped
+  scale (Monster n ss r p t) = do
+    requirements <- sumScale $ toList r
+
+    -- Double punishment for monster spells
+    spells <- local (\c -> c {inMonster = True}) (sumWithPunishment 2 ss)
+    let power = fromIntegral p * length (show p) -- Multiply by number of digits
+    let tap = if t && anyTap ss then -5 else 0 -- Enters the field tapped
+    let total = requirements + spells + power + tap
+
+    -- Monsters must have scale of 10 or less
+    unless (total <= 10) $ throwError $ ScaleTooHigh 10 total n
+    return total
     where
       anyTap = any ((OnTap ==) . (^. spellTrigger))
-      sp v = fromIntegral v * length (show v)
 
-{-let f :: Float = fromIntegral v
-    sc :: Scale = fromIntegral v
- in sc * ceiling (logBase 9.0 f)-}
+deckLegal :: LegalityCheck ()
+deckLegal = do
+  -- Decks must have 40-60 cards
+  len <- asks $ length . deckContext
+  unless (len >= 40) $ throwError $ TooFewCards len
+  unless (len <= 60) $ throwError $ TooManyCards len
 
-isLegal :: CardStats -> Bool
-isLegal (SpellStats s) =
-  -- MonsterOnly effects cannot appear on spells that could be played as cards
-  scale s <= 10 && (mot || (not moe && not mor))
-  where
-    moe = any monsterOnlyEffect $ s ^. effects
-    mor = any monsterOnlyRequirement $ s ^. castingConditions
-    mot = isMonsterOnly $ s ^. spellTrigger
-isLegal (MonsterStats m) = scale m <= 10 && (m ^. monsterSpells & all ((<= 15) . scale))
-
-isLegalDeck :: [CardStats] -> Bool
-isLegalDeck cs =
-  length cs >= 40
-    && length cs <= 60
-    && all isLegal cs
-    && sum (map (max 0 . scale) cs) <= 200
+  -- Decks must have a total scale of 20 or less.
+  total <- asks deckContext >>= sumScale
+  unless (total <= 200) $ throwError $ DeckScaleTooHigh total
 
 --------------------------------------------------------------------------------
 
--- Existential Quantification
-data Ex (c :: Type -> Constraint) where
-  Ex :: (c a) => a -> Ex c
+data LegalityIssue
+  = ScaleTooHigh Int Int String
+  | MOonSpellable (Maybe Effect, Maybe Requirement) String
+  | TooManyCards Int
+  | TooFewCards Int
+  | DeckScaleTooHigh Int
 
-type Scale = Int
+instance Show LegalityIssue where
+  show (ScaleTooHigh limit s name) =
+    concat
+      [ "Scale of ",
+        show name,
+        " must be ",
+        show limit,
+        " or less! (Currently: ",
+        show s,
+        ")"
+      ]
+  show (DeckScaleTooHigh s) =
+    concat
+      [ "The total scale of a deck must be 200 or less! (Currently: ",
+        show s,
+        ")"
+      ]
+  show (TooManyCards n) =
+    concat
+      [ "A deck must have 60 cards or fewer! (Currently: ",
+        show n,
+        ")"
+      ]
+  show (TooFewCards n) =
+    concat
+      [ "A deck must have at least 40 cards! (Currently: ",
+        show n,
+        ")"
+      ]
+  show (MOonSpellable (Just e, _) n) =
+    concat
+      [ show n,
+        " can be cast from the hand but effect \"",
+        show e,
+        "\" can only be part of a monster."
+      ]
+  show (MOonSpellable (_, Just r) n) =
+    concat
+      [ show n,
+        " can be cast from the hand but requirement \"",
+        show r,
+        "\" can only be part of a monster."
+      ]
+  show (MOonSpellable (Nothing, Nothing) n) = "Woops! Error thrown even though " ++ show n ++ " is MOE legal!"
+
+data LegalityContext = LegalityCoxtext
+  { deckContext :: [Card],
+    inMonster :: Bool
+  }
+
+type LegalityCheck = ExceptT LegalityIssue (Reader LegalityContext)
+
+type Scale = LegalityCheck Int
+
+runScale :: (HasScale a) => [Card] -> a -> Either LegalityIssue Int
+runScale dck x = runReader (runExceptT $ scale x) $ LegalityCoxtext {deckContext = dck, inMonster = False}
+
+sumScale :: (HasScale a, Traversable t) => t a -> Scale
+sumScale = (<&> sum) . mapM scale
+
+sumWithPunishment :: (HasScale a, Traversable t) => Int -> t a -> Scale
+sumWithPunishment mul xs = do
+  total <- sumScale xs
+  let count = max 0 (length xs - 1)
+  return $ total + mul * count
+
+-- Throws with nice error message if the input is an illegal deck.
+isLegal :: [Card] -> IO [Card]
+isLegal dck = do
+  let ctex = LegalityCoxtext {deckContext = dck, inMonster = False}
+  case runReader (runExceptT deckLegal) ctex of
+    Left err -> do
+      hPutStrLn stderr "Illegal deck :"
+      hPrint stderr err
+      exitFailure
+    Right () -> return dck
 
 class HasScale a where
   scale :: a -> Scale
@@ -171,7 +258,7 @@ instance Default Requirement where
     Requirement
       { testRequirement = return False,
         monsterOnlyRequirement = False,
-        requirementScale = 0,
+        requirementScale = return 0,
         displayRequirement = "Always"
       }
 
@@ -193,7 +280,7 @@ instance Default Effect where
     Effect
       { performEffect = return (),
         monsterOnlyEffect = False,
-        effectScale = 0,
+        effectScale = return 0,
         displayEffect = "Do nothing"
       }
 
