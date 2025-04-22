@@ -8,17 +8,21 @@ module Main where
 
 import CardParser (card, deck)
 import Control.Monad (forM_, void)
+import Data.Foldable (toList)
 import Data.Functor ((<&>))
+import Data.List (nub)
 import Data.Maybe (mapMaybe)
 import Data.Version (showVersion)
 import Game (runGame)
+import Optics.Operators ((^.))
 import Options.Applicative.Simple (addCommand, help, metavar, simpleOptions, strArgument)
 import ParserCore (space)
 import Paths_cardfinity (version)
 import System.Exit (exitFailure)
 import Text.Megaparsec (errorBundlePretty, manyTill, parse)
 import Text.Megaparsec.Byte (string')
-import Types (Card, isLegal, runScale)
+import Types (Card, cardFamilies, cardName, isLegal, runScale)
+import Utils (SearchType (ForFamily, ForName), rarity)
 
 main :: IO ()
 main = do
@@ -61,14 +65,23 @@ devMode path = do
     print c
     case runScale dck c of
       Left err -> print err
-      Right s -> putStr "Scale: " >> print s >> putStrLn ""
+      Right s -> do
+        putStr "Scale: " >> print s
+        putStr "Rarity: " >> putStr (rarity dck $ ForName $ cardName c)
+        putStrLn ""
 
   void $ isLegal dck -- Exits if this fails!
+  putStr "Rarity of all families:"
+  forM_ (allFamilies dck) $ \(f, r) -> do
+    putStr $ show f ++ ": "
+    putStrLn r
   putStr "Number of cards: "
   print $ length dck
   putStr "Total scale: "
   print (sum $ mapMaybe ((\case Left _ -> Nothing; Right x -> Just x) . runScale dck) dck)
   return ()
+  where
+    allFamilies dck = map (\x -> (x, rarity dck $ ForFamily x)) $ nub $ foldr (\x a -> a ++ toList (x ^. cardFamilies)) [] dck
 
 play =
   addCommand

@@ -6,6 +6,8 @@ module Types
     Scale,
     runScale,
     HasScale (..),
+    LegalityContext (..),
+    LegalityIssue (..),
     Trigger (..),
     Requirement (..),
     Conditions,
@@ -64,7 +66,6 @@ import Data.Set.Ordered qualified as OS (OSet)
 import GHC.Natural (Natural)
 import Optics
 import System.Exit (exitFailure)
-import System.IO (hPrint, hPutStrLn, stderr)
 
 --------------------------------------------------------------------------------
 -- CARD BALANCING AREA:
@@ -130,6 +131,7 @@ deckLegal = do
 data LegalityIssue
   = ScaleTooHigh Int Int String
   | MOonSpellable (Maybe Effect, Maybe Requirement) String
+  | SearchTypeNotFound String -- Text of the searchtype
   | TooManyCards Int
   | TooFewCards Int
   | DeckScaleTooHigh Int
@@ -163,6 +165,7 @@ instance Show LegalityIssue where
         show n,
         ")"
       ]
+  show (SearchTypeNotFound s) = "No cards matching " ++ s ++ " found!"
   show (MOonSpellable (Just e, _) n) =
     concat
       [ show n,
@@ -179,9 +182,10 @@ instance Show LegalityIssue where
       ]
   show (MOonSpellable (Nothing, Nothing) n) = "Woops! Error thrown even though " ++ show n ++ " is MOE legal!"
 
-data LegalityContext = LegalityCoxtext
+data LegalityContext = LegalityContext
   { deckContext :: [Card],
-    inMonster :: Bool
+    inMonster :: Bool,
+    ignoreSTNotFound :: Bool
   }
 
 type LegalityCheck = ExceptT LegalityIssue (Reader LegalityContext)
@@ -189,7 +193,7 @@ type LegalityCheck = ExceptT LegalityIssue (Reader LegalityContext)
 type Scale = LegalityCheck Int
 
 runScale :: (HasScale a) => [Card] -> a -> Either LegalityIssue Int
-runScale dck x = runReader (runExceptT $ scale x) $ LegalityCoxtext {deckContext = dck, inMonster = False}
+runScale dck x = runReader (runExceptT $ scale x) $ LegalityContext {deckContext = dck, inMonster = False, ignoreSTNotFound = False}
 
 sumScale :: (HasScale a, Traversable t) => t a -> Scale
 sumScale = (<&> sum) . mapM scale
@@ -203,11 +207,11 @@ sumWithPunishment mul xs = do
 -- Throws with nice error message if the input is an illegal deck.
 isLegal :: [Card] -> IO [Card]
 isLegal dck = do
-  let ctex = LegalityCoxtext {deckContext = dck, inMonster = False}
+  let ctex = LegalityContext {deckContext = dck, inMonster = False, ignoreSTNotFound = False}
   case runReader (runExceptT deckLegal) ctex of
     Left err -> do
-      hPutStrLn stderr "Illegal deck :"
-      hPrint stderr err
+      putStrLn "Illegal deck:"
+      print err
       exitFailure
     Right () -> return dck
 

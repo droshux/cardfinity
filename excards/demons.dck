@@ -1,16 +1,16 @@
 ! The main fodder of the deck
 "Imp": 
-"Chaos Burst" on discard ?discard spell hand: deal 1
+"Chaos Burst" on discard ?discard "Arcane Burst" hand: deal 1
 power: 0
 "Demon" 
 
 ! However the fodder can start a chain of these!
-"Arcane Burst" on discard discard spell hand: deal 2
+"Arcane Burst" on discard discard "Arcane Burst" hand: deal 2
 N/A
 
 ! Common damage dealer that is very powerful and pretty easy to summon
 "Demon Warrior":
-discard field
+discard monster field
 "Flame Spear" tap take 1t: (attack, banish enemy field)
 power: 5
 "Demon"
@@ -21,7 +21,7 @@ N/A
 
 ! Useful to clean up lots of low power fodder
 "Wheel Demon":
-banish field, banish spell hand, pop 1
+banish monster field, banish spell hand, pop 1
 "Accelerate" tap: attack
 "Momentum" victory take 1: ?attack
 power: 5
@@ -30,7 +30,7 @@ power: 5
 ! Defense fodder that's harder to get rid of because it can blast your best monster
 "Hellish Pustule":
 take 1
-"Pus Explosion" discard ?discard hand: discard enemy field
+"Pus Explosion" discard ?take 1, heal enemy 1: discard enemy field
 power: 0
 "Demon"
 
@@ -56,7 +56,7 @@ power: 0
 "Dark Machine"
 
 ! A fun thing to search with the Dark Processor
-"Deadly Sacrifice" play discard 3 field: deal 10
+"Deadly Sacrifice" play discard 3 monster field: deal 9
 N/A
 
 ! One of the boss monsters in the deck, it's just a big beatstick but the more cards in your GY the more power
@@ -70,30 +70,31 @@ power: 0
 "Demon", "Demon Lord"
 
 ! Helps you summon the Lord of Sacrifice, probably with a lot of power
-"Road of Sacrifice" on play discard spell hand: drill "Lord of Sacrifice"
+"Road of Sacrifice" on play discard family "Dark Machine" hand: drill "Lord of Sacrifice"
 N/A
 
 ! A different boss monster in the deck Beefy but it has the has Hellish Pustule's discard effect. If it attacks on a turn it'll be tapped so it's discard effect can't actually go off so be careful
 "Lord of Revulsion":
-banish field,banish spell hand, pop 4
+banish "Hellish Pustule" field,discard spell hand, pop 4
 "Revolting Maw" tap: attack
 "Bloated Mass" discard take 1: discard enemy field
-power: 9
+power: 8
 "Demon Lord"
 
 ! A third boss monster, all about many attacks and increasing power
 "Lord of Grey Steel":
-banish field, banish hand, pop 3
+banish monster field, banish hand, pop 3
 "Momentum" victory take 3: buff this 5, attack
-"Accelerate" tap discard field: buff this 5, attack
+"Accelerate" tap discard monster field: buff this 5, attack
 power: 5
 "Demon Lord"
 
 deck:
 "Imp" 10
-"Hellish Pustule" 5
+"Arcane Burst" 5
+"Hellish Pustule" 4
 "Demon Warrior" 10
-"Stimulants" 5
+"Stimulants" 4
 "Wheel Demon" 3
 "Dark Engine" 5
 "Dark Portal" 5

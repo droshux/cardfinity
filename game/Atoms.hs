@@ -37,7 +37,7 @@ where
 
 import Control.Monad (void)
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), replicateM_, when)
-import Control.Monad.RWS (MonadReader (ask), asks, gets, unless)
+import Control.Monad.RWS (MonadReader (ask, local), asks, gets, unless)
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Data.Default (def)
 import Data.Functor ((<&>))
@@ -164,15 +164,14 @@ destroyCards :: DestroyType -> FindCards -> Requirement
 destroyCards d f =
   Requirement
     { testRequirement = chooseToDestroy d f,
-      requirementScale = return $ natToInt (getCount f) * (-multiplier),
+      requirementScale = do
+        let multiplier = (if isField f then 15 else 10) + (if d == Banish then 2 else 0)
+        let n = natToInt (getCount f)
+        st <- scale (getSearchType f)
+        return $ -(n * multiplier + st),
       monsterOnlyRequirement = False,
       displayRequirement = show d ++ " " ++ show f
     }
-  where
-    multiplier =
-      (if isField f then 15 else 10)
-        + (if d == Banish then 2 else 0)
-        + (if getSearchType f == ForSpell then 2 else 0)
 
 -- Destroy their cards as an effect
 destroyTheirCards :: DestroyType -> FindCards -> Effect
@@ -180,7 +179,8 @@ destroyTheirCards d f =
   Effect
     { performEffect = asOpponent' $ destroyForced d f,
       monsterOnlyEffect = False,
-      effectScale = scale inverted <&> (\x -> -x),
+      -- If the search type isn't found in your own deck then it's ok
+      effectScale = local (\c -> c {ignoreSTNotFound = True}) (scale inverted) <&> (\x -> -x),
       displayEffect = let destOurs = show inverted in replaceLast " the " " the enemy " destOurs
     }
   where
@@ -350,7 +350,6 @@ choose :: NonEmpty Effect -> Effect
 choose es =
   def
     { displayEffect = "Choose one of " ++ showFold " or " es,
-      -- effectScale = return $ maximum (mapM scale $ NonE.toList es),
       effectScale = mapM scale (NonE.toList es) <&> maximum,
       performEffect = do
         (_, c) <- lift $ selectFromList "Choose one of the following:" es
@@ -439,7 +438,7 @@ search (SearchFor t) =
     }
 search (DrillFor t) =
   def
-    { effectScale = return $ if t == ForSpell then 10 else 15,
+    { effectScale = local (\c -> c {ignoreSTNotFound = True}) (scale t) <&> (+ 10),
       displayEffect = "Drill the deck for a " ++ show t,
       performEffect =
         player's' deck >>= \case
@@ -471,7 +470,7 @@ attach t =
                 hand -= i
                 updateCard p $ monsterStats % monsterSpells %~ (s :),
       monsterOnlyEffect = True,
-      effectScale = return 5,
+      effectScale = scale t <&> (+ 5),
       displayEffect = "Attach a " ++ show t ++ " from your hand to this card"
     }
   where
@@ -587,9 +586,9 @@ playCardEffect t =
   Effect
     { performEffect = lift $ playCard t,
       monsterOnlyEffect = False,
-      effectScale = return $ case t of
-        ForSpell -> -3
-        _ -> 0,
+      effectScale = case t of
+        ForSpell -> return $ -3
+        o -> scale o,
       displayEffect = "Play a " ++ show t
     }
 

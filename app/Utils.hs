@@ -34,11 +34,12 @@ module Utils
     player's',
     SearchType (..),
     toPredicate,
+    rarity,
     playCard,
   )
 where
 
-import Control.Monad (mfilter, (<=<))
+import Control.Monad (mfilter, unless, (<=<))
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), runExceptT, throwError, void, when)
 import Control.Monad.Reader (MonadReader (ask, local), ReaderT (runReaderT), asks)
 import Control.Monad.State (MonadState (get, put), StateT (runStateT), gets, modify)
@@ -85,6 +86,37 @@ toPredicate (ForName n) = (n ==) . cardName
 toPredicate (ForFamily f) = elem f . (^. cardFamilies)
 toPredicate ForCard = const True
 toPredicate t = cardElim (const $ t == ForSpell) (const $ t == ForMonster)
+
+instance HasScale SearchType where
+  scale t = asks deckContext <&> length . filter (toPredicate t) >>= calcRarity
+    where
+      calcRarity :: Int -> Scale
+      calcRarity x
+        | x == 0 = do
+            ignore <- asks ignoreSTNotFound
+            unless ignore $ throwError $ SearchTypeNotFound $ show t
+            return 0
+        -- Halfing the number of copies -> increase rarity by 1
+        | x == 1 = return 5
+        | x == 2 = return 4
+        | x >= 3 && x <= 4 = return 3
+        | x >= 5 && x <= 8 = return 2
+        | x >= 9 && x <= 16 = return 1
+        | otherwise = return 0
+
+rarity :: [Card] -> SearchType -> String
+rarity dck t = do
+  let s = runScale dck t
+   in case s of
+        Left (SearchTypeNotFound _) -> "Not Found"
+        Right 5 -> "Legendary"
+        Right 4 -> "Very Rare"
+        Right 3 -> "Rare"
+        Right 2 -> "Uncommon"
+        Right 1 -> "Commmon"
+        Right 0 -> "Veyy Common"
+        Left _ -> "Error"
+        Right _ -> "Error"
 
 instance Show SearchType where
   show ForCard = "card"
