@@ -88,7 +88,6 @@ monster = do
   space
   reqs <- requirements
   space
-  -- \*> string' "spells:" *> space
   spells <- someTill (spell <* space) (string' "power")
   optional (char ':') *> hspace
   power <- decimal
