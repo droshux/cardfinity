@@ -1,6 +1,8 @@
-module Pdf (testDoc) where
+module Pdf (document, pageDimension) where
 
+import Control.Monad (forM, forM_)
 import Data.Text (pack)
+import GHC.Float (int2Double)
 import Graphics.PDF
 import Types (Card, cardName)
 
@@ -27,13 +29,29 @@ drawCard f pos c = displayFormattedText pos VERT (CardText f) $ paragraph $ do
   str $ cardName c
   return ()
 
-testPageContent :: PDFReference PDFPage -> PDF ()
-testPageContent page = drawWithPage page $ do
-  strokeColor red
-  setWidth 0.5
-  stroke $ Rectangle (10 :+ 0) (200 :+ 300)
+pageDimension :: PDFRect
+pageDimension = PDFRect 0 0 595.28 841.89 -- A4
 
-testDoc :: PDF ()
-testDoc = do
-  page1 <- addPage Nothing
-  testPageContent page1
+-- Size of card: 180 :+ 252
+cardRects :: [Rectangle]
+cardRects = flip map [0 :: Int ..] $ \i ->
+  let x = 12.64 + 185 * int2Double (i `mod` 3)
+      y = 35.445 + 257 * int2Double (i `div` 3)
+   in Rectangle (x :+ y) ((x + 180) :+ (y + 252))
+
+pageContent :: [Card] -> PDFReference PDFPage -> PDF ()
+pageContent cs = flip drawWithPage $ do
+  strokeColor black
+  setWidth 0.5
+  let rects = take (length cs) cardRects
+  forM_ rects stroke
+
+-- 9 playing cards can fit on an A4 page
+document :: [Card] -> PDF ()
+document cards = do
+  let cc = length cards
+  let pageCount = (cc `div` 9) + if cc `mod` 9 == 0 then 1 else 0
+  forM_ [0 .. pageCount] $ \i ->
+    addPage Nothing >>= pageContent (takeCards i cards)
+  where
+    takeCards i = take 9 . drop (i * 9)

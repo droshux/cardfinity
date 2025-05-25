@@ -23,7 +23,7 @@ import Optics.Operators ((^.))
 import Options.Applicative.Simple (addCommand, help, metavar, simpleOptions, strArgument)
 import ParserCore (space)
 import Paths_cardfinity (version)
-import Pdf (testDoc)
+import Pdf (document, pageDimension)
 import System.Exit (exitFailure)
 import Text.Megaparsec (errorBundlePretty, manyTill, parse)
 import Text.Megaparsec.Byte (string')
@@ -132,12 +132,11 @@ pdf =
 
 genPDF :: String -> IO ()
 genPDF path = do
-  (_, dName, dAuthor) <- tryParseDeck path
+  (cs, dName, dAuthor) <- tryParseDeck path
   {- fnt <- mkStdFont Times_Roman >>= \case
       Left err -> do
           print err
           exitFailure
       Right f -> return f -}
-  let pageDimension = PDFRect 0 0 595.28 841.89 -- A4
   let info = standardDocInfo {author = pack dAuthor, compressed = False}
-  runPdf (dName ++ ".pdf") info pageDimension testDoc
+  runPdf (dName ++ ".pdf") info pageDimension $ document cs
