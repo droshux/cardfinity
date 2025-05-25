@@ -4,7 +4,7 @@
 power: 0
 "Demon" 
 
-! However the fodder can start a chain of these!
+! However the fodder can start a chain of these
 "Arcane Burst" on discard discard "Arcane Burst" hand: deal 2
 N/A
 

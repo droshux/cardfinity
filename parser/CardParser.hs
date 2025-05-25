@@ -92,7 +92,9 @@ monster = do
   optional (char ':') *> hspace
   power <- decimal
   space
-  startsTapped <- option False $ newline <* string' "tapped" >> pure True
+  startsTapped <- option False $ do
+    _ <- string' "tapped"
+    return True
   return
     Monster
       { _summoningConditions = reqs,

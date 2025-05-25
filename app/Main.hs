@@ -1,10 +1,11 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 {-# HLINT ignore "Redundant <&>" #-}
 
-module Main where
+module Main (main) where
 
 import CardParser (card, deck)
 import Control.Monad (forM_, void)
@@ -14,10 +15,14 @@ import Data.List (nub)
 import Data.Maybe (mapMaybe)
 import Data.Version (showVersion)
 import Game (runGame)
+import Graphics.PDF (PDFRect (PDFRect), mkStdFont, runPdf)
+import Graphics.PDF.Document (PDFDocumentInfo (..), standardDocInfo)
+import Graphics.PDF.Fonts.StandardFont (FontName (Times_Roman))
 import Optics.Operators ((^.))
 import Options.Applicative.Simple (addCommand, help, metavar, simpleOptions, strArgument)
 import ParserCore (space)
 import Paths_cardfinity (version)
+import Pdf (testDoc)
 import System.Exit (exitFailure)
 import Text.Megaparsec (errorBundlePretty, manyTill, parse)
 import Text.Megaparsec.Byte (string')
@@ -35,6 +40,7 @@ main = do
       $ do
         dev
         play
+        pdf
   action
 
 dev =
@@ -70,8 +76,9 @@ devMode path = do
         putStr "Rarity: " >> putStr (rarity dck $ ForName $ cardName c)
         putStrLn ""
 
+  putStrLn ""
   void $ isLegal dck -- Exits if this fails!
-  putStr "Rarity of all families:"
+  putStrLn "Rarity of all families:"
   forM_ (allFamilies dck) $ \(f, r) -> do
     putStr $ show f ++ ": "
     putStrLn r
@@ -111,3 +118,23 @@ bothM f (x, y) = do
 
 playWithDecks :: (String, String) -> IO ()
 playWithDecks p = bothM tryParseDeck p >>= uncurry runGame
+
+pdf =
+  addCommand
+    "pdf"
+    "Generate a PDF of a deck for printing."
+    genPDF
+    $ strArgument
+    $ metavar "Deck" <> help "The file containing the deck to generate a PDF of."
+
+genPDF :: String -> IO ()
+genPDF path = do
+  {- dck <- tryParseDeck path
+  fnt <- mkStdFont Times_Roman >>= \case
+      Left err -> do
+          print err
+          exitFailure
+      Right f -> return f -}
+  let pageDimension = PDFRect 0 0 595.28 841.89 -- A4
+  let info = standardDocInfo {author = "hux", compressed = False}
+  runPdf "demo.pdf" info pageDimension testDoc

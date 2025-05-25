@@ -114,9 +114,8 @@ rarity dck t = do
         Right 3 -> "Rare"
         Right 2 -> "Uncommon"
         Right 1 -> "Commmon"
-        Right 0 -> "Veyy Common"
-        Left _ -> "Error"
-        Right _ -> "Error"
+        Right 0 -> "Very Common"
+        _ -> "Error"
 
 instance Show SearchType where
   show ForCard = "card"
