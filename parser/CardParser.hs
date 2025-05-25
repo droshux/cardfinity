@@ -20,11 +20,20 @@ import Types
     cardName,
   )
 
-deck :: CardParser [Card]
+deck :: CardParser ([Card], String, String)
 deck = do
   cardDefs <- manyTill (card <* space) (string' "deck:" *> space)
+  (dName, author) <- deckInfo <* space
   cardIncls <- manyTill (cardInclude cardDefs <* space) eof
-  return $ flip concatMap cardIncls $ uncurry replicate
+  let cards = (>>= uncurry replicate) cardIncls
+  return (cards, dName, author)
+
+deckInfo :: CardParser (String, String)
+deckInfo = do
+  dName <- name <* hspace
+  option () $ string' "by" *> hspace
+  author <- name
+  return (dName, author)
 
 cardInclude :: [Card] -> CardParser (Int, Card)
 cardInclude cs = do

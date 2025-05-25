@@ -13,6 +13,7 @@ import Data.Foldable (toList)
 import Data.Functor ((<&>))
 import Data.List (nub)
 import Data.Maybe (mapMaybe)
+import Data.Text (pack)
 import Data.Version (showVersion)
 import Game (runGame)
 import Graphics.PDF (PDFRect (PDFRect), mkStdFont, runPdf)
@@ -55,7 +56,7 @@ dev =
 
 devMode path = do
   -- Read entire deck
-  dck <- tryParseDeck path
+  dck <- fst3 <$> tryParseDeck path
 
   -- Read all unique cards and print
   let cardsParse = manyTill (card <* space) (string' "deck:")
@@ -102,7 +103,7 @@ play =
           repl o = o
        in strArgument $ metavar (map repl "Player X's Deck") <> help (map repl "The file containing Player X's deck.")
 
-tryParseDeck :: String -> IO [Card]
+tryParseDeck :: String -> IO ([Card], String, String)
 tryParseDeck path =
   readFile path <&> parse deck path >>= \case
     Left err -> do
@@ -116,8 +117,10 @@ bothM f (x, y) = do
   y' <- f y
   return (x', y')
 
+fst3 (x, _, _) = x
+
 playWithDecks :: (String, String) -> IO ()
-playWithDecks p = bothM tryParseDeck p >>= uncurry runGame
+playWithDecks p = bothM (fmap fst3 . tryParseDeck) p >>= uncurry runGame
 
 pdf =
   addCommand
@@ -129,12 +132,12 @@ pdf =
 
 genPDF :: String -> IO ()
 genPDF path = do
-  {- dck <- tryParseDeck path
-  fnt <- mkStdFont Times_Roman >>= \case
+  (_, dName, dAuthor) <- tryParseDeck path
+  {- fnt <- mkStdFont Times_Roman >>= \case
       Left err -> do
           print err
           exitFailure
       Right f -> return f -}
   let pageDimension = PDFRect 0 0 595.28 841.89 -- A4
-  let info = standardDocInfo {author = "hux", compressed = False}
-  runPdf "demo.pdf" info pageDimension testDoc
+  let info = standardDocInfo {author = pack dAuthor, compressed = False}
+  runPdf (dName ++ ".pdf") info pageDimension testDoc
