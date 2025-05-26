@@ -378,9 +378,12 @@ attack piercing =
     attackDirectly m = do
       liftIO $ putStrLn "Attacking Directly!"
       lift $ asOpponent $ takeBattleDamage m
+    attackable c = case c ^. cardStats of
+      SpellStats _ -> False
+      MonsterStats m -> not $ m ^. isTapped
     attackIndirect m =
       let power = natToInt $ m ^. combatPower
-       in lift (opponent's field) >>= \case
+       in lift (opponent's field) <&> filter attackable >>= \case
             [] -> attackDirectly power
             (efst : erst) -> do
               (i, _) <- selectFromList' "Select the monster to attack:" $ NonE.map cardName (efst :| erst)
