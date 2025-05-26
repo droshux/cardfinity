@@ -16,7 +16,7 @@ import Data.Maybe (mapMaybe)
 import Data.Text (pack)
 import Data.Version (showVersion)
 import Game (runGame)
-import Graphics.PDF (PDFRect (PDFRect), mkStdFont, runPdf)
+import Graphics.PDF (mkStdFont, runPdf)
 import Graphics.PDF.Document (PDFDocumentInfo (..), standardDocInfo)
 import Graphics.PDF.Fonts.StandardFont (FontName (Times_Roman))
 import Optics.Operators ((^.))
@@ -133,10 +133,11 @@ pdf =
 genPDF :: String -> IO ()
 genPDF path = do
   (cs, dName, dAuthor) <- tryParseDeck path
-  {- fnt <- mkStdFont Times_Roman >>= \case
+  fnt <-
+    mkStdFont Times_Roman >>= \case
       Left err -> do
-          print err
-          exitFailure
-      Right f -> return f -}
+        print err
+        exitFailure
+      Right f -> return f
   let info = standardDocInfo {author = pack dAuthor, compressed = False}
-  runPdf (dName ++ ".pdf") info pageDimension $ document cs
+  runPdf (dName ++ ".pdf") info pageDimension $ document fnt cs

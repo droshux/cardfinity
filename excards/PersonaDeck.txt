@@ -84,6 +84,7 @@ N/A
 "persona"
 
 deck:
+"Persona" by "Morgan"
 "FoolXXII" 3
 "The Magician" 4
 "The Lovers" 4
