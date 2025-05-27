@@ -54,7 +54,7 @@ build-type:         Simple
 common warnings
     ghc-options: -Wall
 
-executable cardgame
+executable cardfinity
     -- Import common warning flags.
     import:           warnings
 

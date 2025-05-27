@@ -19,10 +19,10 @@ import Game (runGame)
 import Graphics.PDF (FontName (Helvetica, Helvetica_Bold, Helvetica_Oblique), mkStdFont, runPdf)
 import Graphics.PDF.Document (PDFDocumentInfo (..), standardDocInfo)
 import Optics.Operators ((^.))
-import Options.Applicative.Simple (addCommand, help, metavar, simpleOptions, strArgument)
+import Options.Applicative.Simple (addCommand, help, long, metavar, short, simpleOptions, strArgument, switch)
 import ParserCore (space)
 import Paths_cardfinity (version)
-import Pdf (Fonts (..), document, pageDimension)
+import Pdf (Fonts (..), document, documentAlt, pageDimension, pageDimensionAlt)
 import System.Exit (exitFailure)
 import Text.Megaparsec (errorBundlePretty, manyTill, parse)
 import Text.Megaparsec.Byte (string')
@@ -34,8 +34,8 @@ main = do
   ((), action) <-
     simpleOptions
       (showVersion version)
-      "header"
-      "desc"
+      "Cardfinity!"
+      "The cardgame of \"infinite\" possibilities!"
       (pure ())
       $ do
         dev
@@ -126,11 +126,14 @@ pdf =
     "pdf"
     "Generate a PDF of a deck for printing."
     genPDF
-    $ strArgument
-    $ metavar "Deck" <> help "The file containing the deck to generate a PDF of."
+    ((,) <$> landSwitch <*> deckFile)
+  where
+    landSwitch = switch $ short 'l' <> long "landscape" <> help "Generate landscape cards."
+    deckFile = strArgument $ metavar "Deck" <> help "The file containing the deck to generate a PDF of."
 
-genPDF :: String -> IO ()
-genPDF path = do
+genPDF :: (Bool, String) -> IO ()
+genPDF (landscape, path) = do
+  let (docFN, dims) = if landscape then (documentAlt, pageDimensionAlt) else (document, pageDimension)
   (cs, dName, dAuthor) <- tryParseDeck path
   fnts <-
     runExceptT getFonts >>= \case
@@ -139,7 +142,7 @@ genPDF path = do
         exitFailure
       Right f -> return f
   let info = standardDocInfo {author = pack dAuthor, compressed = False}
-  runPdf (dName ++ ".pdf") info pageDimension $ document fnts cs
+  runPdf (dName ++ ".pdf") info dims $ docFN fnts cs
 
 getFonts :: ExceptT String IO Fonts
 getFonts = do

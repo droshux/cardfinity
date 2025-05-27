@@ -1,4 +1,4 @@
-module Pdf (document, pageDimension, Fonts (..)) where
+module Pdf (document, pageDimension, documentAlt, pageDimensionAlt, Fonts (..)) where
 
 import Control.Monad (forM_, unless, void, when, zipWithM_)
 import Data.Text (pack)
@@ -50,7 +50,7 @@ instance Style HStyle where
       }
   textStyle (NameText f monster) =
     (textStyle $ CardText f)
-      { textFont = PDFFont (n f) 14,
+      { textFont = PDFFont (n f) 12,
         textFillColor = if monster then Rgb 0.8 0.6 0.4 else Rgb 0.4 0.8 0.8
       }
   textStyle (SpellNameText f) =
@@ -131,6 +131,9 @@ writeSpell fnt showName s = do
 pageDimension :: PDFRect
 pageDimension = PDFRect 0 0 595.28 841.89 -- A4
 
+pageDimensionAlt :: PDFRect
+pageDimensionAlt = PDFRect 0 0 841.89 595.28 -- A4 Landscape
+
 -- Size of card: 180 :+ 252
 cardRects :: [Rectangle]
 cardRects = flip map [0 :: Int ..] $ \i ->
@@ -138,20 +141,32 @@ cardRects = flip map [0 :: Int ..] $ \i ->
       y = 25.445 + 262 * int2Double (i `div` 3)
    in Rectangle (x :+ y) ((x + 180) :+ (y + 252))
 
-pageContent :: Fonts -> [Card] -> PDFReference PDFPage -> PDF ()
-pageContent fnt cs = flip drawWithPage $ do
+cardRectsAlt :: [Rectangle]
+cardRectsAlt = flip map [0 :: Int ..] $ \i ->
+  let x = 25.445 + 262 * int2Double (i `mod` 3)
+      y = 10.14 + 187.5 * int2Double (i `div` 3)
+   in Rectangle (x :+ y) ((x + 252) :+ (y + 180))
+
+pageContent :: [Rectangle] -> Fonts -> [Card] -> PDFReference PDFPage -> PDF ()
+pageContent rectGen fnt cs = flip drawWithPage $ do
   strokeColor black
   setWidth 0.5
-  let rects = take (length cs) cardRects
+  let rects = take (length cs) rectGen
   forM_ rects stroke
   zipWithM_ (drawCard fnt) rects cs
 
--- 9 playing cards can fit on an A4 page
-document :: Fonts -> [Card] -> PDF ()
-document fnt cards = do
+divideCards :: [Rectangle] -> Fonts -> [Card] -> PDF ()
+divideCards rectGen fnt cards = do
   let cc = length cards
   let pageCount = (cc `div` 9) + if cc `mod` 9 == 0 then 1 else 0
   forM_ [0 .. pageCount] $ \i ->
-    addPage Nothing >>= pageContent fnt (takeCards i cards)
+    addPage Nothing >>= pageContent rectGen fnt (takeCards i cards)
   where
     takeCards i = take 9 . drop (i * 9)
+
+-- 9 playing cards can fit on an A4 page
+document :: Fonts -> [Card] -> PDF ()
+document = divideCards cardRects
+
+documentAlt :: Fonts -> [Card] -> PDF ()
+documentAlt = divideCards cardRectsAlt
