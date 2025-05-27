@@ -1,14 +1,14 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# HLINT ignore "Redundant <&>" #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Redundant <&>" #-}
 
 module Main (main) where
 
 import CardParser (card, deck)
 import Control.Monad (forM_, void)
+import Control.Monad.Except (ExceptT (ExceptT), runExceptT)
 import Data.Foldable (toList)
 import Data.Functor ((<&>))
 import Data.List (nub)
@@ -16,14 +16,13 @@ import Data.Maybe (mapMaybe)
 import Data.Text (pack)
 import Data.Version (showVersion)
 import Game (runGame)
-import Graphics.PDF (mkStdFont, runPdf)
+import Graphics.PDF (FontName (Helvetica, Helvetica_Bold, Helvetica_Oblique), mkStdFont, runPdf)
 import Graphics.PDF.Document (PDFDocumentInfo (..), standardDocInfo)
-import Graphics.PDF.Fonts.StandardFont (FontName (Times_Roman))
 import Optics.Operators ((^.))
 import Options.Applicative.Simple (addCommand, help, metavar, simpleOptions, strArgument)
 import ParserCore (space)
 import Paths_cardfinity (version)
-import Pdf (document, pageDimension)
+import Pdf (Fonts (..), document, pageDimension)
 import System.Exit (exitFailure)
 import Text.Megaparsec (errorBundlePretty, manyTill, parse)
 import Text.Megaparsec.Byte (string')
@@ -133,11 +132,28 @@ pdf =
 genPDF :: String -> IO ()
 genPDF path = do
   (cs, dName, dAuthor) <- tryParseDeck path
-  fnt <-
-    mkStdFont Times_Roman >>= \case
+  fnts <-
+    runExceptT getFonts >>= \case
       Left err -> do
-        print err
+        putStrLn err
         exitFailure
       Right f -> return f
   let info = standardDocInfo {author = pack dAuthor, compressed = False}
-  runPdf (dName ++ ".pdf") info pageDimension $ document fnt cs
+  runPdf (dName ++ ".pdf") info pageDimension $ document fnts cs
+
+getFonts :: ExceptT String IO Fonts
+getFonts = do
+  n <- getFont Helvetica
+  bold <- getFont Helvetica_Bold
+  italic <- getFont Helvetica_Oblique
+  return $
+    Fonts
+      { n,
+        bold,
+        italic
+      }
+  where
+    getFont f = ExceptT $ mapLeft show <$> mkStdFont f
+    mapLeft :: (a -> b) -> Either a c -> Either b c
+    mapLeft f (Left x) = Left $ f x
+    mapLeft _ (Right x) = Right x
