@@ -18,6 +18,7 @@ module Atoms
     scry,
     popGraveyard,
     choose,
+    reqChoose,
     attack,
     discardDeck,
     discardTheirDeck,
@@ -349,11 +350,21 @@ popGraveyard n =
 choose :: NonEmpty Effect -> Effect
 choose es =
   def
-    { displayEffect = "Choose one of " ++ showFold " or " es,
+    { displayEffect = "Choose one of (" ++ showFold " or " es ++ ")",
       effectScale = mapM scale (NonE.toList es) <&> maximum,
       performEffect = do
         (_, c) <- lift $ selectFromList "Choose one of the following:" es
         performEffect c
+    }
+
+reqChoose :: NonEmpty Requirement -> Requirement
+reqChoose rs =
+  def
+    { displayRequirement = "Choose one of (" ++ showFold " or " rs ++ ")",
+      requirementScale = mapM scale (NonE.toList rs) <&> maximum,
+      testRequirement = do
+        (_, r) <- lift $ selectFromList "Choose one of the following:" rs
+        testRequirement r
     }
 
 attack :: Bool -> Effect

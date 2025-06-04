@@ -21,7 +21,8 @@ requirement =
       takeD,
       healThem,
       pop,
-      mbReq
+      mbReq,
+      rchooseParse
     ]
 
 effect :: CardParser Effect
@@ -149,6 +150,11 @@ chooseParse :: CardParser Effect
 chooseParse = do
   (e : es) <- between (char '(' *> hspace) (hspace <* char ')') $ effect `sepBy1` gap
   return $ choose (e :| es)
+
+rchooseParse :: CardParser Requirement
+rchooseParse = do
+  (r : rs) <- between (char '(' *> hspace) (hspace <* char ')') $ requirement `sepBy1` gap
+  return $ reqChoose (r :| rs)
 
 attackParse :: CardParser Effect
 attackParse = do

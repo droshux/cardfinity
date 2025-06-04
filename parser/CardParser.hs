@@ -7,7 +7,7 @@ import Data.Foldable (find)
 import Data.Functor (($>))
 import Data.Set.Ordered (OSet, empty, fromList)
 import ParserCore
-import Text.Megaparsec (MonadParsec (..), choice, manyTill, option, optional, sepBy, sepBy1, someTill)
+import Text.Megaparsec (MonadParsec (..), choice, manyTill, option, optional, sepBy, sepBy1)
 import Text.Megaparsec.Char (char, string')
 import Text.Megaparsec.Char.Lexer (decimal)
 import Types
@@ -97,7 +97,7 @@ monster = do
   space
   reqs <- requirements
   space
-  spells <- someTill (spell <* space) (string' "power")
+  spells <- manyTill (spell <* space) (string' "power")
   optional (char ':') *> hspace
   power <- decimal
   space
@@ -114,4 +114,4 @@ monster = do
       }
 
 requirements :: CardParser (OSet Requirement)
-requirements = option empty $ fromList <$> requirement `sepBy` (char ',' *> hspace)
+requirements = fmap fromList $ option [] $ requirement `sepBy` gap

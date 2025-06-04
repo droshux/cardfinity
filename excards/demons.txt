@@ -1,12 +1,8 @@
 ! The main fodder of the deck
 "Imp": 
-"Chaos Burst" on discard ?discard "Arcane Burst" hand: deal 1
+"Trick Prophecy" on play: (peek, scry)
 power: 0
 "Demon" 
-
-! However the fodder can start a chain of these
-"Arcane Burst" on discard discard "Arcane Burst" hand: deal 2
-N/A
 
 ! Common damage dealer that is very powerful and pretty easy to summon
 "Demon Warrior":
@@ -27,7 +23,7 @@ banish monster field, banish spell hand, pop 1
 power: 5
 "Demon"
 
-! Defense fodder that's harder to get rid of because it can blast your best monster
+! Defence fodder that's harder to get rid of because it can blast your best monster
 "Hellish Pustule":
 take 1
 "Pus Explosion" discard ?take 1, heal enemy 1: discard enemy field
@@ -61,7 +57,7 @@ N/A
 
 ! One of the boss monsters in the deck, it's just a big beatstick but the more cards in your GY the more power
 "Lord of Sacrifice":
-take 7
+(take 7, discard 3 field, discard 4 hand)
 "Power in blood" on play pop 10: buff this 10 
 "Glory in injury" on play pop 10: buff this 10 
 "Divinity in suffering" on play pop 10: buff this 10 
@@ -91,8 +87,7 @@ power: 5
 
 deck:
 "Demons" by "Hux"
-"Imp" 10
-"Arcane Burst" 5
+"Imp" 11
 "Hellish Pustule" 4
 "Demon Warrior" 10
 "Stimulants" 4
