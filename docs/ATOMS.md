@@ -45,7 +45,7 @@ The most complicated and versatile requirement. It is made up of the following
 parts:
 
 1. Method: Whether to Discard or Banish the cards. This *does*
-   [trigger](/docs/RULES#trigger) `on discard`.
+   [trigger](/docs/RULES.md#trigger) `on discard`.
 2. Count: How many cards to destroy.
 3. [Filter](#filters): What cards can be destroyed.
 4. Location: Whether to destroy cards in the hand or on the field.
