@@ -135,10 +135,11 @@ destroyForced d f
         [] -> liftIO $ do
           putStrLn "Couldn't find enough "
           putStr $ show $ getSearchType f
-          putStrLn "s in the hand."
+          putStr "s in the "
+          putStrLn $ if isField f then "field." else "hand."
         (cfst : crst) -> do
           cp <- lift ask
-          (i, _) <- selectFromList' (prompt cp) $ cardName cfst :| map cardName crst
+          (i, _) <- selectFromListNoPlayer' (prompt cp) $ cardName cfst :| map cardName crst
           lift $ getLocation f -= i
           lift $ handleDiscard $ (cfst : crst) !! i
           moveOn

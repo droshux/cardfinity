@@ -16,6 +16,8 @@ module Utils
     selectFromList',
     selectFromListCancelable,
     selectFromListCancelable',
+    selectFromListNoPlayer,
+    selectFromListNoPlayer',
     ifNotCancelled,
     deckout,
     draw,
@@ -149,10 +151,9 @@ asOpponent op = do
 asOpponent' :: GameOpWithCardContext a -> GameOpWithCardContext a
 asOpponent' op = ask >>= lift . asOpponent . runReaderT op
 
-selectFromList :: (Show a) => String -> NonEmpty a -> GameOperation (Int, a)
-selectFromList _ (option :| []) = return (0, option)
-selectFromList prompt options = do
-  ask >>= liftIO . putStr . (++ ", ") . show
+selectFromListNoPlayer :: (Show a) => String -> NonEmpty a -> GameOperation (Int, a)
+selectFromListNoPlayer _ (option :| []) = return (0, option)
+selectFromListNoPlayer prompt options = do
   liftIO $ putStrLn prompt
   helper $ toList options
   where
@@ -166,6 +167,14 @@ selectFromList prompt options = do
           helper xs
     printOption (i :: Int, s) = putStrLn (show i ++ ": " ++ show s)
     inRange xs i = 0 <= i && i < length xs
+
+selectFromList :: (Show a) => String -> NonEmpty a -> GameOperation (Int, a)
+selectFromList prompt options = do
+  ask >>= liftIO . putStr . (++ ", ") . show
+  selectFromListNoPlayer prompt options
+
+selectFromListNoPlayer' :: (Show a) => String -> NonEmpty a -> GameOpWithCardContext (Int, a)
+selectFromListNoPlayer' prompt = lift . selectFromListNoPlayer prompt
 
 selectFromList' :: (Show a) => String -> NonEmpty a -> GameOpWithCardContext (Int, a)
 selectFromList' prompt = lift . selectFromList prompt
