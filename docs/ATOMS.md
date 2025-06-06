@@ -74,7 +74,7 @@ If the count or filter are omitted they are assumed to be `1` and `card`.
 
 ### Discard
 
-Discard the top card of your deck, this *does* [trigger](/docs/RULES.md#Trigger)
+Discard the top card of your deck, this *does* [trigger](/docs/RULES.md#trigger)
 `on discard`. This requirement is written as: `discard` and has scale `-5`.
 
 The difference between "Discard the top card of your deck" and "take one damage"
@@ -90,9 +90,9 @@ from your deck without actually losing any cards.
 Remove the given number of cards from the top of your deck. If the damage is
 "true" cards are banished, otherwise they are placed on top of the graveyard in
 the order they were removed from the deck. If there are not enough cards in your
-deck [you lose the game](/docs/RULES.md#Deckout%20and%20Damage).
+deck [you lose the game](/docs/RULES.md#deckout-and-damage).
 
-This **does not** [trigger](/docs/RULES#Trigger) `on discard`.
+This **does not** [trigger](/docs/RULES.md#trigger) `on discard`.
 
 `[count] true` can be written as `[count]t` if desired, note the lack of space
 between the count and `t`.
@@ -155,11 +155,14 @@ instead of negative.
 
 Discard the top card of the opponent's deck. This effect is written as `discard
 enemy` and has scale `5`. This does [trigger](/docs/RULES.md#trigger) `on
-discard`. To see why this is separate from [deal damage](/docs/ATOMS.md#Deal%20Damage), see #discard.
+discard`. To see why this is separate from [deal
+damage](/docs/ATOMS.md#deal-damage), see #discard.
 
 ### Deal Damage
 
-Written as `deal [count] [true?]`. The same as [take damage](/docs/ATOMS.md#Take%20Damage) but removes from your opponent's deck instead of your deck and has positive scale instead of negative.
+Written as `deal [count] [true?]`. The same as [take
+damage](/docs/ATOMS.md#take-damage) but removes from your opponent's deck
+instead of your deck and has positive scale instead of negative.
 
 ### Heal
 
@@ -182,7 +185,7 @@ Written as `deckout` with scale `-5`.
 
 Written as `draw [count]` with scale `10 × count`. Draw the given number of
 cards. If you are unable to draw enough cards [you lose the
-game](/docs/RULES.md#Deckout%20and%20Damage).
+game](/docs/RULES.md#deckout-and-damage).
 
 If the count is omitted the default is `1` (`draw -> draw 1`).
 

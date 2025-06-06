@@ -146,7 +146,7 @@ to meet the requirements. If the card discarded has a `on discard` spell the
 consequences of that spell are also erased. It is as if the spell was never
 activated. 
 
-Details on each requirement can be found [here](/docs/ATOMS##Requirements).
+Details on each requirement can be found [here](/docs/ATOMS.md#requirements).
 
 Requirements are written in a comma separated list, for example: `banish monster
 field, banish spell hand, pop 1`
@@ -164,7 +164,7 @@ Spells with many effects can become quite expensive. If an effect has less than
 had three effects with scales `2, 3, -7, -1` the scale contribution of the effects
 would be: `2 + 3 - 5 - 1 + 5 + 5 + 5`.
 
-Details on each effect can be found [here](/docs/ATOMS##Effects).
+Details on each effect can be found [here](/docs/ATOMS.md#effects).
 
 Effects are written in a comma separated list, for example: `attack, banish
 enemy field`
@@ -173,9 +173,9 @@ enemy field`
 
 A monster has four parts:
 1. The name of the monster
-1. The summoning [requirements](#requirements) of the monster. You must meet
+1. The summoning #requirements of the monster. You must meet
 these to play the monster from your hand onto the field.
-1. A list of [spells](#spells). These spells can have scale up to 15 but the
+1. A list of #spells. These spells can have scale up to 15 but the
 total scale of the monster must still be 10 or less.
 1. The monster's "power". A number that represents the combat capability of the
 monster. Since monsters cannot attack by default, the monster's power normally
