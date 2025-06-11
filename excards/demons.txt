@@ -7,7 +7,7 @@ power: 0
 ! Common damage dealer that is very powerful and pretty easy to summon
 "Demon Warrior":
 discard monster field
-"Flame Spear" tap take 1t: (attack, banish enemy field)
+"Flame Spear" tap take 2t: (attack, banish enemy field)
 power: 5
 "Demon"
 
@@ -73,7 +73,7 @@ N/A
 "Lord of Revulsion":
 banish "Hellish Pustule" field,discard spell hand, pop 4
 "Revolting Maw" tap: attack
-"Bloated Mass" discard take 1: discard enemy field
+"Bloated Mass" discard take 1t: discard enemy field
 power: 8
 "Demon Lord"
 

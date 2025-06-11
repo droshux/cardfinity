@@ -7,19 +7,19 @@
 module Main (main) where
 
 import CardParser (card, deck)
-import Control.Monad (forM_, void)
+import Control.Monad (forM_, void, when)
 import Control.Monad.Except (ExceptT (ExceptT), runExceptT)
 import Data.Foldable (toList)
 import Data.Functor ((<&>))
 import Data.List (nub)
-import Data.Maybe (mapMaybe)
+import Data.Maybe (fromJust, mapMaybe)
 import Data.Text (pack)
 import Data.Version (showVersion)
 import Game (runGame)
 import Graphics.PDF (FontName (Helvetica, Helvetica_Bold, Helvetica_Oblique), mkStdFont, runPdf)
 import Graphics.PDF.Document (PDFDocumentInfo (..), standardDocInfo)
 import Optics.Operators ((^.))
-import Options.Applicative.Simple (addCommand, help, long, metavar, short, simpleOptions, strArgument, switch)
+import Options.Applicative.Simple (addCommand, help, long, metavar, option, short, simpleOptions, str, strArgument, switch, value)
 import ParserCore (space)
 import Paths_cardfinity (version)
 import Pdf (Fonts (..), document, documentAlt, pageDimension, pageDimensionAlt)
@@ -121,20 +121,33 @@ fst3 (x, _, _) = x
 playWithDecks :: (String, String) -> IO ()
 playWithDecks p = bothM (fmap fst3 . tryParseDeck) p >>= uncurry runGame
 
+data PDFArgs = PDFArgs
+  { path :: String,
+    landscape :: Bool,
+    patchName :: Maybe String
+  }
+
 pdf =
   addCommand
     "pdf"
     "Generate a PDF of a deck for printing."
     genPDF
-    ((,) <$> landSwitch <*> deckFile)
+    (PDFArgs <$> deckFile <*> landSwitch <*> patch)
   where
     landSwitch = switch $ short 'l' <> long "landscape" <> help "Generate landscape cards."
     deckFile = strArgument $ metavar "Deck" <> help "The file containing the deck to generate a PDF of."
+    patch = option (Just <$> str) $ short 'p' <> long "patch" <> help "Only print cards with the given name" <> value Nothing
 
-genPDF :: (Bool, String) -> IO ()
-genPDF (landscape, path) = do
-  let (docFN, dims) = if landscape then (documentAlt, pageDimensionAlt) else (document, pageDimension)
-  (cs, dName, dAuthor) <- tryParseDeck path
+genPDF :: PDFArgs -> IO ()
+genPDF args = do
+  let (docFN, dims) = if landscape args then (documentAlt, pageDimensionAlt) else (document, pageDimension)
+  (cs, dName, dAuthor) <- tryParseDeck $ path args
+  let patched = flip filter cs $ case patchName args of
+        Nothing -> const True
+        Just name -> (==) name . cardName
+  when (null patched) $ do
+    putStrLn $ fromJust (patchName args) ++ " not found in the deck."
+    exitFailure
   fnts <-
     runExceptT getFonts >>= \case
       Left err -> do
@@ -142,7 +155,7 @@ genPDF (landscape, path) = do
         exitFailure
       Right f -> return f
   let info = standardDocInfo {author = pack dAuthor, compressed = False}
-  runPdf (dName ++ ".pdf") info dims $ docFN fnts cs
+  runPdf (dName ++ ".pdf") info dims $ docFN fnts patched
 
 getFonts :: ExceptT String IO Fonts
 getFonts = do

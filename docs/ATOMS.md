@@ -149,7 +149,11 @@ can choose freely which cards to destroy. If you are unable to select enough
 cards, the selected cards are destroyed and the spell continues to resolve.
 
 The scale of this effect is the same as the scale of #destroy but positive
-instead of negative.
+instead of negative and destroying a card on the enemy field costs en extra `2`.
+For example:
+- `discard enemy hand`: 10
+- `discard enemy field`: 17
+- `banish enemy field`: 19
 
 ### Discard Enemy
 
@@ -213,7 +217,7 @@ of the opponent's deck.
 
 ### Choose
 
-Written as a comma separated list of effects, surrounded by brackets (eg: `(attack, banish enemy field)`). The scale is the largest of the scales of each effect in the list. 
+Written as a comma separated list of effects, surrounded by brackets (eg: `(attack, banish enemy field)`). The scale is the largest of the scales of each effect in the list plus two. 
 
 When this effect occurs you choose one (and only one) of the effects in the list
 to occur.

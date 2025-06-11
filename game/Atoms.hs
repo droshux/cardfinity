@@ -182,7 +182,7 @@ destroyTheirCards d f =
     { performEffect = asOpponent' $ destroyForced d f,
       monsterOnlyEffect = False,
       -- If the search type isn't found in your own deck then it's ok
-      effectScale = local (\c -> c {ignoreSTNotFound = True}) (scale inverted) <&> (\x -> -x),
+      effectScale = local (\c -> c {ignoreSTNotFound = True}) (scale inverted) <&> (\x -> -x + if isField f then 2 else 0),
       displayEffect = let destOurs = show inverted in replaceLast " the " " the enemy " destOurs
     }
   where
@@ -352,7 +352,7 @@ choose :: NonEmpty Effect -> Effect
 choose es =
   def
     { displayEffect = "Choose one of (" ++ showFold " or " es ++ ")",
-      effectScale = mapM scale (NonE.toList es) <&> maximum,
+      effectScale = mapM scale (NonE.toList es) <&> (+ 2) . maximum,
       performEffect = do
         (_, c) <- lift $ selectFromList "Choose one of the following:" es
         performEffect c
