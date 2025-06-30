@@ -143,10 +143,14 @@ Non-combat removal, structured the same as #destroy.
 
 `[discard/banish] enemy [count] [filter] [hand/field]`
 
-You select the given number of cards to discard/banish from the opponent's
-field/hand. When destroying cards in your opponent's hand you see their hand and
-can choose freely which cards to destroy. If you are unable to select enough
-cards, the selected cards are destroyed and the spell continues to resolve.
+When destroying from the hand: up to `count` random cards that match the filter
+are discarded/banished from the enemy's hand.
+
+When destroying from the field: you select the given number of cards to
+discard/banish from the opponent's field. 
+
+If there are not enough cards that match the filter, the cards that can be
+destroyed are destroyed and the spell continues to resolve.
 
 The scale of this effect is the same as the scale of #destroy but positive
 instead of negative and destroying a card on the enemy field costs en extra `2`.

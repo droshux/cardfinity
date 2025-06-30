@@ -50,6 +50,7 @@ import GHC.Natural (Natural)
 import Optics (Ixed (ix), preview)
 import Optics.Operators ((%~), (^.), (^?))
 import Optics.Optic ((%))
+import System.Random.Shuffle (shuffleM)
 import Types
 import Utils
 
@@ -79,6 +80,10 @@ instance Show FindCards where
 
 data DestroyType = Discard | Banish deriving (Eq, Ord, Show)
 
+handleDiscard d c = unless (d == Banish) $ do
+  graveyard =: c
+  void $ trigger OnDiscard c
+
 chooseToDestroy :: DestroyType -> FindCards -> GameOpWithCardContext Bool
 chooseToDestroy d f
   | getCount f == 0 = return True
@@ -98,53 +103,52 @@ chooseToDestroy d f
           (i, _) <- selectFromList' ("Select a card to " ++ show d ++ ":") names
           let c = (cfst : crst) !! i
           liftIO $ putStrLn (show d ++ "ing " ++ cardName c ++ " from the " ++ show f)
-          -- playerState' <&> findIndex ((== _cardID c) . _cardID) . toLens other >>= \case
           player's' (getLocation f) <&> findIndex (\c' -> c' ^. cardID == c ^. cardID) >>= \case
             Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in " ++ show f)
             Just j -> lift $ do
               getLocation f -= j
-              handleDiscard c
+              handleDiscard d c
           moveOn
   where
     moveOn = chooseToDestroy d $ case f of
       FindCardsHand n t -> FindCardsHand (n - 1) t
       FindCardsField n t -> FindCardsField (n - 1) t
-    handleDiscard c = unless (d == Banish) $ do
-      graveyard =: c
-      void $ trigger OnDiscard c
 
 destroyForced :: DestroyType -> FindCards -> GameOpWithCardContext ()
-destroyForced d f
-  | getCount f == 0 = return ()
+destroyForced d (FindCardsHand n st)
+  | n == 0 = return ()
   | otherwise =
-      player's' (getLocation f) <&> filter (toPredicate $ getSearchType f) >>= \case
+      player's' hand <&> filter (toPredicate st) >>= shuffleM >>= \case
         [] -> liftIO $ do
           putStrLn "Couldn't find enough "
-          putStr $ show $ getSearchType f
-          putStr "s in the "
-          putStrLn $ if isField f then "field." else "hand."
+          putStr $ show st
+          putStr "s in the hand."
+        (c : _) -> do
+          lift $ handleDiscard d c
+          destroyForced d $ FindCardsHand (n - 1) st
+destroyForced d (FindCardsField n st)
+  | n == 0 = return ()
+  | otherwise =
+      player's' field <&> filter (toPredicate st) >>= \case
+        [] -> liftIO $ do
+          putStrLn "Couldn't find enough "
+          putStr $ show st
+          putStr "s on the field."
         (cfst : crst) -> do
           cp <- lift ask
           (i, _) <- selectFromListNoPlayer' (prompt cp) $ cardName cfst :| map cardName crst
-          lift $ getLocation f -= i
-          lift $ handleDiscard $ (cfst : crst) !! i
-          moveOn
+          lift $ field -= i
+          lift $ handleDiscard d $ (cfst : crst) !! i
+          destroyForced d $ FindCardsField (n - 1) st
   where
-    handleDiscard c = unless (d == Banish) $ do
-      graveyard =: c
-      void $ trigger OnDiscard c
-    moveOn = destroyForced d $ case f of
-      FindCardsHand n t -> FindCardsHand (n - 1) t
-      FindCardsField n t -> FindCardsField (n - 1) t
     prompt cp =
       concat
         [ show (otherPlayer cp),
           ": choose a ",
-          show (getSearchType f),
+          show st,
           " from ",
           show cp,
-          "'s ",
-          if isField f then "Field" else "Hand"
+          "'s Field"
         ]
 
 -- Destroy your own cards as a Requirement
