@@ -77,20 +77,6 @@ instance Show FindCards where
     where
       part1 n t = concat [show n, " ", show t, if n == 1 then " " else "s "]
 
-{-ifCards :: FindCards -> Requirement
-ifCards f =
-  Requirement
-    { testRequirement =
-        player's' (getLocation f) <&> (>= natToInt (getCount f)) . length . h f,
-      requirementScale = (if isField f then 4 else 1) * (-natToInt (getCount f)),
-      monsterOnlyRequirement = False,
-      displayRequirement = "If there " ++ isare f ++ "at least " ++ show f
-    }
-  where
-    isare i = if getCount i == 1 then " is " else " are "
-    h f' = filter (toPredicate $ getSearchType f')
--}
-
 data DestroyType = Discard | Banish deriving (Eq, Ord, Show)
 
 chooseToDestroy :: DestroyType -> FindCards -> GameOpWithCardContext Bool
@@ -352,10 +338,8 @@ choose :: NonEmpty Effect -> Effect
 choose es =
   def
     { displayEffect = "Choose one of (" ++ showFold " or " es ++ ")",
-      effectScale = mapM scale (NonE.toList es) <&> (+ 2) . maximum,
-      performEffect = do
-        (_, c) <- lift $ selectFromList "Choose one of the following:" es
-        performEffect c
+      effectScale = mapM scale (NonE.toList es) <&> (+ length es) . maximum,
+      performEffect = lift (selectFromList "Choose one of the following:" es) >>= performEffect . snd
     }
 
 reqChoose :: NonEmpty Requirement -> Requirement
@@ -363,9 +347,7 @@ reqChoose rs =
   def
     { displayRequirement = "Choose one of (" ++ showFold " or " rs ++ ")",
       requirementScale = mapM scale (NonE.toList rs) <&> maximum,
-      testRequirement = do
-        (_, r) <- lift $ selectFromList "Choose one of the following:" rs
-        testRequirement r
+      testRequirement = lift (selectFromList "Choose one of the following:" rs) >>= testRequirement . snd
     }
 
 attack :: Bool -> Effect

@@ -75,7 +75,7 @@ If the count or filter are omitted they are assumed to be `1` and `card`.
 ### Discard
 
 Discard the top card of your deck, this *does* [trigger](/docs/RULES.md#trigger)
-`on discard`. This requirement is written as: `discard` and has scale `-5`.
+`on discard`. This requirement is written as: `discard` and has scale `-4`.
 
 The difference between "Discard the top card of your deck" and "take one damage"
 is that this requirement triggers `on discard` spells. This is important to
@@ -213,11 +213,83 @@ one to five are shown below:
 ### Scry
 
 Written as `scry [count]`. Identical to #peek but you instead see the top cards
-of the opponent's deck.
+of the opponent's deck instead of your own.
 
 ### Choose
 
-Written as a comma separated list of effects, surrounded by brackets (eg: `(attack, banish enemy field)`). The scale is the largest of the scales of each effect in the list plus two. 
+Written as a comma separated list of effects, surrounded by brackets (eg:
+`(attack, banish enemy field)`). The scale is the largest of the scales of each
+effect in the list plus the number of effects in the list. For example `(draw,
+draw 2)` would have scale `22`.
 
-When this effect occurs you choose one (and only one) of the effects in the list
-to occur.
+When this effect occurs must you choose one (and only one) of the effects in the
+list to occur. 
+
+### Attack
+
+In Cardfinity there is not "battle phase" and by default monsters cannot
+initiate combat. Instead the Attack effect allows a monster to initiate combat. 
+
+This effect is written as `attack` and has scale `10`.
+
+#### When can you attack
+This effect can only be used on spells who's trigger can only occur on a monster
+on the field (eg: you cannot put Attack on a "On Draw" spell).  Since "On Play"
+spells on a monster act as "when this monster enters the field", the Attack
+effect can be used on "On Play" spells.
+
+If the attack effect occurs and the monster it occurred from is not on the field
+nothing happens. For example, in the following scenario no attack would occur:
+```
+* A copy of "Monster" card is on the field,
+a copy of "Spell" is in the hand.*
+
+"Monster":
+! This monster attacks after on discard effect of "Spell" has been resolved.
+"Choose Violence" on tap discard "Spell" hand: attack
+
+! Therefore by the time "Monster" attacks it is in the graveyard.
+"Spell" on discard: discard "Monster" field
+```
+
+#### Order of events in combat
+Combat takes place as follows:
+1. The player that controls the attacking monster chooses a monster from the
+   list of the opponents monsters *that are not tapped*. If there are no
+non-tapped monsters to choose from the attack is [direct](#direct-attacks).
+2. The [power](/docs/RULES.md#monsters) of the two monsters is compared. The
+   monster with the most power wins, the attacking monster wins in the case of a
+tie. 
+3. Any of the losing monster's [On Defeat](/docs/RULES.md#trigger) spells
+   trigger.
+4. The losing monster is Discarded (triggering any of its On Discard spells).
+5. If the attacking monster won any of its [On Victory](/docs/RULES.md#trigger)
+   spells trigger.
+
+#### Direct attacks
+
+If there are no valid attack targets, the opponent takes damage equal to the
+power of the monster and no defeat or victory spells are triggered. This means
+that monsters with high power are often more scale efficient than [the deal
+damage effect](#deal-damage). Since tapped monsters do not protect you from
+direct attacks, if your opponent has a high power attacking monster you may
+want to forgo the "On Tap" spell of a monster and let the attacking monster
+destroy it 
+
+#### Piercing attacks
+
+The attack effect can be "Piercing", Piercing Attack is written as `piercing
+attack` and has scale `20`. The difference is that if the attacking monster
+wins, the opponent takes damage equal to the difference in power. For example if
+a power `7` monster attacks a power `4` monster, before the defending monster is
+defeated as normal the owner of the power `4` monster would take `3` damage.
+
+### Search
+
+Written as `search [filter]` with scale `30`. However the [filter](#filters) is
+`spell` the scale of this effect is `25` instead.
+
+1. Choose any card in your deck that matches the filter and add it to your hand.
+2. Shuffle your deck.
+3. Trigger any "On Draw" spells on the chosen monster trigger.
+

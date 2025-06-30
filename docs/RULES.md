@@ -103,7 +103,8 @@ Examples of spells:
   enters the field.
 - `on discard`: This spell automatically activates when this card is discarded.
 Either from hand, field or deck. Note that "damage" moves cards from the deck to
-the graveyard but does not "discard" meaning this trigger is not activated.
+the graveyard but does not "discard" meaning this trigger is not activated. This
+trigger occurs after the card enters the graveyard.
 - `on draw`: When this card is enters your hand from the deck this spell is
 automatically activated.
 
