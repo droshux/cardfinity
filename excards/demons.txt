@@ -7,7 +7,7 @@ power: 0
 ! Common damage dealer that is very powerful and pretty easy to summon
 "Demon Warrior":
 discard monster field
-"Flame Spear" tap take 2t: (attack, banish enemy field)
+"Flame Spear" tap take 1: attack
 power: 5
 "Demon"
 
@@ -15,6 +15,10 @@ power: 5
 "Stimulants" play pop 3: buff 3
 N/A
 
+"Disposable Goons" play discard family "Demon" field: banish enemy field
+N/A
+
+*
 ! Useful to clean up lots of low power fodder
 "Wheel Demon":
 banish monster field, banish spell hand, pop 1
@@ -22,6 +26,7 @@ banish monster field, banish spell hand, pop 1
 "Momentum" victory take 1: ?attack
 power: 5
 "Demon"
+*
 
 ! Defence fodder that's harder to get rid of because it can blast your best monster
 "Hellish Pustule":
@@ -51,8 +56,13 @@ discard hand
 power: 0
 "Dark Machine"
 
+"Dark Matrix":
+"Build Strength" tap discard hand: buff 2
+power: 0
+"Dark Machine"
+
 ! A fun thing to search with the Dark Processor
-"Deadly Sacrifice" play discard 3 monster field: deal 9
+"DEMON NUKE!!!!" play banish 3 f"Dark Machine" field: deal 10
 N/A
 
 ! One of the boss monsters in the deck, it's just a big beatstick but the more cards in your GY the more power
@@ -77,26 +87,26 @@ banish "Hellish Pustule" field,discard spell hand, pop 4
 power: 8
 "Demon Lord"
 
-! A third boss monster, all about many attacks and increasing power
-"Lord of Grey Steel":
-banish monster field, banish hand, pop 3
-"Momentum" victory take 3: buff this 5, attack
-"Accelerate" tap discard monster field: buff this 5, attack
-power: 5
+"Lord of Circuits":
+banish f"Demon" field, banish f"Dark Machine" field, banish monster field
+"Internal Factory" tap pop 2: (draw, drill monster, drill spell)
+"Gatling Gun" tap: attack
+power: 10 
 "Demon Lord"
 
 deck:
 "Demons" by "Hux"
-"Imp" 11
+"Imp" 10
 "Hellish Pustule" 4
 "Demon Warrior" 10
-"Stimulants" 4
-"Wheel Demon" 3
+"Stimulants" 5
+"Disposable Goons" 4
 "Dark Engine" 5
-"Dark Portal" 5
+"Dark Portal" 7
 "Dark Processor" 3
-"Deadly Sacrifice"
+"Dark Matrix" 5
+"DEMON NUKE!!!!"
 "Road of Sacrifice" 3
 "Lord of Sacrifice"
 "Lord of Revulsion"
-"Lord of Grey Steel"
+"Lord of Circuits"

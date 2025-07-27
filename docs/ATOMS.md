@@ -297,7 +297,8 @@ Written as `search [filter]` with scale `30`. However the [filter](#filters) is
 
 1. Choose any card in your deck that matches the filter and add it to your hand.
 2. Shuffle your deck.
-3. Trigger any "On Draw" spells on the chosen monster trigger.
+3. Activate that card's `on draw` trigger(s) (if any). 
+
 
 ### Drill
 
@@ -307,4 +308,4 @@ Written as `drill [filter]` with scale `10` plus the scale of the filter.
 you to lose the game.
 
 Take damage until the top card of your deck matches the filter, then draw that
-card.
+card, this triggers `on draw`.
