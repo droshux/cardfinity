@@ -299,3 +299,12 @@ Written as `search [filter]` with scale `30`. However the [filter](#filters) is
 2. Shuffle your deck.
 3. Trigger any "On Draw" spells on the chosen monster trigger.
 
+### Drill
+
+Written as `drill [filter]` with scale `10` plus the scale of the filter. 
+
+**WARNING***: If no cards in your deck match the filter, this effect will cause
+you to lose the game.
+
+Take damage until the top card of your deck matches the filter, then draw that
+card.
