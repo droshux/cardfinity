@@ -162,7 +162,7 @@ For example:
 ### Discard Enemy
 
 Discard the top card of the opponent's deck. This effect is written as `discard
-enemy` and has scale `5`. This does [trigger](/docs/RULES.md#trigger) `on
+enemy` and has scale `8`. This does [trigger](/docs/RULES.md#trigger) `on
 discard`. To see why this is separate from [deal
 damage](/docs/ATOMS.md#deal-damage), see #discard.
 
@@ -170,7 +170,9 @@ damage](/docs/ATOMS.md#deal-damage), see #discard.
 
 Written as `deal [count] [true?]`. The same as [take
 damage](/docs/ATOMS.md#take-damage) but removes from your opponent's deck
-instead of your deck and has positive scale instead of negative.
+instead of your deck.
+
+Normal damage costs `8` scale per point of damage dealt and true damage costs `10`.
 
 ### Heal
 

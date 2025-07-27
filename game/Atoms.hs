@@ -206,7 +206,7 @@ discardTheirDeck =
   Effect
     { performEffect = void $ asOpponent' $ testRequirement discardDeck,
       monsterOnlyEffect = False,
-      effectScale = requirementScale discardDeck <&> (\x -> -x),
+      effectScale = requirementScale discardDeck <&> (3 -),
       displayEffect = "Discard the top card of the opponent's deck"
     }
 
@@ -224,7 +224,7 @@ dealDamage n isTrue =
   Effect
     { performEffect = void $ asOpponent' $ takeDamageHelper n isTrue,
       monsterOnlyEffect = False,
-      effectScale = scale (takeDamage n isTrue) <&> (\x -> -x),
+      effectScale = scale (takeDamage n isTrue) <&> (3 -),
       displayEffect = concat ["Deal ", show n, if isTrue then " True" else "", " damage"]
     }
 
