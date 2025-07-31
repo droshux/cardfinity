@@ -2,86 +2,81 @@
 "Persona" play: ?attach spell
 "Persona" play: ?attach spell
 Power 12
-"SEES"
+("SEES")
 
 "The Magician": discard 
 "Persona" play: ?attach spell
 power 3
-"SEES"
+("SEES")
 
 "The Lovers": discard hand
 "Persona" play heal enemy 1: ?attach spell
 power 4
-"SEES"
+("SEES")
 
 "The Emperor": take 2
 "Persona" play: ?attach spell
 power 9
-"SEES"
+("SEES")
 
 "The Empress": take 1
 "Persona" play: ?attach spell
 power 3
-"SEES"
+("SEES")
 
 "The Priestess": discard field
 "Support" tap: draw
 power: 3
-"SEES"
+("SEES")
 
 "The Moon": take 2
 "Revenge" discard take 1: discard enemy field
 power: 0
-"SEES"
+("SEES")
 
 "Justice": discard field
 "Persona" play: ?attach
 power: 9
-"SEES"
+("SEES")
 
 "Aeon": discard hand
 "Athena" play: discard enemy field
 power: 1
-"SEES"
+("SEES")
 
 
 
 "Koromaru" play discard field: heal, draw
-N/A
 
 "Velvet Room" play discard: draw
-N/A
 
 "Fusion" discard discard, discard field, pop 3: search spell
-N/A
 
 "Dark Hour" discard ?heal enemy 5: search f"SEES"
-N/A
 
 "Shuffle Time" play discard hand: draw
-N/A
 
 
 "Orpheus" tap take 1t: attack
-"Persona"
+("Persona")
 
 "Thanatos" infinity take 6t, pop 5: attack
-"Persona"
+("Persona")
 
 "Trismegistus" tap discard field: buff 5
-"Persona"
+("Persona")
 
 "Artemisia" tap take 2, heal enemy 1: discard enemy field
-"Persona"
+("Persona")
 
 "Io" attach: heal
-"Persona"
+("Persona")
 
 "Caesar" tap take 2: attack
-"persona"
+("Persona")
 
 "Kali" attach: buffthis 2
-"persona"
+("Persona")
 
 deck:
 "Persona" by "Morgan"

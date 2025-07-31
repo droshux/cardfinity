@@ -3,11 +3,10 @@
 This game is for two players, each player has a deck of 40 to 60 cards. There
 are two types of cards, "spell cards" and "monster cards". 
 
-Each card has a list of "families", tags that can be used to [select groups of
-cards](/docs/ATOMS.md#filters). Families are written surrounded by quotes, in a
-comma separated list. If there are no families `N/A` must be written. For
-example: `"Beast", "Machine"` or `N/A`. The families are written after the rest
-of the card definition.
+A card *may* have a list of "families", tags that can be used to [select groups of cards](/docs/ATOMS.md#filters). 
+A comma separated list of families is written in brackets and the families
+surrounded by quotes. For example: `("Beast", "Machine")`. The families are
+written after the rest of the card definition.
 
 There are four important locations for each player:
 1. The Deck: your [health](#deckout-and-damage) and resources. At the start of

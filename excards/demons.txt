@@ -2,21 +2,19 @@
 "Imp": 
 "Trick Prophecy" on play: (peek, scry)
 power: 0
-"Demon" 
+( "Demon" ) 
 
 ! Common damage dealer that is very powerful and pretty easy to summon
 "Demon Warrior":
 discard monster field
 "Flame Spear" tap take 1: attack
 power: 5
-"Demon"
+("Demon")
 
 ! However you can make them stronger later in the game
 "Stimulants" play pop 3: buff 3
-N/A
 
 "Disposable Goons" play discard family "Demon" field: banish enemy field
-N/A
 
 *
 ! Useful to clean up lots of low power fodder
@@ -25,7 +23,7 @@ banish monster field, banish spell hand, pop 1
 "Accelerate" tap: attack
 "Momentum" victory take 1: ?attack
 power: 5
-"Demon"
+("Demon")
 *
 
 ! Defence fodder that's harder to get rid of because it can blast your best monster
@@ -33,7 +31,7 @@ power: 5
 take 1
 "Pus Explosion" discard ?take 1, heal enemy 1: discard enemy field
 power: 0
-"Demon"
+("Demon")
 
 ! Lets you swap out cards you don't like.
 ! Don't forget drawing is technically damage
@@ -41,29 +39,28 @@ power: 0
 take 1
 "Dark Cycle" on tap discard hand: draw 1
 power: 0
-"Dark Machine"
+( "Dark Machine" )
 
 "Dark Portal":
 discard hand
 "Dark Summoning" on tap: draw
 power: 0
-"Dark Machine"
+("Dark Machine")
 
 ! Hard to use but you can use this to search powerful spells
 "Dark Processor":
 discard hand
 "Demonic Analysis" tap take 1, discard spell hand: search spell
 power: 0
-"Dark Machine"
+( "Dark Machine" )
 
 "Dark Matrix":
 "Build Strength" tap discard hand: buff 2
 power: 0
-"Dark Machine"
+( "Dark Machine" )
 
 ! A fun thing to search with the Dark Processor
 "DEMON NUKE!!!!" play banish 3 f"Dark Machine" field: deal 10
-N/A
 
 ! One of the boss monsters in the deck, it's just a big beatstick but the more cards in your GY the more power
 "Lord of Sacrifice":
@@ -73,11 +70,10 @@ N/A
 "Divinity in suffering" on play pop 10: buff this 10 
 "Blade of Vengeance" tap discard hand: piercing attack
 power: 0
-"Demon", "Demon Lord"
+("Demon", "Demon Lord")
 
 ! Helps you summon the Lord of Sacrifice, probably with a lot of power
 "Road of Sacrifice" on play discard family "Dark Machine" hand: drill "Lord of Sacrifice"
-N/A
 
 ! A different boss monster in the deck Beefy but it has the has Hellish Pustule's discard effect. If it attacks on a turn it'll be tapped so it's discard effect can't actually go off so be careful
 "Lord of Revulsion":
@@ -85,14 +81,14 @@ banish "Hellish Pustule" field,discard spell hand, pop 4
 "Revolting Maw" tap: attack
 "Bloated Mass" discard take 1t: discard enemy field
 power: 8
-"Demon Lord"
+("Demon","Demon Lord")
 
 "Lord of Circuits":
 banish f"Demon" field, banish f"Dark Machine" field, banish monster field
 "Internal Factory" tap pop 2: (draw, drill monster, drill spell)
 "Gatling Gun" tap: attack
 power: 10 
-"Demon Lord"
+("Demon","Demon Lord")
 
 deck:
 "Demons" by "Hux"
