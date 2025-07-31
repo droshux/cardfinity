@@ -4,7 +4,6 @@ import AtomParsers (effect, requirement)
 import Control.Applicative ((<|>))
 import Control.Monad (void)
 import Data.Foldable (find)
-import Data.Functor (($>))
 import Data.Set.Ordered (OSet, empty, fromList)
 import ParserCore
 import Text.Megaparsec (MonadParsec (..), choice, manyTill, option, optional, sepBy, sepBy1)
@@ -72,7 +71,7 @@ trigger = do
     ]
 
 families :: CardParser (OSet String)
-families = (string' "N/A" $> empty) <|> fromList <$> name `sepBy1` gap
+families = option Data.Set.Ordered.empty $ fmap fromList $ surround '(' ')' $ name `sepBy` gap
 
 spell :: CardParser Spell
 spell = do
