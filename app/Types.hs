@@ -16,6 +16,7 @@ module Types
     Monster (..),
     CardStats (..),
     Card (..),
+    hasId,
     cardElim,
     cardElim',
     cardName,
@@ -362,6 +363,9 @@ data Card = Card
     _cardFamilies :: OS.OSet String,
     _cardStats :: CardStats
   }
+
+hasId :: Natural -> Card -> Bool
+hasId cid = (== cid) . _cardID
 
 type CardLens a = Lens' Card a
 

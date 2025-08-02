@@ -306,7 +306,7 @@ playCard t =
     canPlay = cardElim ((== OnPlay) . (^. spellTrigger)) (const True)
     -- Find c in the hand and remove it
     fromHand c =
-      player's hand <&> findIndex (\c' -> c ^. cardID == c' ^. cardID) >>= \case
+      player's hand <&> findIndex (hasId $ c ^. cardID) >>= \case
         Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in Hand")
         Just i -> hand -= i
     -- Spell: trigger OnPlay, move it to the GY
@@ -333,7 +333,7 @@ playCard t =
 tapThisCard :: GameOpWithCardContext ()
 tapThisCard = do
   cid <- asks (^. cardID)
-  res <- player's' field <&> findIndex (\c -> c ^. cardID == cid)
+  res <- player's' field <&> findIndex (hasId cid)
   case res of
     Nothing -> return ()
     Just i -> lift $ field %= tapAtI i
@@ -349,7 +349,7 @@ findThisCard = mapM findThisIn allCardLocations <&> fmap (second toEnum) . first
     firstIndex i ((Just x) : _) = Just (x, i)
     findThisIn loc = do
       cid <- asks (^. cardID)
-      player's' (toLens loc) <&> findIndex (\c -> c ^. cardID == cid)
+      player's' (toLens loc) <&> findIndex (hasId cid)
 
 printCardsIn :: String -> CardLocation -> GameOperation ()
 printCardsIn delim l = player's (toLens l) >>= liftIO . putStrLn . showFold delim . map cardName

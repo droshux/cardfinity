@@ -89,7 +89,7 @@ chooseToDestroy d f
   | getCount f == 0 = return True
   | otherwise = do
       cid <- asks (^. cardID)
-      let validTarget c = toPredicate (getSearchType f) c && c ^. cardID /= cid
+      let validTarget c = toPredicate (getSearchType f) c && not (hasId cid c)
       player's' (getLocation f) <&> filter validTarget >>= \case
         [] -> liftIO $ do
           putStr "Could not find enough "
@@ -103,7 +103,7 @@ chooseToDestroy d f
           (i, _) <- selectFromList' ("Select a card to " ++ show d ++ ":") names
           let c = (cfst : crst) !! i
           liftIO $ putStrLn (show d ++ "ing " ++ cardName c ++ " from the " ++ show f)
-          player's' (getLocation f) <&> findIndex (\c' -> c' ^. cardID == c ^. cardID) >>= \case
+          player's' (getLocation f) <&> findIndex (hasId $ c ^. cardID) >>= \case
             Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in " ++ show f)
             Just j -> lift $ do
               getLocation f -= j
@@ -401,7 +401,7 @@ attack piercing =
     defeatThis = do
       -- Get the location of this card and send it to the graveyard
       cid <- asks (^. cardID)
-      mbIndex <- player's' field <&> findIndex (\c -> c ^. cardID == cid)
+      mbIndex <- player's' field <&> findIndex (hasId cid)
       case mbIndex of
         Nothing -> liftIO (putStrLn "Error: Cannot find this card on the field.")
         Just i -> lift $ do
@@ -428,7 +428,7 @@ search (SearchFor t) =
               (cfst : crst) -> do
                 ids <- options <&> map (^. cardID)
                 (i', _) <- selectFromList' "Select card to draw:" $ NonE.map cardName $ cfst :| crst
-                player's' deck <&> findIndex (\c -> c ^. cardID == ids !! i') >>= \case
+                player's' deck <&> findIndex (hasId $ ids !! i') >>= \case
                   Nothing -> liftIO $ putStrLn $ cardName ((cfst : crst) !! i') ++ " not found in deck?!"
                   Just i -> lift $ do
                     c <- player's deck <&> (!! i)
@@ -516,7 +516,7 @@ alterPower by forItself =
   where
     alterMy n = do
       cid <- asks (^. cardID)
-      player's' field <&> findIndex (\c -> cid == c ^. cardID) >>= \case
+      player's' field <&> findIndex (hasId cid) >>= \case
         Nothing -> do
           name <- asks cardName
           liftIO $ putStrLn ("Error " ++ name ++ " not found on ")
