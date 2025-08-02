@@ -1,0 +1,32 @@
+name: Build for Windows
+
+on:
+  push:
+    tags:
+      - '**'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions: 
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-haskell@v1
+        with:
+          ghc-version: '9.4.8'
+          cabal-version: '3.14.1.0'
+
+      - name: Install dependencies
+        run: |
+          cabal update
+          cabal build --only-dependencies 
+      - name: Build
+        run: cabal build 
+      - uses: ncipollo/release-action@v1
+        with:
+          artifacts: "dist-newstyle\\x86_64-windows\\ghc-9.4.8\\cardfinity-*\\x\\cardfinity\\build\\cardfinity\\cardfinity.exe"
+          omitBody: true
+          omitName: true
+
