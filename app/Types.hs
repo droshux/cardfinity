@@ -49,6 +49,7 @@ module Types
     field,
     deck,
     graveyard,
+    autoTapList,
     isFirstTurn,
     player1State,
     player2State,
@@ -412,7 +413,8 @@ data PlayerState = PlayerState
     _deck :: [Card],
     -- Only monsters. cardID etc must be retained though
     _field :: [Card],
-    _graveyard :: [Card]
+    _graveyard :: [Card],
+    _autotapList :: [Natural]
   }
 
 type PSLens = Lens' PlayerState [Card]
@@ -428,6 +430,9 @@ field = lens _field $ \p x -> p {_field = x}
 
 graveyard :: PSLens
 graveyard = lens _graveyard $ \p x -> p {_graveyard = x}
+
+autoTapList :: Lens' PlayerState [Natural]
+autoTapList = lens _autotapList $ \p x -> p {_autotapList = x}
 
 data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord, Enum)
 

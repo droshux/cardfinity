@@ -5,15 +5,17 @@
 
 module Round (gameRound) where
 
-import Control.Monad (when, (<=<))
+import Control.Monad (void, when, (<=<))
 import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift))
 import Control.Monad.RWS (MonadReader (ask))
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.State (StateT, modify)
+import Data.Foldable (find)
 import Data.Functor ((<&>))
+import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Optics.Operators ((.~), (^.), (^?))
 import Optics.Optic ((%))
 import System.Console.ANSI (clearScreen)
@@ -22,13 +24,28 @@ import Utils
 
 gameRound :: Control.Monad.Trans.Except.ExceptT Player (StateT GameState IO) ()
 gameRound = do
-  let takeTurn = runReaderT $ draw >> untapAll >> action
+  let takeTurn = runReaderT $ do
+        draw
+        untapAll
+        autoTap
+        action
   takeTurn Player1
   lift $ modify $ isFirstTurn .~ False
   takeTurn Player2
   gameRound
 
-data RoundAction = Play | CheckHand | CheckField | CheckTheirField | CheckGY | CheckGYEnemy | Activate | Pass | Forfeit deriving (Enum)
+data RoundAction
+  = Play
+  | CheckHand
+  | CheckField
+  | CheckTheirField
+  | CheckGY
+  | CheckGYEnemy
+  | Activate
+  | AutotapList
+  | Pass
+  | Forfeit
+  deriving (Enum)
 
 instance Show RoundAction where
   show Play = "Play a Card"
@@ -38,6 +55,7 @@ instance Show RoundAction where
   show CheckGY = "See your graveyard."
   show CheckGYEnemy = "See the enemy graveyard."
   show Activate = "Activate an effect of a card on the field."
+  show AutotapList = "Add or remove a monster on the field from your auto-tap list"
   show Pass = "End your turn."
   show Forfeit = "Forfeit the game."
 
@@ -65,6 +83,7 @@ action = do
     CheckTheirField -> asOpponent (displayLoc Field) >> action
     CheckGY -> showGY "Your" >> action
     CheckGYEnemy -> asOpponent (showGY "Their") >> action
+    AutotapList -> editAutoTapList >> action
     Play -> playCard ForCard >> action
     Activate -> activateCard >> action
   where
@@ -113,3 +132,29 @@ activateCard =
 
 untapAll :: GameOperation ()
 untapAll = field %= map (monsterStats % isTapped .~ False)
+
+autoTap :: GameOperation ()
+autoTap =
+  let tapById cid =
+        player's field <&> find (\c -> c ^. cardID == cid) >>= \case
+          Nothing -> return ()
+          Just c -> void (trigger OnTap c)
+   in player's autoTapList >>= mapM_ tapById
+
+editAutoTapList :: GameOperation ()
+editAutoTapList =
+  let prompt = "Toggle which cards automatically to automatically tap at the start of your turn"
+      optionName c = do
+        onList <- player's autoTapList <&> isJust . find (`hasId` c)
+        let prefix = if onList then "[T] " else "[ ] "
+        return $ prefix ++ cardName c
+      isAutoTap s = OnTap == s ^. spellTrigger
+      canAutoTap = cardElim (const False) $ \m -> 1 == length (filter isAutoTap $ m ^. monsterSpells)
+   in do
+        options <- player's field <&> filter canAutoTap >>= mapM optionName
+        res <- selectFromListCancelable prompt options
+        ifNotCancelled res $ \(i, _) -> do
+          c <- player's field <&> (!! i)
+          player's autoTapList <&> findIndex (`hasId` c) >>= \case
+            Nothing -> autoTapList =: (c ^. cardID)
+            Just j -> autoTapList -= j
