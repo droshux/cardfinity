@@ -24,7 +24,6 @@ gameRound :: Control.Monad.Trans.Except.ExceptT Player (StateT GameState IO) ()
 gameRound = do
   let takeTurn = runReaderT $ draw >> untapAll >> action
   takeTurn Player1
-  -- lift $ modify $ \s -> s {_isFirstTurn = False}
   lift $ modify $ isFirstTurn .~ False
   takeTurn Player2
   gameRound

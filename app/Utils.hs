@@ -63,11 +63,15 @@ natToInt = integerToInt . naturalToInteger
 without :: [a] -> Int -> [a]
 xs `without` i = take i xs ++ drop (i + 1) xs
 
-showFold :: (Show a, Foldable t) => String -> t a -> String
-showFold connector as = helper connector $ toList as
+delimFoldMap :: (Foldable t, Monoid m) => (a -> m) -> m -> t a -> m
+delimFoldMap fun delim = helper fun delim . Data.Foldable.toList
   where
-    helper _ [] = ""
-    helper c (x : xs) = foldr (\x' a -> a ++ c ++ show x') (show x) $ reverse xs
+    helper _ _ [] = mempty
+    helper f _ [x] = f x
+    helper f d (x : xs) = f x <> d <> helper f d xs
+
+showFold :: (Show a, Foldable t) => String -> t a -> String
+showFold = delimFoldMap show
 
 whenJust :: (Monad m) => (a -> m ()) -> Maybe a -> m ()
 whenJust _ Nothing = return ()
@@ -351,8 +355,21 @@ findThisCard = mapM findThisIn allCardLocations <&> fmap (second toEnum) . first
       cid <- asks (^. cardID)
       player's' (toLens loc) <&> findIndex (hasId cid)
 
+prettyName :: Card -> String
+prettyName Card {_cardStats = SpellStats s} = "\"" ++ s ^. spellName ++ "\""
+prettyName Card {_cardStats = MonsterStats m} =
+  let quote = if m ^. isTapped then "'" else "\""
+      power =
+        if m ^. combatPower == 0
+          then ""
+          else " (" ++ show (m ^. combatPower) ++ ")"
+   in quote ++ m ^. monsterName ++ quote ++ power
+
 printCardsIn :: String -> CardLocation -> GameOperation ()
-printCardsIn delim l = player's (toLens l) >>= liftIO . putStrLn . showFold delim . map cardName
+printCardsIn delim l =
+  let name = if l == Field then prettyName else show . cardName
+      prnt = liftIO . putStrLn . delimFoldMap name delim
+   in player's (toLens l) >>= prnt
 
 instance Show Spell where
   show (Spell n t cs es) = concat [show n, " ", show t, if null cs then ": " else scs, ses]
