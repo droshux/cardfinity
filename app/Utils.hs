@@ -26,6 +26,7 @@ module Utils
     actSpell,
     tapThisCard,
     findThisCard,
+    prettyName,
     printCardsIn,
     (.=),
     (=:),

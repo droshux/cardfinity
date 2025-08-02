@@ -73,6 +73,7 @@ action = do
   yourLoc " " "Your" Hand
   yourLoc " " "Your" Field
 
+  liftIO $ putStr "\n\n\n"
   act <- selectFromList "What do you do:" allRoundActions <&> snd
   liftIO clearScreen
   case act of
@@ -108,27 +109,37 @@ activateCard =
   player's field <&> filter isActivatable >>= \case
     [] -> liftIO $ putStrLn "No monsters on the field can be activated."
     activatable -> do
-      res <- selectFromListCancelable "Select a monster to activate:" (map cardName activatable)
+      res <- selectFromListCancelable "Select a monster to activate:" (map optionName activatable)
       ifNotCancelled res $ \(i, _) ->
         let target = activatable !! i
          in cardElim (const $ return ()) (activateMonster target) target
   where
     manualSpell s = s ^. spellTrigger `elem` [Infinity, OnTap]
-    -- isActivatable = cardElim (const False) $ \m -> not (_isTapped m) && any manualSpell (_monsterSpells m)
+    optionName c =
+      let suffix m =
+            if m ^. combatPower == 0
+              then ""
+              else " (" ++ show (m ^. combatPower) ++ ")"
+       in cardName c ++ cardElim (const "") suffix c
     isActivatable c =
       let getStats = monsterStats
           tapped = fromMaybe True $ c ^? getStats % isTapped
           manualSpells = maybe False (any manualSpell) (c ^? getStats % monsterSpells)
        in not tapped && manualSpells
-    activateMonster c m = do
+    activateMonster c m =
       let options = filter manualSpell $ m ^. monsterSpells
+       in case options of
+            [] -> return ()
+            [only] -> activateManualSpell c only
+            many -> chooseToActivate c many
+    chooseToActivate c options = do
       res <- selectFromListCancelable "Select a monster spell to activate:" options
-      ifNotCancelled res $ \(i, _) -> do
-        let spell = options !! i
-        let t = spell ^. spellTrigger
-        -- Cast spell with c as the card context
-        didCast <- flip runReaderT c $ actSpell spell t
-        when (didCast && t == OnTap) $ runReaderT tapThisCard c
+      ifNotCancelled res $ \(i, _) -> activateManualSpell c $ options !! i
+    activateManualSpell c spell = do
+      let t = spell ^. spellTrigger
+      -- Cast spell with c as the card context
+      didCast <- flip runReaderT c $ actSpell spell t
+      when (didCast && t == OnTap) $ runReaderT tapThisCard c
 
 untapAll :: GameOperation ()
 untapAll = field %= map (monsterStats % isTapped .~ False)
