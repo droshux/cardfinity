@@ -370,15 +370,25 @@ prettyName Card {_cardStats = MonsterStats m} =
 
 printCardsIn :: String -> CardLocation -> GameOperation ()
 printCardsIn delim l =
-  let name = if l == Field then prettyName else show . cardName
-      prnt = liftIO . putStrLn . delimFoldMap name delim
+  let fieldPrnt =
+        liftIO
+          . putStrLn
+          . delimFoldMap (uncurry fprint1) delim
+          . assocs
+          . fromListWith (+)
+          . map (,1)
+      fprint1 c (n :: Int) = (if n > 1 then show n ++ "x " else "") ++ prettyName c
+      prnt =
+        liftIO
+          . putStrLn
+          . delimFoldMap (show . cardName) delim
    in do
         when (l == Graveyard) $ do
           len <- player's (toLens l) <&> length
           liftIO $ putStr "("
           liftIO $ putStr $ show len
           liftIO $ putStrLn " cards)"
-        player's (toLens l) >>= prnt
+        player's (toLens l) >>= if l /= Field then prnt else fieldPrnt
 
 shrinkSpellList :: [Spell] -> [(Spell, Int)]
 shrinkSpellList = assocs . fromListWith (+) . map (,1)

@@ -332,7 +332,7 @@ data Monster = Monster
     _combatPower :: Natural,
     _isTapped :: Bool
   }
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 type MonsterLens a = Lens' Monster a
 
@@ -367,6 +367,12 @@ instance HasScale CardStats where
   scale (SpellStats s) = scale s
   scale (MonsterStats m) = scale m
 
+instance Ord CardStats where
+  (<=) (MonsterStats m1) (MonsterStats m2) = m1 < m2
+  (<=) (SpellStats s1) (SpellStats s2) = s1 < s2
+  (<=) (SpellStats _) _ = True
+  (<=) _ _ = False
+
 data Card = Card
   { _cardID :: Natural,
     _cardFamilies :: OS.OSet String,
@@ -375,6 +381,9 @@ data Card = Card
 
 instance Eq Card where
   (==) c1 c2 = _cardFamilies c1 == _cardFamilies c2 && _cardStats c1 == _cardStats c2
+
+instance Ord Card where
+  (<=) c1 c2 = _cardStats c1 <= _cardStats c2 && _cardFamilies c1 <= _cardFamilies c2
 
 hasId :: Natural -> Card -> Bool
 hasId cid = (== cid) . _cardID
