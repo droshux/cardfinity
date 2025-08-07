@@ -280,6 +280,9 @@ instance HasScale Effect where
 instance Show Effect where
   show = displayEffect
 
+instance Eq Effect where
+  (==) e1 e2 = displayEffect e1 == displayEffect e2
+
 instance Default Effect where
   def =
     Effect
@@ -299,6 +302,7 @@ data Spell = Spell
     _castingConditions :: Conditions,
     _effects :: Effects
   }
+  deriving (Eq)
 
 -- Due to a dependency loop at the core of the problem, macros cannot be used to
 -- create lenses.
@@ -324,6 +328,7 @@ data Monster = Monster
     _combatPower :: Natural,
     _isTapped :: Bool
   }
+  deriving (Eq)
 
 type MonsterLens a = Lens' Monster a
 
@@ -342,7 +347,7 @@ combatPower = lens _combatPower $ \m x -> m {_combatPower = x}
 isTapped :: MonsterLens Bool
 isTapped = lens _isTapped $ \m x -> m {_isTapped = x}
 
-data CardStats = SpellStats Spell | MonsterStats Monster
+data CardStats = SpellStats Spell | MonsterStats Monster deriving (Eq)
 
 prismSpellStats :: Prism' CardStats Spell
 prismSpellStats = prism SpellStats $ \case
@@ -363,6 +368,9 @@ data Card = Card
     _cardFamilies :: OS.OSet String,
     _cardStats :: CardStats
   }
+
+instance Eq Card where
+  (==) c1 c2 = _cardFamilies c1 == _cardFamilies c2 && _cardStats c1 == _cardStats c2
 
 hasId :: Natural -> Card -> Bool
 hasId cid = (== cid) . _cardID
