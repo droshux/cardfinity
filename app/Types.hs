@@ -49,6 +49,7 @@ module Types
     field,
     deck,
     graveyard,
+    autoTapList,
     isFirstTurn,
     player1State,
     player2State,
@@ -331,7 +332,7 @@ data Monster = Monster
     _combatPower :: Natural,
     _isTapped :: Bool
   }
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 type MonsterLens a = Lens' Monster a
 
@@ -366,6 +367,12 @@ instance HasScale CardStats where
   scale (SpellStats s) = scale s
   scale (MonsterStats m) = scale m
 
+instance Ord CardStats where
+  (<=) (MonsterStats m1) (MonsterStats m2) = m1 < m2
+  (<=) (SpellStats s1) (SpellStats s2) = s1 < s2
+  (<=) (SpellStats _) _ = True
+  (<=) _ _ = False
+
 data Card = Card
   { _cardID :: Natural,
     _cardFamilies :: OS.OSet String,
@@ -374,6 +381,9 @@ data Card = Card
 
 instance Eq Card where
   (==) c1 c2 = _cardFamilies c1 == _cardFamilies c2 && _cardStats c1 == _cardStats c2
+
+instance Ord Card where
+  (<=) c1 c2 = _cardStats c1 <= _cardStats c2 && _cardFamilies c1 <= _cardFamilies c2
 
 hasId :: Natural -> Card -> Bool
 hasId cid = (== cid) . _cardID
@@ -423,7 +433,8 @@ data PlayerState = PlayerState
     _deck :: [Card],
     -- Only monsters. cardID etc must be retained though
     _field :: [Card],
-    _graveyard :: [Card]
+    _graveyard :: [Card],
+    _autotapList :: [Natural]
   }
 
 type PSLens = Lens' PlayerState [Card]
@@ -439,6 +450,9 @@ field = lens _field $ \p x -> p {_field = x}
 
 graveyard :: PSLens
 graveyard = lens _graveyard $ \p x -> p {_graveyard = x}
+
+autoTapList :: Lens' PlayerState [Natural]
+autoTapList = lens _autotapList $ \p x -> p {_autotapList = x}
 
 data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord, Enum)
 

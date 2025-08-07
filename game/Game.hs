@@ -17,8 +17,22 @@ initGameState d1 d2 = do
   let (d1', d2') = prepareDecks d1'' d2''
   return
     GameState
-      { _player1State = PlayerState {_hand = take 4 d1', _graveyard = [], _field = [], _deck = drop 4 d1'},
-        _player2State = PlayerState {_hand = take 5 d2', _graveyard = [], _field = [], _deck = drop 5 d2'},
+      { _player1State =
+          PlayerState
+            { _hand = take 4 d1',
+              _graveyard = [],
+              _field = [],
+              _deck = drop 4 d1',
+              _autotapList = []
+            },
+        _player2State =
+          PlayerState
+            { _hand = take 5 d2',
+              _graveyard = [],
+              _field = [],
+              _deck = drop 5 d2',
+              _autotapList = []
+            },
         _isFirstTurn = True
       }
   where
