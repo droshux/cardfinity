@@ -370,7 +370,13 @@ printCardsIn :: String -> CardLocation -> GameOperation ()
 printCardsIn delim l =
   let name = if l == Field then prettyName else show . cardName
       prnt = liftIO . putStrLn . delimFoldMap name delim
-   in player's (toLens l) >>= prnt
+   in do
+        when (l == Graveyard) $ do
+          len <- player's (toLens l) <&> length
+          liftIO $ putStr "("
+          liftIO $ putStr $ show len
+          liftIO $ putStrLn " cards)"
+        player's (toLens l) >>= prnt
 
 instance Show Spell where
   show (Spell n t cs es) = concat [show n, " ", show t, if null cs then ": " else scs, ses]
