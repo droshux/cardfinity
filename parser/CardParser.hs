@@ -96,7 +96,7 @@ monster = do
   space
   reqs <- requirements
   space
-  spells <- manyTill (spell <* space) (string' "power")
+  spells <- concat <$> manyTill (mspells <* space) (string' "power")
   optional (char ':') *> hspace
   power <- decimal
   space
@@ -111,6 +111,11 @@ monster = do
         _isTapped = startsTapped,
         _combatPower = power
       }
+  where
+    mspells :: CardParser [Spell]
+    mspells = do
+      n <- option 1 $ decimal <* (string' "x " <|> string' "x")
+      replicate n <$> spell
 
 requirements :: CardParser (OSet Requirement)
 requirements = fmap fromList $ option [] $ requirement `sepBy` gap

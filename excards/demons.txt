@@ -65,9 +65,7 @@ power: 0
 ! One of the boss monsters in the deck, it's just a big beatstick but the more cards in your GY the more power
 "Lord of Sacrifice":
 (take 7, discard 3 field, discard 4 hand)
-"Power in blood" on play pop 10: buff this 10 
-"Glory in injury" on play pop 10: buff this 10 
-"Divinity in suffering" on play pop 10: buff this 10 
+3x "Power in blood" on play pop 10: buff this 10 
 "Blade of Vengeance" tap discard hand: piercing attack
 power: 0
 ("Demon", "Demon Lord")

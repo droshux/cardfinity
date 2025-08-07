@@ -82,6 +82,7 @@ executable cardfinity
       base ^>=4.17.2.1,
       mtl,
       transformers,
+      containers,
       ordered-containers,
       random,
       random-shuffle,
