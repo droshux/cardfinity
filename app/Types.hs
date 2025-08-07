@@ -219,7 +219,7 @@ isLegal dck = do
 class HasScale a where
   scale :: a -> Scale
 
-data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnVictory | OnDefeat | OnAttach | Infinity deriving (Eq)
+data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnVictory | OnDefeat | OnAttach | Infinity deriving (Eq, Ord)
 
 instance Show Trigger where
   show OnPlay = "When played"
@@ -283,6 +283,9 @@ instance Show Effect where
 instance Eq Effect where
   (==) e1 e2 = displayEffect e1 == displayEffect e2
 
+instance Ord Effect where
+  (<=) e1 e2 = displayEffect e1 <= displayEffect e2
+
 instance Default Effect where
   def =
     Effect
@@ -302,7 +305,7 @@ data Spell = Spell
     _castingConditions :: Conditions,
     _effects :: Effects
   }
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 -- Due to a dependency loop at the core of the problem, macros cannot be used to
 -- create lenses.

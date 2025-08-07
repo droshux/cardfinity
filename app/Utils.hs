@@ -27,6 +27,7 @@ module Utils
     tapThisCard,
     findThisCard,
     printCardsIn,
+    shrinkSpellList,
     (.=),
     (=:),
     (%=),
@@ -50,6 +51,7 @@ import Data.Foldable (Foldable (toList))
 import Data.Functor ((<&>))
 import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty ((:|)))
+import Data.Map (assocs, fromListWith)
 import GHC.Natural (Natural, naturalToInteger)
 import GHC.Num (integerToInt)
 import Optics (Lens', over, set, view, (%), (.~), (^.))
@@ -354,6 +356,9 @@ findThisCard = mapM findThisIn allCardLocations <&> fmap (second toEnum) . first
 printCardsIn :: String -> CardLocation -> GameOperation ()
 printCardsIn delim l = player's (toLens l) >>= liftIO . putStrLn . showFold delim . map cardName
 
+shrinkSpellList :: [Spell] -> [(Spell, Int)]
+shrinkSpellList = assocs . fromListWith (+) . map (,1)
+
 instance Show Spell where
   show (Spell n t cs es) = concat [show n, " ", show t, if null cs then ": " else scs, ses]
     where
@@ -364,19 +369,16 @@ instance Show Monster where
   show (Monster n ss rs p t) =
     concat $
       show n
-        : ( if null rs
-              then []
-              else
-                [ "\n",
-                  showFold ", " $ toList rs,
-                  ":"
-                ]
-          )
-        ++ map (("\n\t" ++) . show) ss
+        : showReqs
+        ++ map (("\n\t" ++) . showSpell) (shrinkSpellList ss)
         ++ [ "\n\tPower ",
              show p,
              if t then "\t[Tapped]" else ""
            ]
+    where
+      showSpell :: (Spell, Int) -> String
+      showSpell (s, i) = (if i > 1 then show i ++ "x " else "") ++ show s
+      showReqs = if null rs then [] else ["\n", showFold ", " $ toList rs, ":"]
 
 instance Show CardStats where
   show (SpellStats s) = show s

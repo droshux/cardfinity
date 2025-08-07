@@ -6,7 +6,7 @@ import GHC.Float (int2Double)
 import Graphics.PDF
 import Optics.Operators
 import Types
-import Utils (showFold)
+import Utils (showFold, shrinkSpellList)
 
 data Fonts = Fonts
   { n :: AnyFont,
@@ -97,21 +97,22 @@ drawCard fnt rect crd = displayFormattedText rect Header (CardText fnt) $ do
   writeStats fnt $ crd ^. cardStats
 
 writeStats :: Fonts -> CardStats -> TM VStyle HStyle ()
-writeStats fnt (SpellStats s) = writeSpell fnt False s
+writeStats fnt (SpellStats s) = writeSpell fnt 1 False s
 writeStats fnt (MonsterStats m) = do
   setStyle $ CardText fnt
   paragraph $ str $ showFold ", " $ m ^. summoningConditions
-  mapM_ showSpell $ m ^. monsterSpells
+  mapM_ showSpell $ shrinkSpellList $ m ^. monsterSpells
   paragraph $ do
     str $ "Power: " ++ show (m ^. combatPower)
     when (m ^. isTapped) $ forceNewLine >> str "Begins Tapped"
   where
-    showSpell spl = do
-      writeSpell fnt True spl
+    showSpell (spl, n) = do
+      -- when (i > 1) $ str $ show i ++ "x "
+      writeSpell fnt n True spl
       glue 5 1.0 2.0
 
-writeSpell :: Fonts -> Bool -> Spell -> TM VStyle HStyle ()
-writeSpell fnt showName s = do
+writeSpell :: Fonts -> Int -> Bool -> Spell -> TM VStyle HStyle ()
+writeSpell fnt n showName s = do
   setLinePenalty 5
   setParaStyle SpellPara
   paragraph $ do
@@ -119,6 +120,7 @@ writeSpell fnt showName s = do
       setStyle $ SpellNameText fnt
       str $ show $ s ^. spellName
     setStyle $ CardText fnt
+    when (n > 1) $ str $ " " ++ show n ++ "x"
     str " "
     str $ show $ s ^. spellTrigger
     str " "
