@@ -32,6 +32,15 @@ data Effect = DestroyEnemy   DestroyType FindCards
     | AsEffect Condition
     deriving (Eq,Ord)
 
+monsterOnlyEffect :: Effect -> Bool
+monsterOnlyEffect (Attack _) = True
+monsterOnlyEffect (Attach _) = True
+monsterOnlyEffect (Buff _ self) = self
+monsterOnlyEffect _ = False
+
+monsterOnlyRequirement :: Condition -> Bool
+monsterOnlyRequirement  _ = False
+
 data DestroyType = Discard | Banish deriving (Eq, Ord, Show)
 data SearchType = ForName String | ForFamily String | ForSpell | ForMonster | ForCard deriving (Ord)
 data FindCards = FindCardsField Natural SearchType | FindCardsHand Natural SearchType deriving (Eq,Ord)
