@@ -72,6 +72,7 @@ executable cardfinity
       CardParser
       AtomParsers
       Pdf
+      Scale
       Paths_cardfinity
 
     -- LANGUAGE extensions used by modules in this package.
