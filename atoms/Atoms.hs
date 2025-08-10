@@ -1,6 +1,10 @@
 module Atoms (
     Condition(..),
-    Effect(..)
+    Effect(..),
+    SearchType(..),
+    SearchMethod(..),
+    FindCards(..),
+    DestroyType(..),
 ) where
 import GHC.Natural (Natural)
 import Data.List.NonEmpty (NonEmpty)
@@ -55,13 +59,6 @@ instance Eq SearchType where
   (==) _ _ = False
 
 
-instance Show SearchType where
-  show ForCard = "card"
-  show ForSpell = "spell"
-  show ForMonster = "monster"
-  show (ForName n) = show n
-  show (ForFamily f) = show f ++ " card"
-
 getCount :: FindCards -> Natural
 getCount (FindCardsField n _) = n
 getCount (FindCardsHand n _) = n
@@ -74,9 +71,3 @@ isField :: FindCards -> Bool
 isField (FindCardsField _ _) = True
 isField (FindCardsHand _ _) = False
 
-instance Show FindCards where
-  show f = case f of
-    FindCardsHand n t -> part1 n t ++ "in the hand"
-    FindCardsField n t -> part1 n t ++ "on the field"
-    where
-      part1 n t = concat [show n, " ", show t, if n == 1 then " " else "s "]

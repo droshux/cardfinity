@@ -64,6 +64,7 @@ executable cardfinity
     -- Modules included in this executable, other than Main.
     other-modules:
       AtomActions
+      AtomDisplay
       AtomParsers
       AtomScale
       Atoms
