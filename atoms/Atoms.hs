@@ -32,4 +32,5 @@ data Effect = Destroy DestroyType FindCards
     | Search SearchMethod
     | Attach SearchType
     | Buff Integer Bool
+    | AsEffect Condition
     deriving (Eq,Ord)

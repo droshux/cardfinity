@@ -1,6 +1,5 @@
-module AtomParsers (requirement, effect) where
+module Atoms where
 
-import Atoms
 import Control.Applicative ((<|>))
 import Control.Monad (void)
 import Data.Functor (($>))
@@ -10,18 +9,17 @@ import ParserCore (CardParser, anyOf, gap, hspace, name, thereIs)
 import Text.Megaparsec (MonadParsec (..), between, option, sepBy1)
 import Text.Megaparsec.Char (char, string')
 import Text.Megaparsec.Char.Lexer (decimal)
-import Types (Effect, Requirement)
 import Utils (SearchType (..))
 
-requirement :: CardParser Requirement
-requirement =
+condition :: CardParser Condition
+condition =
   anyOf
     [ destroy,
       discard,
       takeD,
       healThem,
       pop,
-      mbReq,
+      mbCond,
       rchooseParse
     ]
 
@@ -73,9 +71,9 @@ destroyType :: CardParser DestroyType
 destroyType = string' "discard" $> Discard <|> string' "banish" $> Banish
 
 asEff :: CardParser Effect
-asEff = asEffect <$> requirement
+asEff = asEffect <$> condition
 
-destroy :: CardParser Requirement
+destroy :: CardParser Condition
 destroy = do
   typ <- destroyType
   hspace
@@ -89,7 +87,7 @@ destroyTheir = do
   hspace
   destroyTheirCards typ <$> findCards
 
-discard :: CardParser Requirement
+discard :: CardParser Condition
 discard = string' "discard" $> discardDeck
 
 discardTheir :: CardParser Effect
@@ -100,7 +98,7 @@ discardTheir = do
 tortrue :: CardParser Bool
 tortrue = thereIs $ try (hspace >> string' "true") <|> string' "t"
 
-takeD :: CardParser Requirement
+takeD :: CardParser Condition
 takeD = do
   string' "take" *> hspace
   n <- decimal
@@ -123,61 +121,61 @@ natHelper = helper decimal 1
 healMe :: CardParser Effect
 healMe = natHelper "heal" heal
 
-healThem :: CardParser Requirement
+healThem :: CardParser Condition
 healThem = do
   string' "heal" *> hspace
   string' "enemy" *> hspace
-  healOpponent <$> decimal
+  HealOpponent <$> decimal
 
 deckoutParse :: CardParser Effect
-deckoutParse = string' "deckout" $> deckoutEffect
+deckoutParse = string' "deckout" $> DECKOUT
 
 drawParse :: CardParser Effect
-drawParse = natHelper "draw" drawEffect
+drawParse = natHelper "draw" Draw
 
 peekParse :: CardParser Effect
-peekParse = natHelper "peek" peek
+peekParse = natHelper "peek" Peek
 
 scryParse :: CardParser Effect
-scryParse = natHelper "scry" scry
+scryParse = natHelper "scry" Scry
 
-pop :: CardParser Requirement
+pop :: CardParser Condition
 pop = do
   string' "pop" *> hspace
-  popGraveyard <$> decimal
+  Pop <$> decimal
 
 chooseParse :: CardParser Effect
 chooseParse = do
   (e : es) <- between (char '(' *> hspace) (hspace <* char ')') $ effect `sepBy1` gap
-  return $ choose (e :| es)
+  return $ Choose (e :| es)
 
-rchooseParse :: CardParser Requirement
+rchooseParse :: CardParser Condition
 rchooseParse = do
-  (r : rs) <- between (char '(' *> hspace) (hspace <* char ')') $ requirement `sepBy1` gap
-  return $ reqChoose (r :| rs)
+  (r : rs) <- between (char '(' *> hspace) (hspace <* char ')') $ condition `sepBy1` gap
+  return $ Choose (r :| rs)
 
 attackParse :: CardParser Effect
 attackParse = do
   p <- thereIs $ string' "piercing" <* hspace
   void $ string' "attack"
-  return $ attack p
+  return $ Attack p
 
 searchParse :: CardParser Effect
 searchParse = try (h "search" SearchFor) <|> h "drill" DrillFor
   where
-    h s m = search . m <$> (string' s *> hspace *> searchType)
+    h s m = Search . m <$> (string' s *> hspace *> searchType)
 
 attachParse :: CardParser Effect
-attachParse = helper searchType ForSpell "attach" attach
+attachParse = helper searchType ForSpell "attach" Attach
 
 mbEff :: CardParser Effect
-mbEff = youMay <$> (char '?' *> effect)
+mbEff = YouMay <$> (char '?' *> effect)
 
-mbReq :: CardParser Requirement
-mbReq = reqYouMay <$> (char '?' *> requirement)
+mbCond :: CardParser Condition
+mbCond = YouMay <$> (char '?' *> condition)
 
 playCardEffectParse :: CardParser Effect
-playCardEffectParse = helper searchType ForSpell "play" playCardEffect
+playCardEffectParse = helper searchType ForSpell "play" Play
 
 buff :: CardParser Effect
 buff = do
@@ -185,4 +183,4 @@ buff = do
   self <- thereIs $ string' "this" *> hspace
   neg <- thereIs $ char '-'
   power <- decimal
-  return $ alterPower (if neg then -power else power) self
+  return $ Buff (if neg then -power else power) self
