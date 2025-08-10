@@ -6,8 +6,7 @@
 module Round (gameRound) where
 
 import Control.Monad (when, (<=<))
-import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift))
-import Control.Monad.RWS (MonadReader (ask))
+import Control.Monad.RWS (MonadReader (ask), MonadTrans (lift), MonadIO (liftIO))
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.State (StateT, modify)

@@ -41,9 +41,9 @@ module Utils
   )
 where
 
-import Control.Monad (mfilter, unless, (<=<))
-import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), runExceptT, throwError, void, when)
-import Control.Monad.Reader (MonadReader (ask, local), ReaderT (runReaderT), asks)
+import Control.Monad (mfilter, void, when,unless, (<=<))
+import Control.Monad.Except (runExceptT, throwError )
+import Control.Monad.Reader (MonadReader (ask, local), ReaderT (runReaderT), asks, MonadIO (liftIO), MonadTrans (lift))
 import Control.Monad.State (MonadState (get, put), StateT (runStateT), gets, modify)
 import Data.Bifunctor (second)
 import Data.Foldable (Foldable (toList))

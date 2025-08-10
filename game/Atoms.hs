@@ -36,9 +36,8 @@ module Atoms
   )
 where
 
-import Control.Monad (void)
-import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift), replicateM_, when)
-import Control.Monad.RWS (MonadReader (ask, local), asks, gets, unless)
+import Control.Monad (void, unless, replicateM_, when)
+import Control.Monad.RWS (MonadReader (ask, local), asks, gets, MonadIO (liftIO), MonadTrans (lift), )
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Data.Default (def)
 import Data.Functor ((<&>))
