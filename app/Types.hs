@@ -43,20 +43,18 @@ module Types
     player1State,
     player2State,
     playerLens,
+    Display(..),
   )
 where
 
 import Control.Monad.Except
 import Control.Monad.State
-import Data.Default (Default (def))
-import Data.Foldable (Foldable (toList), find)
 import Data.Maybe (isJust)
 import Data.Set.Ordered qualified as OS (OSet)
 import GHC.Natural (Natural)
 import Optics
-import System.Exit (exitFailure)
-import Control.Monad (unless, when)
 import Atoms (Condition,Effect)
+import Control.Monad.Reader (ReaderT)
 
 data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnVictory | OnDefeat | OnAttach | Infinity deriving (Eq)
 
@@ -268,3 +266,7 @@ deckout, keeping track of the game and taking user IO -}
 type GameOperation = ReaderT Player (ExceptT Player (StateT GameState IO))
 
 type GameOpWithCardContext = ReaderT Card GameOperation
+
+class (Show a) => Display a where
+    -- Concise or not
+    unparse :: Bool -> String

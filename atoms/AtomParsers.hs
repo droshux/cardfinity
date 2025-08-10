@@ -1,4 +1,4 @@
-module Atoms where
+module AtomParser where
 
 import Control.Applicative ((<|>))
 import Control.Monad (void)
@@ -9,7 +9,7 @@ import ParserCore (CardParser, anyOf, gap, hspace, name, thereIs)
 import Text.Megaparsec (MonadParsec (..), between, option, sepBy1)
 import Text.Megaparsec.Char (char, string')
 import Text.Megaparsec.Char.Lexer (decimal)
-import Utils (SearchType (..))
+import Atoms (Effect(..),Condition (..),SearchType (..),FindCards(..),DestroyType (..),SearchMethod(..))
 
 condition :: CardParser Condition
 condition =
@@ -71,13 +71,13 @@ destroyType :: CardParser DestroyType
 destroyType = string' "discard" $> Discard <|> string' "banish" $> Banish
 
 asEff :: CardParser Effect
-asEff = asEffect <$> condition
+asEff = AsEffect <$> condition
 
 destroy :: CardParser Condition
 destroy = do
   typ <- destroyType
   hspace
-  destroyCards typ <$> findCards
+  Destroy typ <$> findCards
 
 destroyTheir :: CardParser Effect
 destroyTheir = do
@@ -85,15 +85,15 @@ destroyTheir = do
   hspace
   void $ string' "enemy"
   hspace
-  destroyTheirCards typ <$> findCards
+  DestroyEnemy typ <$> findCards
 
 discard :: CardParser Condition
-discard = string' "discard" $> discardDeck
+discard = string' "discard" $> DiscardSelf
 
 discardTheir :: CardParser Effect
 discardTheir = do
   string' "discard" *> hspace
-  string' "enemy" $> discardTheirDeck
+  string' "enemy" $> DiscardEnemy
 
 tortrue :: CardParser Bool
 tortrue = thereIs $ try (hspace >> string' "true") <|> string' "t"
@@ -102,13 +102,13 @@ takeD :: CardParser Condition
 takeD = do
   string' "take" *> hspace
   n <- decimal
-  takeDamage n <$> tortrue
+  TakeDamage n <$> tortrue
 
 dealD :: CardParser Effect
 dealD = do
   string' "deal" *> hspace
   n <- decimal
-  dealDamage n <$> tortrue
+  DealDamage n <$> tortrue
 
 helper :: CardParser a -> a -> String -> (a -> Effect) -> CardParser Effect
 helper d def s a = do
@@ -119,7 +119,7 @@ natHelper :: String -> (Natural -> Effect) -> CardParser Effect
 natHelper = helper decimal 1
 
 healMe :: CardParser Effect
-healMe = natHelper "heal" heal
+healMe = natHelper "heal" Heal
 
 healThem :: CardParser Condition
 healThem = do
@@ -147,7 +147,7 @@ pop = do
 chooseParse :: CardParser Effect
 chooseParse = do
   (e : es) <- between (char '(' *> hspace) (hspace <* char ')') $ effect `sepBy1` gap
-  return $ Choose (e :| es)
+  return $ ChooseEffect (e :| es)
 
 rchooseParse :: CardParser Condition
 rchooseParse = do
@@ -169,7 +169,7 @@ attachParse :: CardParser Effect
 attachParse = helper searchType ForSpell "attach" Attach
 
 mbEff :: CardParser Effect
-mbEff = YouMay <$> (char '?' *> effect)
+mbEff = Optional <$> (char '?' *> effect)
 
 mbCond :: CardParser Condition
 mbCond = YouMay <$> (char '?' *> condition)
