@@ -1,5 +1,5 @@
 module Scale where
-import Types (Card, Requirement, Effect, Trigger (..), Spell (..), Monster (..), cardStats)
+import Types (Card, Trigger (..), Spell (..), Monster (..), cardStats, CardStats(..))
 import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.Reader (Reader, runReader, asks)
 import Data.Functor ((<&>))
@@ -8,6 +8,7 @@ import System.Exit (exitFailure)
 import Data.Foldable (toList)
 import Data.List (find)
 import Optics.Operators ((^.))
+import Atoms (Condition, Effect)
 
 data LegalityContext = LegalityContext
   { deckContext :: [Card],
@@ -17,7 +18,7 @@ data LegalityContext = LegalityContext
 
 data LegalityIssue
   = ScaleTooHigh Int Int String
-  | MOonSpellable (Maybe Effect, Maybe Requirement) String
+  | MOonSpellable (Maybe Effect, Maybe Condition) String
   | SearchTypeNotFound String -- Text of the searchtype
   | TooManyCards Int
   | TooFewCards Int
@@ -76,6 +77,10 @@ instance HasScale Trigger where
 
 instance HasScale Card where
   scale c = scale $ c ^. cardStats 
+
+instance HasScale CardStats where
+  scale (SpellStats s) = scale s
+  scale (MonsterStats m) = scale m
 
 instance HasScale Spell where
   scale (Spell n t r e) = do

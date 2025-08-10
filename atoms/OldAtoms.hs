@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
-module Atoms
+module OLDAtoms
   ( FindCards (..),
     -- ifCards,
     DestroyType (..),
@@ -413,7 +413,6 @@ attack piercing =
       ask >>= lift . void . trigger OnDefeat
       ask >>= lift . void . trigger OnDiscard
 
-data SearchMethod = SearchFor SearchType | DrillFor SearchType
 
 search :: SearchMethod -> Effect
 search (SearchFor t) =
@@ -590,6 +589,7 @@ playCardEffect t =
         ForSpell -> return $ -3
         o -> scale o,
       displayEffect = "Play a " ++ show t
+data FindCards = FindCardsField Natural SearchType | FindCardsHand Natural SearchType deriving (Eq)
     }
 
 -- See cards in the enemy hand?

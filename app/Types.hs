@@ -3,13 +3,10 @@
 module Types
   ( 
     Trigger (..),
-    Requirement (..),
-    Conditions,
-    Effect (..),
-    Spell (..),
-    Monster (..),
+    Spell ,
+    Monster ,
     CardStats (..),
-    Card ,
+    Card,
     cardElim,
     cardElim',
     cardName,
@@ -50,8 +47,6 @@ module Types
 where
 
 import Control.Monad.Except
-import Control.Monad.RWS (MonadReader (local), asks)
-import Control.Monad.Reader (Reader, ReaderT (runReaderT), runReader)
 import Control.Monad.State
 import Data.Default (Default (def))
 import Data.Foldable (Foldable (toList), find)
@@ -61,6 +56,7 @@ import GHC.Natural (Natural)
 import Optics
 import System.Exit (exitFailure)
 import Control.Monad (unless, when)
+import Atoms (Condition,Effect)
 
 data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnVictory | OnDefeat | OnAttach | Infinity deriving (Eq)
 
@@ -82,43 +78,19 @@ isMonsterOnly OnAttach = True
 isMonsterOnly Infinity = True
 isMonsterOnly _ = False
 
-data Requirement = Requirement
-  { testRequirement :: GameOpWithCardContext Bool,
-    monsterOnlyRequirement :: Bool,
-    requirementScale :: Scale,
-    displayRequirement :: String
-  }
-
-instance HasScale Requirement where
-  scale = requirementScale
-
-instance Show Requirement where
-  show = displayRequirement
-
-instance Eq Requirement where
-  (==) r1 r2 = displayRequirement r1 == displayRequirement r2
-
-instance Ord Requirement where
-  (<=) r1 r2 = displayRequirement r1 <= displayRequirement r2
-
-instance Default Requirement where
+{- instance Default Requirement where
   def =
     Requirement
       { testRequirement = return False,
         monsterOnlyRequirement = False,
-        requirementScale = return 0,
         displayRequirement = "Always"
-      }
+      } -}
 
-data Effect = Effect
+{- data Effect = Effect
   { performEffect :: GameOpWithCardContext (),
     monsterOnlyEffect :: Bool,
-    effectScale :: Scale,
     displayEffect :: String
   }
-
-instance HasScale Effect where
-  scale = effectScale
 
 instance Show Effect where
   show = displayEffect
@@ -128,19 +100,14 @@ instance Default Effect where
     Effect
       { performEffect = return (),
         monsterOnlyEffect = False,
-        effectScale = return 0,
         displayEffect = "Do nothing"
-      }
-
-type Effects = [Effect]
-
-type Conditions = OS.OSet Requirement
+      } -}
 
 data Spell = Spell
   { _spellName :: String,
     _spellTrigger :: Trigger,
-    _castingConditions :: Conditions,
-    _effects :: Effects
+    _castingConditions :: OS.OSet Condition,
+    _effects :: [Effect]
   }
 
 -- Due to a dependency loop at the core of the problem, macros cannot be used to
@@ -154,16 +121,16 @@ spellName = lens _spellName $ \s x -> s {_spellName = x}
 spellTrigger :: SpellLens Trigger
 spellTrigger = lens _spellTrigger $ \s x -> s {_spellTrigger = x}
 
-castingConditions :: SpellLens Conditions
+castingConditions :: SpellLens (OS.OSet Condition)
 castingConditions = lens _castingConditions $ \s x -> s {_castingConditions = x}
 
-effects :: SpellLens Effects
+effects :: SpellLens [Effect]
 effects = lens _effects $ \s x -> s {_effects = x}
 
 data Monster = Monster
   { _monsterName :: String,
     _monsterSpells :: [Spell],
-    _summoningConditions :: Conditions,
+    _summoningConditions :: OS.OSet Condition,
     _combatPower :: Natural,
     _isTapped :: Bool
   }
@@ -176,7 +143,7 @@ monsterName = lens _monsterName $ \m x -> m {_monsterName = x}
 monsterSpells :: MonsterLens [Spell]
 monsterSpells = lens _monsterSpells $ \m x -> m {_monsterSpells = x}
 
-summoningConditions :: MonsterLens Conditions
+summoningConditions :: MonsterLens (OS.OSet Condition)
 summoningConditions = lens _summoningConditions $ \m x -> m {_summoningConditions = x}
 
 combatPower :: MonsterLens Natural
@@ -196,10 +163,6 @@ prismMonsterStats :: Prism' CardStats Monster
 prismMonsterStats = prism MonsterStats $ \case
   MonsterStats m -> Right m
   s -> Left s
-
-instance HasScale CardStats where
-  scale (SpellStats s) = scale s
-  scale (MonsterStats m) = scale m
 
 data Card = Card
   { _cardID :: Natural,

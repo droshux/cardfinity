@@ -63,16 +63,17 @@ executable cardfinity
 
     -- Modules included in this executable, other than Main.
     other-modules:
-      Types
-      Utils
+      AtomParsers
+      AtomScale
       Atoms
-      Round
+      CardParser
       Game
       ParserCore
-      CardParser
-      AtomParsers
       Pdf
+      Round
       Scale
+      Types
+      Utils
       Paths_cardfinity
 
     -- LANGUAGE extensions used by modules in this package.

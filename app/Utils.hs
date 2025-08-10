@@ -34,7 +34,6 @@ module Utils
     player's,
     opponent's,
     player's',
-    SearchType (..),
     toPredicate,
     rarity,
     playCard,
@@ -73,38 +72,11 @@ whenJust :: (Monad m) => (a -> m ()) -> Maybe a -> m ()
 whenJust _ Nothing = return ()
 whenJust op (Just x) = op x
 
-data SearchType = ForName String | ForFamily String | ForSpell | ForMonster | ForCard deriving (Ord)
-
-instance Eq SearchType where
-  (==) (ForName _) (ForName _) = True
-  (==) (ForFamily _) (ForFamily _) = True
-  (==) ForSpell ForSpell = True
-  (==) ForMonster ForMonster = True
-  (==) ForCard ForCard = True
-  (==) _ _ = False
-
 toPredicate :: SearchType -> Card -> Bool
 toPredicate (ForName n) = (n ==) . cardName
 toPredicate (ForFamily f) = elem f . (^. cardFamilies)
 toPredicate ForCard = const True
 toPredicate t = cardElim (const $ t == ForSpell) (const $ t == ForMonster)
-
-instance HasScale SearchType where
-  scale t = asks deckContext <&> length . filter (toPredicate t) >>= calcRarity
-    where
-      calcRarity :: Int -> Scale
-      calcRarity x
-        | x == 0 = do
-            ignore <- asks ignoreSTNotFound
-            unless ignore $ throwError $ SearchTypeNotFound $ show t
-            return 0
-        -- Halfing the number of copies -> increase rarity by 1
-        | x == 1 = return 5
-        | x == 2 = return 4
-        | x >= 3 && x <= 4 = return 3
-        | x >= 5 && x <= 8 = return 2
-        | x >= 9 && x <= 16 = return 1
-        | otherwise = return 0
 
 rarity :: [Card] -> SearchType -> String
 rarity dck t = do
@@ -119,12 +91,8 @@ rarity dck t = do
         Right 0 -> "Very Common"
         _ -> "Error"
 
-instance Show SearchType where
-  show ForCard = "card"
-  show ForSpell = "spell"
-  show ForMonster = "monster"
-  show (ForName n) = show n
-  show (ForFamily f) = show f ++ " card"
+getLocation (FindCardsField _ _) = field
+getLocation (FindCardsHand _ _) = hand
 
 sandbox :: GameOpWithCardContext a -> GameOpWithCardContext (Either Player a, GameState)
 sandbox op = do
