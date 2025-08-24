@@ -7,6 +7,7 @@ import Control.Monad.Random (MonadRandom)
 import Control.Monad.State (StateT (runStateT))
 import Optics.Operators ((.~))
 import Round (gameRound)
+import Scale (isLegal)
 import System.Random.Shuffle (shuffleM)
 import Types
 

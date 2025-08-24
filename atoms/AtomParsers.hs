@@ -1,5 +1,6 @@
-module AtomParser where
+module AtomParsers where
 
+import Atoms (Condition (..), DestroyType (..), Effect (..), FindCards (..), SearchMethod (..), SearchType (..))
 import Control.Applicative ((<|>))
 import Control.Monad (void)
 import Data.Functor (($>))
@@ -9,7 +10,6 @@ import ParserCore (CardParser, anyOf, gap, hspace, name, thereIs)
 import Text.Megaparsec (MonadParsec (..), between, option, sepBy1)
 import Text.Megaparsec.Char (char, string')
 import Text.Megaparsec.Char.Lexer (decimal)
-import Atoms (Effect(..),Condition (..),SearchType (..),FindCards(..),DestroyType (..),SearchMethod(..))
 
 condition :: CardParser Condition
 condition =

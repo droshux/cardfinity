@@ -1,6 +1,7 @@
 module CardParser (card, deck) where
 
-import AtomParsers (effect, requirement)
+import AtomParsers (condition, effect)
+import Atoms (Condition)
 import Control.Applicative ((<|>))
 import Control.Monad (void)
 import Data.Foldable (find)
@@ -13,7 +14,6 @@ import Types
   ( Card (..),
     CardStats (MonsterStats, SpellStats),
     Monster (..),
-    Requirement,
     Spell (..),
     Trigger (..),
     cardName,
@@ -79,7 +79,7 @@ spell = do
   space
   t <- trigger
   space
-  reqs <- requirements
+  conds <- conditions
   char ':' *> space
   effects <- effect `sepBy1` gap
   return
@@ -87,14 +87,14 @@ spell = do
       { _spellTrigger = t,
         _spellName = n,
         _effects = effects,
-        _castingConditions = reqs
+        _castingConditions = conds
       }
 
 monster :: CardParser Monster
 monster = do
   monsterName <- name <* char ':'
   space
-  reqs <- requirements
+  conds <- conditions
   space
   spells <- manyTill (spell <* space) (string' "power")
   optional (char ':') *> hspace
@@ -105,12 +105,12 @@ monster = do
     return True
   return
     Monster
-      { _summoningConditions = reqs,
+      { _summoningConditions = conds,
         _monsterSpells = spells,
         _monsterName = monsterName,
         _isTapped = startsTapped,
         _combatPower = power
       }
 
-requirements :: CardParser (OSet Requirement)
-requirements = fmap fromList $ option [] $ requirement `sepBy` gap
+conditions :: CardParser (OSet Condition)
+conditions = fmap fromList $ option [] $ condition `sepBy` gap

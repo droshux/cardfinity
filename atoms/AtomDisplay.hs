@@ -2,132 +2,58 @@
 
 module AtomDisplay where
 
-import Atoms (Condition (..), Effect (..), FindCards (..), SearchType (..), DestroyType(..))
-import Utils (showFold)
-import Types(Display(..))
-
-instance Show SearchType where
-  show ForCard = "card"
-  show ForSpell = "spell"
-  show ForMonster = "monster"
-  show (ForName n) = show n
-  show (ForFamily f) = show f ++ " card"
-
-instance Show FindCards where
-  show f = case f of
-    FindCardsHand n t -> part1 n t ++ "in the hand"
-    FindCardsField n t -> part1 n t ++ "on the field"
-    where
-      part1 n t = concat [show n, " ", show t, if n == 1 then " " else "s "]
-
-instance Show Condition where
-  show (Destroy d f) = show d ++ " " ++ show f
-  show DiscardSelf = "Discard the top card of the deck"
-  show (TakeDamage n isTrue) = concat ["Take ", show n, if isTrue then " True" else "", " damage"]
-  show (HealOpponent n) = "Heal the opponent for " ++ show n ++ " damage"
-  show (Pop n) =
-    concat
-      [ "Banish the top ",
-        if n == 1 then "" else show n ++ " ",
-        "card",
-        if n == 1 then "" else "s",
-        " of the graveyard"
-      ]
-  show (YouMay cond) = "You can " ++ show cond
-  show (Choose cs) = "Choose one of (" ++ showFold " or " cs ++ ")"
-
-instance Show Effect where
-  show (DestroyEnemy d f) = replaceLast " the " " the enemy " $ show (Destroy d f)
-    where
-      replaceLast b a s = reverse $ replaceFirst (reverse b) (reverse a) (reverse s)
-      replaceFirst _ _ [] = []
-      replaceFirst b a (c : cs) = case stripPrefix b (c : cs) of
-        Just cs' -> a ++ cs'
-        Nothing -> c : replaceFirst b a cs
-  show DiscardEnemy = "Discard the top card of the opponent's deck"
-  show (DealDamage n isTrue) = concat ["Deal ", show n, if isTrue then " True" else "", " damage"]
-  show (Heal n) = "Heal " ++ show n ++ " damage"
-  show DECKOUT = "DECKOUT"
-  show (Draw n) = "Draw " ++ show n ++ " card" ++ if n == 1 then " " else "s"
-  show (Peek n) =
-    concat
-      [ "See the top ",
-        if n == 1 then "" else show n ++ " ",
-        "card",
-        if n == 1 then "" else "s",
-        " of the deck"
-      ]
-  show (Scry n) =
-    concat
-      [ "Banish the top ",
-        if n == 1 then "" else show n ++ " ",
-        "card",
-        if n == 1 then "" else "s",
-        " of the graveyard"
-      ]
-  show (Optional e) = "You may " ++ show e
-  show (ChooseEffect es) = "Choose one of (" ++ showFold " or " es ++ ")"
-  show (Attack piercing) =
-    "Attack with this monster"
-      ++ if piercing then " dealing piercing damage" else ""
-  show (Play t) = "Play a " ++ show t
-  show (Search (SearchFor t)) = "Search the deck for a " ++ show t
-  show (Search (DrillFor t)) = "Drill the deck for a " ++ show t
-  show (Attach t) = "Attach a " ++ show t ++ " from your hand to this card"
-  show (Buff by forItself) =
-    (++ show by) $
-      if forItself
-        then "Increase this card's power by "
-        else "Increase a card on the Field's power by "
-  show (AsEffect cond) = show cond
+import Atoms (Condition (..), DestroyType (..), Effect (..), FindCards (..), SearchMethod (..), SearchType (..))
+import GHC.Base (NonEmpty ((:|)))
+import Types (Display (..))
 
 instance Display DestroyType where
-    unparse _ Discard = "discard"
-    unparse _ Banish = "discard"
+  unparse _ Discard = "discard"
+  unparse _ Banish = "discard"
 
 instance Display SearchType where
-    unparse True (ForFamily f) = "f" ++ show f 
-    unparse False (ForFamily f) = "family " ++ show f
-    unparse _ (ForName n) = show n
-    unparse _ ForSpell = "spell"
-    unparse _ ForMonster = "monster"
-    unparse _ ForCard = "card"
+  unparse True (ForFamily f) = "f" ++ show f
+  unparse False (ForFamily f) = "family " ++ show f
+  unparse _ (ForName n) = show n
+  unparse _ ForSpell = "spell"
+  unparse _ ForMonster = "monster"
+  unparse _ ForCard = "card"
 
 instance Display FindCards where
-    unparse c (FindCardsHand n t) = show n ++ " " ++ unparse c t ++ " hand"
-    unparse c (FindCardsField n t) = show n ++ " " ++ unparse c t ++ " field"
+  unparse c (FindCardsHand n t) = show n ++ " " ++ unparse c t ++ " hand"
+  unparse c (FindCardsField n t) = show n ++ " " ++ unparse c t ++ " field"
 
 instance Display Condition where
-    unparse c (Destroy d f) = unparse c d ++ " " ++ unparse c f
-    unparse _ DiscardSelf = "discard"
-    unparse True (TakeDamage n True) = "take " ++ show n ++ "t"
-    unparse False (TakeDamage n True) = "take " ++ show n ++ " true"
-    unparse _ (TakeDamage n False) = "take " ++ show n
-    unparse _ (HealOpponent n) = "heal enemy " ++ show n
-    unparse _ (Pop n) = "pop " ++ show n
-    unparse c (YouMay cond) = unparse c cond ++ "?"
-    unparse c (Choose cs) = "(" ++ unparseChoiceHelper c cs ++ ")"
+  unparse c (Destroy d f) = unparse c d ++ " " ++ unparse c f
+  unparse _ DiscardSelf = "discard"
+  unparse True (TakeDamage n True) = "take " ++ show n ++ "t"
+  unparse False (TakeDamage n True) = "take " ++ show n ++ " true"
+  unparse _ (TakeDamage n False) = "take " ++ show n
+  unparse _ (HealOpponent n) = "heal enemy " ++ show n
+  unparse _ (Pop n) = "pop " ++ show n
+  unparse c (YouMay cond) = unparse c cond ++ "?"
+  unparse c (Choose cs) = "(" ++ unparseChoiceHelper c cs ++ ")"
 
 instance Display Effect where
-    unparse c (DestroyEnemy   d f) = unparse c d ++ " enemy " ++ unparse c d
-    unparse c DiscardEnemy = "discard enemy"
-    unparse True (DealDamage n True) = "deal " ++ show n ++ "t"
-    unparse False (DealDamage n True) = "deal " ++ show n ++ " true"
-    unparse _ (DealDamage n False) = "deal " ++ show n
-    unparse _ (Heal n) = "heal " ++ n
-    unparse _ DECKOUT = "deckout"
-    unparse _ (Draw n) = "draw " ++ n
-    unparse _ (Peek n) = "peek " ++ n
-    unparse _ (Scry n) = "scry " ++ n
-    unparse c (Optional e) = unparse c e ++ "?"
-    unparse c (ChooseEffect es) = "(" ++ unparseChoiceHelper c es ")"
-    unparse _ (Attack piercing) = (if piercing then "piercing " else "") ++ "attack"
-    unparse c (Play t) = "play " ++ unparse c t
-    unparse c (Search (SearchFor t)) = "search " ++ unparse c t
-    unparse c (Search (DrillFor t)) = "drill " ++ unparse c t
-    unparse c (Attach t) = "attach " ++ unparse c t
-    unparse _ (Buff n forItself) = "buff " ++ (if forItself then "this " else "") ++ show n
-    unparse c (AsEffect cond) = unparse c cond
+  unparse c (DestroyEnemy d _) = unparse c d ++ " enemy " ++ unparse c d
+  unparse _ DiscardEnemy = "discard enemy"
+  unparse True (DealDamage n True) = "deal " ++ show n ++ "t"
+  unparse False (DealDamage n True) = "deal " ++ show n ++ " true"
+  unparse _ (DealDamage n False) = "deal " ++ show n
+  unparse _ (Heal n) = "heal " ++ show n
+  unparse _ DECKOUT = "deckout"
+  unparse _ (Draw n) = "draw " ++ show n
+  unparse _ (Peek n) = "peek " ++ show n
+  unparse _ (Scry n) = "scry " ++ show n
+  unparse c (Optional e) = unparse c e ++ "?"
+  unparse c (ChooseEffect es) = "(" ++ unparseChoiceHelper c es ++ ")"
+  unparse _ (Attack piercing) = (if piercing then "piercing " else "") ++ "attack"
+  unparse c (Play t) = "play " ++ unparse c t
+  unparse c (Search (SearchFor t)) = "search " ++ unparse c t
+  unparse c (Search (DrillFor t)) = "drill " ++ unparse c t
+  unparse c (Attach t) = "attach " ++ unparse c t
+  unparse _ (Buff n forItself) = "buff " ++ (if forItself then "this " else "") ++ show n
+  unparse c (AsEffect cond) = unparse c cond
 
-unparseChoiceHelper c (fst:|[]) = unparse c fst
-unparseChoiceHelper c (fst :|(snd:rst)) = unparse c fst ++ ", " ++ unparseChoiceHelper  c (snd:|rst)
+unparseChoiceHelper :: (Display a) => Bool -> NonEmpty a -> [Char]
+unparseChoiceHelper c (x1 :| []) = unparse c x1
+unparseChoiceHelper c (x1 :| (x2 : rst)) = unparse c x1 ++ ", " ++ unparseChoiceHelper c (x2 :| rst)

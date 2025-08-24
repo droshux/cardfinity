@@ -1,38 +1,65 @@
 {-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
-module AtomActions where
+{-# HLINT ignore "Redundant <&>" #-}
 
-import Atoms (Condition (..), Effect (..))
-import Control.Monad.Except (runExceptT, throwError)
-import Data.Either (isRight)
-import Data.Foldable (Foldable (length))
-import Types (GameOpWithCardContext, deck, graveyard)
-import Utils (asOpponent', deckout, natToInt, player's, player's')
+module AtomActions
+  ( testRequirement,
+    performEffect,
+    draw,
+    playCard,
+    actSpell,
+  )
+where
+
+import Atoms
+import Control.Monad
+import Control.Monad.Except (throwError)
+import Control.Monad.RWS (gets, lift, liftIO, put)
+import Control.Monad.Reader (MonadReader (ask), ReaderT, asks, runReaderT)
+import Data.Foldable (Foldable (..))
+import Data.Functor ((<&>))
+import Data.List (findIndex)
+import Data.List.NonEmpty (NonEmpty ((:|)))
+import Data.List.NonEmpty qualified as NonE
+import Data.Maybe (mapMaybe)
+import Data.Set.Ordered (OSet)
+import GameUtils
+import Numeric.Natural (Natural)
+import Optics (Ixed (..), preview, (%))
+import Optics.Operators ((%~), (^.), (^?))
+import System.Random.Shuffle (shuffleM)
+import Types
+import Utils (natToInt, try, whenJust)
 
 testRequirement :: Condition -> GameOpWithCardContext Bool
 testRequirement (Destroy d f) = chooseToDestroy d f
-testRequirement DiscardSelf =
-  lift $
+testRequirement DiscardSelf = lift $ do
+  (c, cs) <-
     player's deck >>= \case
       [] -> deckout
-      (c : cs) -> deck .= cs >> handleDiscard Discard c
+      (c : cs) -> return (c, cs)
+  deck .= cs
+  handleDiscard Discard c
+  return True
 testRequirement (TakeDamage n isTrue) = takeDamageHelper n isTrue
-testRequirement (HealOpponent n) = isRight $ runExceptT $ do
-  r <- asOpponent' $ player's' graveyard <&> length
+testRequirement (HealOpponent n) = try $ do
+  r <- lift $ asOpponent' $ player's' graveyard <&> length
   when (r < natToInt n) $ throwError ()
-  asOpponent' $ healHelper n
-testRequirement (Pop n) = isRight $ runExceptT $ lift $ do
-  gy <- player's graveyard
+  lift $ asOpponent' $ healHelper n
+testRequirement (Pop n) = try $ do
+  gy <- lift $ player's' graveyard
   when (length gy < natToInt n) $ throwError ()
-  graveyard %= drop (natToInt n)
+  lift $ lift $ graveyard %= drop (natToInt n)
 testRequirement (YouMay cond) = do
-  let prompt = "Would you like to " ++ displayRequirement req
+  let prompt = "Would you like to " ++ show cond
   r <- selectFromList' prompt ("Continue" :| ["Cancel Spell"])
-  if fst r == 0 then testRequirement req else return False
+  if fst r == 0 then testRequirement cond else return False
 testRequirement (Choose rs) = lift (selectFromList "Choose one of the following:" rs) >>= testRequirement . snd
 
 performEffect :: Effect -> GameOpWithCardContext ()
 performEffect (DestroyEnemy d f) = asOpponent' $ destroyForced d f
+performEffect DiscardEnemy = void $ asOpponent' $ testRequirement DiscardSelf
 performEffect (DealDamage n isTrue) = void $ asOpponent' $ takeDamageHelper n isTrue
 performEffect (Heal n) = healHelper n
 performEffect DECKOUT = lift deckout
@@ -40,7 +67,7 @@ performEffect (Draw n) = replicateM_ (natToInt n) (lift draw)
 performEffect (Peek n) = player's' deck >>= liftIO . mapM_ print . take (natToInt n)
 performEffect (Scry n) = asOpponent' $ performEffect $ Peek n
 performEffect (Optional e) = do
-  let prompt = "Would you like to " ++ displayEffect e
+  let prompt = "Would you like to " ++ show e
   r <- selectFromList' prompt ("Yes" :| ["No"])
   when (fst r == 0) $ performEffect e
 performEffect (ChooseEffect es) = lift (selectFromList "Choose one of the following:" es) >>= performEffect . snd
@@ -53,16 +80,20 @@ performEffect (Attack piercing) =
         MonsterStats m -> not $ m ^. isTapped
       attackIndirect m =
         let power = natToInt $ m ^. combatPower
-         in lift (opponent's field) <&> filter attackable >>= \case
-              [] -> attackDirectly power
-              (efst : erst) -> do
-                (i, _) <- selectFromList' "Select the monster to attack:" $ NonE.map cardName (efst :| erst)
-                let target = (efst : erst) !! i
-                let deltaPower = power - maybe 0 natToInt (target ^? monsterStats % combatPower)
-                let iWon = deltaPower >= 0
-                when (iWon && piercing) $ lift $ asOpponent $ takeBattleDamage $ max 0 deltaPower
-                if iWon then defeatTarget target else defeatThis
-                when iWon $ ask >>= lift . void . trigger OnVictory
+         in ( lift (opponent's field)
+                >>= ( \case
+                        [] -> attackDirectly power
+                        (efst : erst) -> do
+                          (i, _) <- selectFromList' "Select the monster to attack:" $ NonE.map cardName (efst :| erst)
+                          let target = (efst : erst) !! i
+                          let deltaPower = power - maybe 0 natToInt (target ^? monsterStats % combatPower)
+                          let iWon = deltaPower >= 0
+                          when (iWon && piercing) $ lift $ asOpponent $ takeBattleDamage $ max 0 deltaPower
+                          if iWon then defeatTarget target else defeatThis
+                          when iWon $ ask >>= lift . void . trigger OnVictory
+                    )
+                  . filter attackable
+            )
       takeBattleDamage n = do
         dtop <- player's deck <&> take n
         graveyard %= (++ dtop)
@@ -102,14 +133,17 @@ performEffect (Search (SearchFor t)) =
         (cfst : crst) -> do
           ids <- options <&> map (^. cardID)
           (i', _) <- selectFromList' "Select card to draw:" $ NonE.map cardName $ cfst :| crst
-          player's' deck <&> findIndex (\c -> c ^. cardID == ids !! i') >>= \case
-            Nothing -> liftIO $ putStrLn $ cardName ((cfst : crst) !! i') ++ " not found in deck?!"
-            Just i -> lift $ do
-              c <- player's deck <&> (!! i)
-              hand =: c
-              deck -= i
-              shuffleDeck
-              void $ trigger OnDraw c
+          player's' deck
+            >>= ( \case
+                    Nothing -> liftIO $ putStrLn $ cardName ((cfst : crst) !! i') ++ " not found in deck?!"
+                    Just i -> lift $ do
+                      c <- player's deck <&> (!! i)
+                      hand =: c
+                      deck -= i
+                      shuffleDeck
+                      void $ trigger OnDraw c
+                )
+              . findIndex (\c -> c ^. cardID == ids !! i')
 performEffect (Search (DrillFor t)) =
   player's' deck >>= \case
     [] -> lift deckout
@@ -141,12 +175,15 @@ performEffect (Attach t) =
 performEffect (Buff by forItself) =
   let alterMy n = do
         cid <- asks (^. cardID)
-        player's' field <&> findIndex (\c -> cid == c ^. cardID) >>= \case
-          Nothing -> do
-            name <- asks cardName
-            liftIO $ putStrLn ("Error " ++ name ++ " not found on ")
-          Just i -> lift $ do
-            addPower i n
+        player's' field
+          >>= ( \case
+                  Nothing -> do
+                    name <- asks cardName
+                    liftIO $ putStrLn ("Error " ++ name ++ " not found on ")
+                  Just i -> lift $ do
+                    addPower i n
+              )
+            . findIndex (\c -> cid == c ^. cardID)
       alterTarget n = do
         player's' field >>= \case
           [] -> liftIO $ putStrLn "Could not find another card on the field."
@@ -158,6 +195,7 @@ performEffect (Buff by forItself) =
    in (if forItself then alterMy else alterTarget) by
 performEffect (AsEffect cond) = void $ testRequirement cond
 
+handleDiscard :: DestroyType -> Card -> GameOperation ()
 handleDiscard d c = unless (d == Banish) $ do
   graveyard =: c
   void $ trigger OnDiscard c
@@ -248,4 +286,112 @@ healHelper n =
       lift $ do
         deck =: c
         graveyard .= cs
-      performEffect $ heal (n - 1)
+      performEffect $ Heal (n - 1)
+
+checkAll :: OSet Condition -> GameOpWithCardContext Bool
+checkAll rs = do
+  (res, fstate) <- sandbox $ mapM testRequirement (toList rs) <&> and
+  case res of
+    Right True -> put fstate >> return True
+    _ -> return False
+
+trigger :: Trigger -> Card -> GameOperation Bool
+trigger t
+  | t == OnDiscard = runReaderT activateIfInGY
+  | otherwise = runReaderT activateCard
+  where
+    activateIfInGY =
+      findThisCard >>= \case
+        Just (_, Graveyard) -> activateCard
+        _ -> liftIO $ do
+          putStrLn "Discard effects can only trigger on cards in the graveyard."
+          return False
+    activateCard = ask >>= cardElim (`actSpell` t) (`actMonster` t)
+
+actSpell :: Spell -> Trigger -> ReaderT Card GameOperation Bool
+actSpell s t =
+  if s ^. spellTrigger == t
+    then do
+      liftIO $ putStrLn ("Attempting to cast " ++ s ^. spellName)
+      r <- checkAll (s ^. castingConditions)
+      if not r
+        then
+          liftIO $ putStrLn ("Can't cast " ++ s ^. spellName)
+        else mapM_ performEffect $ s ^. effects
+      return r
+    else return False
+
+actMonster :: Monster -> Trigger -> ReaderT Card GameOperation Bool
+actMonster m t
+  | m ^. isTapped = do
+      liftIO $ putStrLn (m ^. monsterName ++ " is tapped so no spells can trigger.")
+      return False
+  | t == OnAttach = case reverse $ validMSpells m of
+      [] -> do
+        liftIO $ putStrLn (m ^. monsterName ++ " has no spells that trigger when attached.")
+        return False
+      (s : _) -> actSpell s t
+  | isManual t = case validMSpells m of
+      [] -> do
+        liftIO $ putStrLn (m ^. monsterName ++ " has no spells that can be activated in that way.")
+        return False
+      options ->
+        selectFromListCancelable' "Select a monster spell to activate:" options >>= \case
+          Cancel -> liftIO $ putStrLn "Canncelled." >> return False
+          Option (_, s) -> do
+            didCast <- actSpell s t
+            when (didCast && t == OnTap) tapThisCard
+            return didCast
+  | otherwise = do
+      spellResults <- mapM (`actSpell` t) $ validMSpells m
+      return $ or spellResults
+  where
+    validMSpells monster = filter (\s -> s ^. spellTrigger == t) $ monster ^. monsterSpells
+    isManual OnTap = True
+    isManual Infinity = True
+    isManual _ = False
+
+playCard :: SearchType -> GameOperation ()
+playCard t =
+  player's hand <&> filter canPlay . filter (toPredicate t) >>= \case
+    [] -> liftIO $ putStrLn ("No " ++ show t ++ " in the hand.")
+    cs -> do
+      let select = selectFromListCancelable "Choose a card to play: "
+      r <- select $ map cardName cs
+      ifNotCancelled r (cardElim' playSpell playMonster . (cs !!) . fst)
+  where
+    canPlay = cardElim ((== OnPlay) . (^. spellTrigger)) (const True)
+    -- Find c in the hand and remove it
+    fromHand c =
+      player's hand <&> findIndex (\c' -> c ^. cardID == c' ^. cardID) >>= \case
+        Nothing -> liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in Hand")
+        Just i -> hand -= i
+    -- Spell: trigger OnPlay, move it to the GY
+    -- Triggering OnPlay tests the summoning conditions
+    -- If it returns false then the conditions were not met
+    playSpell s =
+      ask >>= lift . trigger OnPlay >>= \case
+        False -> liftIO $ putStrLn ("Cannot play " ++ s ^. spellName)
+        True ->
+          ask >>= \c -> lift $ do
+            graveyard =: c
+            fromHand c
+    -- Monster: Test summoning conditions, move to field, trigger OnPlay
+    playMonster m = do
+      success <- checkAll $ m ^. summoningConditions
+      if not success
+        then liftIO $ putStrLn ("Failed to summon " ++ m ^. monsterName)
+        else
+          ask >>= \c -> lift $ do
+            field =: c
+            fromHand c
+            void $ trigger OnPlay c
+
+draw :: GameOperation ()
+draw =
+  player's deck >>= \case
+    [] -> deckout
+    (c : cs) -> do
+      deck .= cs
+      hand =: c
+      void $ trigger OnDraw c

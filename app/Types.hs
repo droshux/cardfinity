@@ -1,12 +1,11 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Types
-  ( 
-    Trigger (..),
-    Spell ,
-    Monster ,
+  ( Trigger (..),
+    Spell (..),
+    Monster (..),
     CardStats (..),
-    Card,
+    Card (..),
     cardElim,
     cardElim',
     cardName,
@@ -43,18 +42,19 @@ module Types
     player1State,
     player2State,
     playerLens,
-    Display(..),
+    Display (..),
+    isMonsterOnly,
   )
 where
 
+import Atoms (Condition, Effect)
 import Control.Monad.Except
+import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.State
 import Data.Maybe (isJust)
 import Data.Set.Ordered qualified as OS (OSet)
 import GHC.Natural (Natural)
 import Optics
-import Atoms (Condition,Effect)
-import Control.Monad.Reader (ReaderT)
 
 data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnVictory | OnDefeat | OnAttach | Infinity deriving (Eq)
 
@@ -199,7 +199,6 @@ cardName = cardElim _spellName _monsterName
 isMonster :: Card -> Bool
 isMonster = isJust . preview monsterStats
 
-
 data Player = Player1 | Player2 deriving (Eq, Show)
 
 otherPlayer :: Player -> Player
@@ -268,5 +267,5 @@ type GameOperation = ReaderT Player (ExceptT Player (StateT GameState IO))
 type GameOpWithCardContext = ReaderT Card GameOperation
 
 class (Show a) => Display a where
-    -- Concise or not
-    unparse :: Bool -> String
+  -- Concise or not
+  unparse :: Bool -> a -> String

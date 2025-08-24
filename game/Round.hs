@@ -5,19 +5,21 @@
 
 module Round (gameRound) where
 
+import AtomActions (actSpell, draw, playCard)
+import Atoms (SearchType (..))
 import Control.Monad (when, (<=<))
-import Control.Monad.RWS (MonadReader (ask), MonadTrans (lift), MonadIO (liftIO))
+import Control.Monad.RWS (MonadIO (liftIO), MonadReader (ask), MonadTrans (lift))
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.State (StateT, modify)
 import Data.Functor ((<&>))
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (fromMaybe)
+import GameUtils
 import Optics.Operators ((.~), (^.), (^?))
 import Optics.Optic ((%))
 import System.Console.ANSI (clearScreen)
 import Types
-import Utils
 
 gameRound :: Control.Monad.Trans.Except.ExceptT Player (StateT GameState IO) ()
 gameRound = do
