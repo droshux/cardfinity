@@ -3,10 +3,11 @@ module Pdf (document, pageDimension, documentAlt, pageDimensionAlt, Fonts (..)) 
 import Control.Monad (forM_, unless, void, when, zipWithM_)
 import Data.Text (pack)
 import GHC.Float (int2Double)
+import GameUtils (shrinkSpellList)
 import Graphics.PDF
 import Optics.Operators
 import Types
-import Utils (showFold, shrinkSpellList)
+import Utils (showFold)
 
 data Fonts = Fonts
   { n :: AnyFont,

@@ -63,15 +63,19 @@ executable cardfinity
 
     -- Modules included in this executable, other than Main.
     other-modules:
-      Types
-      Utils
+      AtomActions
+      AtomDisplay
+      AtomParsers
       Atoms
-      Round
+      CardParser
       Game
       ParserCore
-      CardParser
-      AtomParsers
       Pdf
+      Round
+      Scale
+      Types
+      Utils
+      GameUtils
       Paths_cardfinity
 
     -- LANGUAGE extensions used by modules in this package.
@@ -79,7 +83,7 @@ executable cardfinity
 
     -- Other library packages from which modules are imported.
     build-depends:    
-      base ^>=4.17.2.1,
+      base >=4.19.2.0,
       mtl,
       transformers,
       containers,
@@ -101,6 +105,7 @@ executable cardfinity
       game
       parser
       excards
+      atoms
 
     -- Base language which the package is written in.
     default-language: GHC2021

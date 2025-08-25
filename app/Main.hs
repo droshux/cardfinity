@@ -6,6 +6,7 @@
 
 module Main (main) where
 
+import Atoms (SearchType (..))
 import CardParser (card, deck)
 import Control.Monad (forM_, void, when)
 import Control.Monad.Except (ExceptT (ExceptT), runExceptT)
@@ -23,11 +24,11 @@ import Options.Applicative.Simple (addCommand, help, long, metavar, option, shor
 import ParserCore (space)
 import Paths_cardfinity (version)
 import Pdf (Fonts (..), document, documentAlt, pageDimension, pageDimensionAlt)
+import Scale (isLegal, rarity, runScale)
 import System.Exit (exitFailure)
 import Text.Megaparsec (errorBundlePretty, manyTill, parse)
 import Text.Megaparsec.Byte (string')
-import Types (Card, cardFamilies, cardName, isLegal, runScale)
-import Utils (SearchType (ForFamily, ForName), rarity)
+import Types (Card, cardFamilies, cardName)
 
 main :: IO ()
 main = do

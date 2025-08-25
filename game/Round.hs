@@ -5,9 +5,11 @@
 
 module Round (gameRound) where
 
+import AtomActions (actSpell, draw, playCard, trigger)
+import Atoms (SearchType (..))
 import Control.Monad (void, when, (<=<))
-import Control.Monad.Except (MonadIO (liftIO), MonadTrans (lift))
-import Control.Monad.RWS (MonadReader (ask))
+import Control.Monad.Error.Class (MonadError (throwError))
+import Control.Monad.RWS (MonadIO (liftIO), MonadReader (ask), MonadTrans (lift))
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.State (StateT, modify)
@@ -16,11 +18,12 @@ import Data.Functor ((<&>))
 import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (fromMaybe, isJust)
+import GameUtils
 import Optics.Operators ((.~), (^.), (^?))
 import Optics.Optic ((%))
 import System.Console.ANSI (clearScreen)
 import Types
-import Utils
+import Utils (ifEmpty, try)
 
 gameRound :: Control.Monad.Trans.Except.ExceptT Player (StateT GameState IO) ()
 gameRound = do
@@ -105,14 +108,15 @@ action = do
       when (res == 0) $ displayLoc Graveyard
 
 activateCard :: GameOperation ()
-activateCard =
-  player's field <&> filter isActivatable >>= \case
-    [] -> liftIO $ putStrLn "No monsters on the field can be activated."
-    activatable -> do
-      res <- selectFromListCancelable "Select a monster to activate:" (map optionName activatable)
-      ifNotCancelled res $ \(i, _) ->
-        let target = activatable !! i
-         in cardElim (const $ return ()) (activateMonster target) target
+activateCard = void $ try $ do
+  let getTargets = player's field <&> filter isActivatable
+  (c, cs) <- ifEmpty getTargets $ do
+    liftIO $ putStrLn "No monsters on the field can be activated."
+    throwError ()
+  res <- lift $ selectFromListCancelable "Select a monster to activate:" $ map optionName (c : cs)
+  ifNotCancelled res $ \(i, _) ->
+    let target = (c : cs) !! i
+     in lift $ cardElim (const $ return ()) (activateMonster target) target
   where
     manualSpell s = s ^. spellTrigger `elem` [Infinity, OnTap]
     optionName c =
