@@ -19,6 +19,7 @@ module GameUtils
     shuffleDeck,
     tapThisCard,
     findThisCard,
+    lensThisCard,
     printCardsIn,
     (.=),
     (=:),
@@ -33,18 +34,17 @@ module GameUtils
   )
 where
 
-import Atoms (Condition, FindCards (..), SearchType (..))
-import Control.Monad (mfilter, void, when, (<=<))
+import Atoms (FindCards (..), SearchType (..))
+import Control.Monad (mfilter, (<=<))
 import Control.Monad.Except (runExceptT, throwError)
 import Control.Monad.Reader (MonadIO (liftIO), MonadReader (ask, local), MonadTrans (lift), ReaderT (runReaderT), asks)
-import Control.Monad.State (MonadState (get, put), StateT (runStateT), gets, modify)
+import Control.Monad.State (MonadState (get), StateT (runStateT), gets, modify)
 import Data.Bifunctor (second)
 import Data.Foldable (Foldable (toList))
 import Data.Functor ((<&>))
 import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty ((:|)))
-import Data.Set.Ordered (OSet)
-import Optics (Lens', over, set, view, (%), (.~), (^.))
+import Optics (AffineTraversal', Ixed (ix), Lens', atraversal, over, set, view, (%), (^.))
 import System.Random.Shuffle (shuffleM)
 import Text.Read (readMaybe)
 import Types
@@ -157,14 +157,8 @@ shuffleDeck = player's deck >>= shuffleM >>= (deck .=)
 
 tapThisCard :: GameOpWithCardContext ()
 tapThisCard = do
-  cid <- asks (^. cardID)
-  res <- player's' field <&> findIndex (\c -> c ^. cardID == cid)
-  case res of
-    Nothing -> return ()
-    Just i -> lift $ field %= tapAtI i
-  where
-    tapAtI i cs = take i cs ++ [tap (cs !! i)] ++ drop (i + 1) cs
-    tap = monsterStats % isTapped .~ True
+  this <- lensThisCard
+  lift $ this % monsterStats % isTapped .= True
 
 findThisCard :: GameOpWithCardContext (Maybe (Int, CardLocation))
 findThisCard = mapM findThisIn allCardLocations <&> fmap (second toEnum) . firstIndex 0
@@ -175,6 +169,12 @@ findThisCard = mapM findThisIn allCardLocations <&> fmap (second toEnum) . first
     findThisIn loc = do
       cid <- asks (^. cardID)
       player's' (toLens loc) <&> findIndex (\c -> c ^. cardID == cid)
+
+lensThisCard :: GameOpWithCardContext (AffineTraversal' PlayerState Card)
+lensThisCard =
+  findThisCard <&> \case
+    Nothing -> atraversal Left const
+    Just (i, loc) -> toLens loc % ix i
 
 printCardsIn :: String -> CardLocation -> GameOperation ()
 printCardsIn delim l = player's (toLens l) >>= liftIO . putStrLn . showFold delim . map cardName
