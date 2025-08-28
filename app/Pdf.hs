@@ -3,11 +3,10 @@ module Pdf (document, pageDimension, documentAlt, pageDimensionAlt, Fonts (..)) 
 import Control.Monad (forM_, unless, void, when, zipWithM_)
 import Data.Text (pack)
 import GHC.Float (int2Double)
-import GameUtils (shrinkSpellList)
 import Graphics.PDF
 import Optics.Operators
 import Types
-import Utils (showFold)
+import Utils (collapse, showFold)
 
 data Fonts = Fonts
   { n :: AnyFont,
@@ -102,7 +101,7 @@ writeStats fnt (SpellStats s) = writeSpell fnt 1 False s
 writeStats fnt (MonsterStats m) = do
   setStyle $ CardText fnt
   paragraph $ str $ showFold ", " $ m ^. summoningConditions
-  mapM_ showSpell $ shrinkSpellList $ m ^. monsterSpells
+  mapM_ showSpell $ collapse $ m ^. monsterSpells
   paragraph $ do
     str $ "Power: " ++ show (m ^. combatPower)
     when (m ^. isTapped) $ forceNewLine >> str "Begins Tapped"

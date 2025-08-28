@@ -36,9 +36,8 @@ import Utils (addInteger, ifEmpty, ifNone, natToInt, try)
 testRequirement :: Condition -> GameOpWithCardContext Bool
 testRequirement (Destroy d f) = try $ chooseToDestroy d f
 testRequirement DiscardSelf = lift $ do
-  (c, cs) <- player's deck `ifEmpty` deckout
-  deck .= cs
-  handleDiscard Discard c
+  (c, _) <- player's deck `ifEmpty` deckout
+  discard c
   return True
 testRequirement (TakeDamage n isTrue) = takeDamageHelper n isTrue
 testRequirement (HealOpponent n) = try $ do
@@ -77,28 +76,28 @@ performEffect (Attack piercing) = void $ try $ do
     liftIO $ putStrLn "You cannot attack on the first turn!"
     throwError ()
   location <- lift findThisCard <&> fmap snd
-  when (location == Just Field) $ do
+  unless (location == Just Field) $ do
     liftIO $ putStrLn "Monsters can only attack from the field!"
     throwError ()
-  this <- ask >>= cardElim (const $ throwError ()) return
-  let validTarget c = fromMaybe False $ c ^? monsterStats % isTapped
+  this <- ask
+  let validTarget c = not $ fromMaybe True $ c ^? monsterStats % isTapped
   let targets = opponent's field <&> filter validTarget
   (t, ts) <- ifEmpty (lift $ lift targets) $ do
     liftIO $ putStrLn "Attacking Directly!"
-    lift $ performEffect $ DealDamage (this ^. combatPower) False
+    lift $ performEffect $ DealDamage (fromMaybe 0 $ this ^? monsterStats % combatPower) False
     throwError ()
   let prompt = "Select the monster to attack:"
   (i, _) <- lift $ selectFromList' prompt $ NonE.map cardName (t :| ts)
-  let mbTarget = (t : ts) !! i ^? monsterStats
-  target <- ifNone (return mbTarget) $ throwError ()
-  lift $ do
-    let delta = this ^. combatPower - target ^. combatPower
-    when (delta > 0 && piercing) $ performEffect $ DealDamage delta False
-    loser <- if delta > 0 then return $ (t : ts) !! i else ask
-    lift $ do
+  let target = (t : ts) !! i
+  let power = fromMaybe 0 . (^? monsterStats % combatPower)
+  let delta = if not piercing then 0 else max (power this) (power target) - min (power this) (power target)
+  lift $ lift $ if power this < power target then asOpponent $ results target this 0 else results this target delta
+  where
+    results winner loser pierce = do
+      void $ trigger OnVictory winner
       void $ trigger OnDefeat loser
-      asOpponent (field -= i)
-      handleDiscard Discard loser
+      when (pierce > 0) $ flip runReaderT winner $ performEffect $ DealDamage pierce False
+      asOpponent $ discard loser
 performEffect (Play t) = lift $ playCard t
 performEffect (Search (SearchFor t)) = void $ try $ do
   let options = player's' deck <&> filter (toPredicate t)
@@ -158,11 +157,6 @@ performEffect (Buff by False) = void $ try $ do
     lift $ field % ix i % monsterStats % combatPower %= addInteger by
 performEffect (AsEffect cond) = void $ testRequirement cond
 
-handleDiscard :: DestroyType -> Card -> GameOperation ()
-handleDiscard d c = unless (d == Banish) $ do
-  graveyard =: c
-  void $ trigger OnDiscard c
-
 chooseToDestroy :: DestroyType -> FindCards -> ExceptT () GameOpWithCardContext ()
 chooseToDestroy d f
   | getCount f == 0 = return ()
@@ -182,13 +176,7 @@ chooseToDestroy d f
       (j, _) <- lift $ selectFromList' prompt $ NonE.map cardName (cfst :| crst)
       let c = (cfst : crst) !! j
       liftIO $ putStrLn (show d ++ "ing " ++ cardName c ++ " from the " ++ show f)
-      let mbIndex = player's' (getLocation f) <&> findIndex (\c' -> c' ^. cardID == c ^. cardID)
-      i <- ifNone (lift mbIndex) $ do
-        liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in " ++ show f)
-        throwError ()
-      lift $ lift $ do
-        getLocation f -= i
-        handleDiscard d c
+      lift $ lift $ destroy d c
       moveOn
   where
     moveOn = chooseToDestroy d $ case f of
@@ -207,7 +195,7 @@ destroyForced d (FindCardsHand n st)
           putStr "s in the hand."
         throwError ()
       lift $ do
-        lift $ handleDiscard d c
+        lift $ destroy d c
         destroyForced d $ FindCardsHand (n - 1) st
 destroyForced d (FindCardsField n st)
   | n == 0 = return ()
@@ -222,8 +210,7 @@ destroyForced d (FindCardsField n st)
       lift $ do
         this <- lift ask
         (i, _) <- selectFromListNoPlayer' (prompt this) $ NonE.map cardName (c :| cs)
-        lift $ field -= i
-        lift $ handleDiscard d $ (c : cs) !! i
+        lift $ destroy d $ (c : cs) !! i
         destroyForced d $ FindCardsField (n - 1) st
   where
     prompt cp =
@@ -301,6 +288,7 @@ actMonster m t
       [] -> do
         liftIO $ putStrLn (m ^. monsterName ++ " has no spells that can be activated in that way.")
         return False
+      [only] -> castAndTap only
       options ->
         selectFromListCancelable' "Select a monster spell to activate:" options >>= \case
           Cancel -> liftIO $ putStrLn "Canncelled." >> return False
@@ -312,6 +300,10 @@ actMonster m t
       spellResults <- mapM (`actSpell` t) $ validMSpells m
       return $ or spellResults
   where
+    castAndTap s = do
+      didCast <- actSpell s t
+      when (didCast && t == OnTap) tapThisCard
+      return didCast
     validMSpells monster = filter (\s -> s ^. spellTrigger == t) $ monster ^. monsterSpells
     isManual OnTap = True
     isManual Infinity = True
@@ -370,3 +362,16 @@ draw = do
   deck .= cs
   hand =: c
   void $ trigger OnDraw c
+
+destroy :: DestroyType -> Card -> GameOperation ()
+destroy d c =
+  runReaderT findThisCard c >>= \case
+    Nothing -> liftIO $ putStrLn $ "Failed to find " ++ cardName c
+    Just (i, loc) -> do
+      toLens loc -= i
+      when (d == Discard) $ do
+        graveyard =: c
+        void $ trigger OnDiscard c
+
+discard :: Card -> GameOperation ()
+discard = destroy Discard

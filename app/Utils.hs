@@ -6,6 +6,7 @@ import Control.Monad.Except (ExceptT, runExceptT)
 import Data.Either (isRight)
 import Data.Foldable (Foldable (toList))
 import Data.Functor ((<&>))
+import Data.Map (assocs, fromListWith)
 import GHC.Natural (Natural, naturalToInteger)
 import GHC.Num (integerToInt)
 
@@ -49,3 +50,6 @@ addInteger y x
   | y < 0 && x < fromIntegral (abs y) = 0
   | y < 0 = x - fromIntegral y
   | otherwise = x + fromIntegral y
+
+collapse :: (Ord a) => [a] -> [(a, Int)]
+collapse = assocs . fromListWith (+) . map (,1)

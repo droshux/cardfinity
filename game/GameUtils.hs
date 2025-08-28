@@ -31,7 +31,6 @@ module GameUtils
     toPredicate,
     getLocation,
     sandbox,
-    shrinkSpellList,
   )
 where
 
@@ -45,12 +44,12 @@ import Data.Foldable (Foldable (toList))
 import Data.Functor ((<&>))
 import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty ((:|)))
-import Data.Map (assocs, fromListWith)
-import Optics (AffineTraversal', Ixed (ix), Lens', atraversal, over, set, view, (%), (^.))
+import Data.Maybe (mapMaybe)
+import Optics (AffineTraversal', Ixed (ix), Lens', atraversal, over, preview, set, view, (%), (^.))
 import System.Random.Shuffle (shuffleM)
 import Text.Read (readMaybe)
 import Types
-import Utils (showFold, without)
+import Utils (collapse, showFold, without)
 
 toPredicate :: SearchType -> Card -> Bool
 toPredicate (ForName n) = (n ==) . cardName
@@ -178,10 +177,21 @@ lensThisCard =
     Nothing -> atraversal Left const
     Just (i, loc) -> toLens loc % ix i
 
-shrinkSpellList :: [Spell] -> [(Spell, Int)]
-shrinkSpellList = assocs . fromListWith (+) . map (,1)
-
 printCardsIn :: String -> CardLocation -> GameOperation ()
+printCardsIn delim Graveyard = do
+  cards <- player's graveyard
+  liftIO $ putStrLn ("(" ++ show (length cards) ++ " cards)")
+  liftIO $ putStrLn $ showFold delim $ map cardName cards
+printCardsIn delim Field = player's field >>= liftIO . putStrLn . delimFold . collapse . mapMaybe (preview monsterStats)
+  where
+    fieldPrint (m, i) =
+      let b = if m ^. isTapped then "'" else "\""
+          p = if m ^. combatPower > 0 then " (" ++ show (m ^. combatPower) ++ ")" else ""
+          x = if i > 1 then show i ++ "x " else ""
+       in x ++ b ++ m ^. monsterName ++ p ++ b
+    delimFold [] = ""
+    delimFold [c] = fieldPrint c
+    delimFold (c : cs) = fieldPrint c ++ delim ++ delimFold cs
 printCardsIn delim l = player's (toLens l) >>= liftIO . putStrLn . showFold delim . map cardName
 
 instance Show Spell where
@@ -202,7 +212,7 @@ instance Show Monster where
                   ":"
                 ]
           )
-        ++ map (("\n\t" ++) . show) ss
+        ++ map (\(s, c) -> "\n\t" ++ (if c > 1 then show c ++ "x " else "") ++ show s) (collapse ss)
         ++ [ "\n\tPower ",
              show p,
              if t then "\t[Tapped]" else ""
