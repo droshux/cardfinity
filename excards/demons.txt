@@ -50,7 +50,7 @@ power: 0
 ! Hard to use but you can use this to search powerful spells
 "Dark Processor":
 discard hand
-"Demonic Analysis" tap take 1, discard spell hand: search spell
+"Demonic Analysis" tap take 1, discard spell hand: search spell, draw
 power: 0
 ( "Dark Machine" )
 
@@ -71,7 +71,7 @@ power: 0
 ("Demon", "Demon Lord")
 
 ! Helps you summon the Lord of Sacrifice, probably with a lot of power
-"Road of Sacrifice" on play discard family "Dark Machine" hand: drill "Lord of Sacrifice"
+"Road of Sacrifice" on play discard family "Dark Machine" hand: drill "Lord of Sacrifice",draw
 
 ! A different boss monster in the deck Beefy but it has the has Hellish Pustule's discard effect. If it attacks on a turn it'll be tapped so it's discard effect can't actually go off so be careful
 "Lord of Revulsion":

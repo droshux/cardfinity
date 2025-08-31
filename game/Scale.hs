@@ -1,5 +1,13 @@
 module Scale where
 
+{-
+ - TODO: REBALANCE!
+ - f n = max 1 $ 5 - floor (log2 n)
+ - Take damage: n * f n
+ - Take true damage: scale (Take Damage n) + 2 * n
+ - Scale of filters: 2 ^ (f n - 1)
+ - -}
+
 import Atoms
 import Control.Monad (unless, when)
 import Control.Monad.Except (ExceptT, runExceptT, throwError)
@@ -196,9 +204,9 @@ instance HasScale Effect where
   scale (Play t) = case t of
     ForSpell -> return $ -3
     o -> scale o
-  scale (Search (SearchFor ForSpell)) = return 25
-  scale (Search (SearchFor _)) = return 30
-  scale (Search (DrillFor t)) = local (\c -> c {ignoreSTNotFound = True}) (scale t) <&> (+ 10)
+  scale (Search (SearchFor ForSpell)) = return 10
+  scale (Search (SearchFor _)) = return 15
+  scale (Search (DrillFor t)) = local (\c -> c {ignoreSTNotFound = True}) (scale t) <&> (\x -> x - punishment)
   scale (Attach t) = scale t <&> (+ 5)
   scale (Buff by forItself) = return $ max (-punishment) $ if forItself then 2 * fromIntegral by else 3 * fromIntegral by
   scale (AsEffect cond) = scale cond

@@ -30,7 +30,7 @@ power: 3
 ("SEES")
 
 "The Moon": take 2
-"Revenge" discard take 1: discard enemy field
+"Revenge" discard take 1t: discard enemy field
 power: 0
 ("SEES")
 
@@ -40,7 +40,7 @@ power: 9
 ("SEES")
 
 "Aeon": discard hand
-"Athena" play: discard enemy field
+"Athena" play pop: discard enemy field
 power: 1
 ("SEES")
 
@@ -50,9 +50,9 @@ power: 1
 
 "Velvet Room" play discard: draw
 
-"Fusion" discard discard, discard field, pop 3: search spell
+"Fusion" discard discard, discard field, pop 3: search spell, draw
 
-"Dark Hour" discard ?heal enemy 5: search f"SEES"
+"Dark Hour" discard ?heal enemy 5: search f"SEES", draw
 
 "Shuffle Time" play discard hand: draw
 

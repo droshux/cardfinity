@@ -67,7 +67,7 @@ instance Show Trigger where
   show OnTap = "Tap this card"
   show OnDefeat = "When defeated"
   show OnVictory = "When defeating a monster"
-  show OnAttach = "When this spell is attached to a monster"
+  show OnAttach = "When this spell becomes attached to a monster"
   show Infinity = "On your turn"
 
 isMonsterOnly :: Trigger -> Bool

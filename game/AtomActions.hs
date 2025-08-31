@@ -114,21 +114,15 @@ performEffect (Search (SearchFor t)) = void $ try $ do
     throwError ()
   lift $ lift $ do
     found <- player's deck <&> (!! i)
-    hand =: found
     deck -= i
     shuffleDeck
-    void $ trigger OnDraw found
+    deck %= (found :)
 performEffect (Search (DrillFor t)) = do
   (c, cs) <- lift $ ifEmpty (player's deck) deckout
-  if toPredicate t c
-    then lift $ do
-      deck .= cs
-      hand =: c
-      void $ trigger OnDraw c
-    else do
-      lift $ deck .= cs
-      lift $ graveyard =: c
-      performEffect $ Search (DrillFor t)
+  unless (toPredicate t c) $ do
+    lift $ deck .= cs
+    lift $ graveyard =: c
+    performEffect $ Search (DrillFor t)
 performEffect (Attach t) = void $ try $ do
   let valid = player's' hand <&> mapMaybe (^? spellStats) . filter (toPredicate t)
   (sfst, srst) <- ifEmpty (lift valid) $ do

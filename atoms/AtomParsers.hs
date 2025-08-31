@@ -142,7 +142,7 @@ scryParse = natHelper "scry" Scry
 pop :: CardParser Condition
 pop = do
   string' "pop" *> hspace
-  Pop <$> decimal
+  Pop <$> option 1 decimal
 
 chooseParse :: CardParser Effect
 chooseParse = do

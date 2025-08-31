@@ -292,20 +292,20 @@ defeated as normal the owner of the power `4` monster would take `3` damage.
 
 ### Search
 
-Written as `search [filter]` with scale `30`. However the [filter](#filters) is
-`spell` the scale of this effect is `25` instead.
+Written as `search [filter]` with scale `15`. However the [filter](#filters) is
+`spell` the scale of this effect is `10` instead.
 
-1. Choose any card in your deck that matches the filter and add it to your hand.
-2. Shuffle your deck.
-3. Activate that card's `on draw` trigger(s) (if any). 
+1. Choose any card in your deck that matches the filter 
+2. Shuffle the rest of your deck.
+3. Put the card chosen in step 1 on the top of your deck.
+
 
 
 ### Drill
 
-Written as `drill [filter]` with scale `10` plus the scale of the filter. 
+Written as `drill [filter]` with scale `-5` plus the scale of the filter. 
 
 **WARNING***: If no cards in your deck match the filter, this effect will cause
 you to lose the game.
 
-Take damage until the top card of your deck matches the filter, then draw that
-card, this triggers `on draw`.
+Take damage until the top card of your deck matches the filter. 
