@@ -96,6 +96,7 @@ instance HasScale Monster where
 
 instance HasScale Trigger where
   scale Infinity = return 20
+  scale Counter = return 20
   scale OnPlay = return 0
   scale OnAttach = return 0
   scale _ = return 5

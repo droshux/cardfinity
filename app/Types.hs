@@ -46,6 +46,7 @@ module Types
     playerLens,
     Display (..),
     isMonsterOnly,
+    isReaction,
   )
 where
 
@@ -58,7 +59,17 @@ import Data.Set.Ordered qualified as OS (OSet)
 import GHC.Natural (Natural)
 import Optics
 
-data Trigger = OnPlay | OnDiscard | OnDraw | OnTap | OnVictory | OnDefeat | OnAttach | Infinity deriving (Eq, Ord)
+data Trigger
+  = OnPlay
+  | OnDiscard
+  | OnDraw
+  | OnTap
+  | OnVictory
+  | OnDefeat
+  | OnAttach
+  | Infinity
+  | Counter
+  deriving (Eq, Ord)
 
 instance Show Trigger where
   show OnPlay = "When played"
@@ -69,6 +80,7 @@ instance Show Trigger where
   show OnVictory = "When defeating a monster"
   show OnAttach = "When this spell becomes attached to a monster"
   show Infinity = "On your turn"
+  show Counter = "Counterspell"
 
 isMonsterOnly :: Trigger -> Bool
 isMonsterOnly OnTap = True
@@ -78,36 +90,10 @@ isMonsterOnly OnAttach = True
 isMonsterOnly Infinity = True
 isMonsterOnly _ = False
 
-{- instance Default Requirement where
-  def =
-    Requirement
-      { testRequirement = return False,
-        monsterOnlyRequirement = False,
-        displayRequirement = "Always"
-      } -}
-
-{- data Effect = Effect
-  { performEffect :: GameOpWithCardContext (),
-    monsterOnlyEffect :: Bool,
-    displayEffect :: String
-  }
-
-instance Show Effect where
-  show = displayEffect
-
-instance Eq Effect where
-  (==) e1 e2 = displayEffect e1 == displayEffect e2
-
-instance Ord Effect where
-  (<=) e1 e2 = displayEffect e1 <= displayEffect e2
-
-instance Default Effect where
-  def =
-    Effect
-      { performEffect = return (),
-        monsterOnlyEffect = False,
-        displayEffect = "Do nothing"
-      } -}
+isReaction :: Trigger -> Bool
+isReaction OnPlay = True
+isReaction Counter = True
+isReaction _ = False
 
 data Spell = Spell
   { _spellName :: String,

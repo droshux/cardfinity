@@ -14,6 +14,7 @@ module GameUtils
     selectFromListNoPlayer,
     selectFromListNoPlayer',
     ifNotCancelled,
+    cancelFallback,
     Cancelable (..),
     deckout,
     shuffleDeck,
@@ -124,10 +125,13 @@ selectFromListCancelable prompt = return . h <=< selectFromList prompt . (Cancel
 selectFromListCancelable' :: (Show a) => String -> [a] -> GameOpWithCardContext (Cancelable (Int, a))
 selectFromListCancelable' prompt = lift . selectFromListCancelable prompt
 
-ifNotCancelled :: (MonadIO m) => Cancelable (i, a) -> ((i, a) -> m ()) -> m ()
-ifNotCancelled c f = case c of
-  Cancel -> liftIO $ putStrLn "Cancelled."
-  Option p -> f p
+ifNotCancelled :: (MonadIO m) => Cancelable a -> (a -> m ()) -> m ()
+ifNotCancelled c f = cancelFallback c (liftIO $ putStrLn "Cancelled") f
+
+cancelFallback :: (MonadIO m) => Cancelable a -> m b -> (a -> m b)  -> m b 
+cancelFallback c fb f = case c of 
+    Cancel -> fb
+    Option p -> f p
 
 -- Set a lens on the current player
 (.=) optic x = asks playerLens >>= modify . flip set x . (% optic)

@@ -67,7 +67,8 @@ trigger = do
       OnVictory <$ string' "victory",
       OnTap <$ string' "tap",
       OnAttach <$ string' "attach",
-      Infinity <$ string' "infinity"
+      Infinity <$ string' "infinity",
+      Counter <$ string' "counterspell"
     ]
 
 families :: CardParser (OSet String)

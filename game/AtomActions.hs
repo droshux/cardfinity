@@ -17,7 +17,7 @@ import Atoms
 import Control.Monad
 import Control.Monad.Except (ExceptT, throwError)
 import Control.Monad.RWS (gets, lift, liftIO, put)
-import Control.Monad.Reader (MonadReader (ask), ReaderT, asks, runReaderT)
+import Control.Monad.Reader (MonadReader (ask), asks, runReaderT)
 import Data.Foldable (Foldable (..))
 import Data.Functor ((<&>))
 import Data.List (findIndex)
@@ -258,9 +258,13 @@ trigger t
           return False
     activateCard = ask >>= cardElim (`actSpell` t) (`actMonster` t)
 
-actSpell :: Spell -> Trigger -> ReaderT Card GameOperation Bool
+actSpell :: Spell -> Trigger -> GameOpWithCardContext Bool
 actSpell s t = try $ do
   unless (s ^. spellTrigger == t) $ throwError ()
+  countered <- lift $ lift $ asOpponent allowReaction
+  when countered $ do
+    liftIO $ putStrLn "COUNTERED!"
+    throwError ()
   liftIO $ putStrLn ("Attempting to cast " ++ s ^. spellName)
   r <- lift $ checkAll (s ^. castingConditions)
   unless r $ do
@@ -268,7 +272,23 @@ actSpell s t = try $ do
     throwError ()
   lift $ mapM_ performEffect $ s ^. effects
 
-actMonster :: Monster -> Trigger -> ReaderT Card GameOperation Bool
+-- Returns true if the spell was a counter spell and succeeded
+allowReaction :: GameOperation Bool
+allowReaction = do
+  let reactSpell c = maybe False isReaction $ c ^? spellStats % spellTrigger
+  options <- player's hand <&> filter reactSpell
+  let prompt = "How would you like to react?"
+  res <- selectFromListCancelable prompt options
+  cancelFallback res (return False) $ \(_, react) ->
+    case react ^? spellStats % spellTrigger of
+      Nothing -> return False -- Should be impossible
+      Just t -> do
+        fromHand react
+        success <- trigger t react
+        graveyard =: react
+        return $ success && t == Counter
+
+actMonster :: Monster -> Trigger -> GameOpWithCardContext Bool
 actMonster m t
   | m ^. isTapped = do
       liftIO $ putStrLn (m ^. monsterName ++ " is tapped so no spells can trigger.")
@@ -317,26 +337,15 @@ playCard t = void $ try $ do
   where
     canPlay = cardElim ((== OnPlay) . (^. spellTrigger)) (const True)
 
-    -- Find c in the hand and remove it
-    fromHand c = void $ try $ do
-      let getIndex = player's hand <&> findIndex (\c' -> c ^. cardID == c' ^. cardID)
-      i <- ifNone (lift getIndex) $ do
-        liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in Hand")
-        throwError ()
-      hand -= i
-
     -- Spell: trigger OnPlay, move it to the GY
     -- Triggering OnPlay tests the summoning conditions
     -- If it returns false then the conditions were not met
-    playSpell s = void $ try $ do
-      successfulCast <- ask >>= lift . lift . trigger OnPlay
-      unless successfulCast $ do
-        liftIO $ putStrLn ("Cannot play " ++ s ^. spellName)
-        throwError ()
+    playSpell s = do
       c <- ask
-      lift $ lift $ do
-        graveyard =: c
-        fromHand c
+      lift $ fromHand c
+      successfulCast <- ask >>= lift . trigger OnPlay
+      unless successfulCast $ liftIO $ putStrLn ("Cannot play " ++ s ^. spellName)
+      lift $ graveyard =: c
 
     -- Monster: Test summoning conditions, move to field, trigger OnPlay
     playMonster m = void $ try $ do
@@ -349,6 +358,15 @@ playCard t = void $ try $ do
         field =: c
         fromHand c
         void $ trigger OnPlay c
+
+-- Find c in the hand and remove it
+fromHand :: Card -> GameOperation ()
+fromHand c = void $ try $ do
+  let getIndex = player's hand <&> findIndex (\c' -> c ^. cardID == c' ^. cardID)
+  i <- ifNone (lift getIndex) $ do
+    liftIO $ putStrLn ("Error, " ++ cardName c ++ " not in Hand")
+    throwError ()
+  hand -= i
 
 draw :: GameOperation ()
 draw = do
