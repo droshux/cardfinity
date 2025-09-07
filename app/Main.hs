@@ -75,7 +75,7 @@ devMode path = do
       Right s -> do
         putStr "Scale: " >> print s
         putStr "Rarity: " >> putStr (rarity dck $ ForName $ cardName c)
-        putStrLn ""
+        putStrLn "\n"
 
   putStrLn ""
   void $ isLegal dck -- Exits if this fails!
