@@ -1,4 +1,4 @@
-"FoolXXII": take 5, discard field
+"FoolXXII": take 5, discard field, discard hand
 "Persona" play: ?attach spell
 "Persona" play: ?attach spell
 Power 12
@@ -60,7 +60,7 @@ power: 1
 "Orpheus" tap take 1t: attack
 ("Persona")
 
-"Thanatos" infinity take 6t, pop 5: attack
+"Thanatos" infinity take 3t, pop 2: attack
 ("Persona")
 
 "Trismegistus" tap discard field: buff 5

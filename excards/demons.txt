@@ -16,16 +16,6 @@ power: 5
 
 "Disposable Goons" play discard family "Demon" field: banish enemy field
 
-*
-! Useful to clean up lots of low power fodder
-"Wheel Demon":
-banish monster field, banish spell hand, pop 1
-"Accelerate" tap: attack
-"Momentum" victory take 1: ?attack
-power: 5
-("Demon")
-*
-
 ! Defence fodder that's harder to get rid of because it can blast your best monster
 "Hellish Pustule":
 take 1
@@ -36,7 +26,6 @@ power: 0
 ! Lets you swap out cards you don't like.
 ! Don't forget drawing is technically damage
 "Dark Engine":
-take 1
 "Dark Cycle" on tap discard hand: draw 1
 power: 0
 ( "Dark Machine" )
@@ -60,11 +49,11 @@ power: 0
 ( "Dark Machine" )
 
 ! A fun thing to search with the Dark Processor
-"DEMON NUKE!!!!" play banish 3 f"Dark Machine" field: deal 10
+"DEMON NUKE!!!!" play banish 3 f"Dark Machine" field: deal 12
 
 ! One of the boss monsters in the deck, it's just a big beatstick but the more cards in your GY the more power
 "Lord of Sacrifice":
-(take 7, discard 3 field, discard 4 hand)
+(discard 3 field, discard 4 hand)
 3x "Power in blood" on play pop 10: buff this 10 
 "Blade of Vengeance" tap discard hand: piercing attack
 power: 0
