@@ -5,7 +5,7 @@
 
 module Round (gameRound) where
 
-import AtomActions (actSpell, draw, playCard, trigger)
+import AtomActions (castAndTap, draw, playCard, trigger)
 import Atoms (SearchType (..))
 import Control.Monad (void, when, (<=<))
 import Control.Monad.Error.Class (MonadError (throwError))
@@ -142,8 +142,7 @@ activateCard = void $ try $ do
     activateManualSpell c spell = do
       let t = spell ^. spellTrigger
       -- Cast spell with c as the card context
-      didCast <- flip runReaderT c $ actSpell spell t
-      when (didCast && t == OnTap) $ runReaderT tapThisCard c
+      void $ runReaderT (castAndTap t spell) c
 
 untapAll :: GameOperation ()
 untapAll = field %= map (monsterStats % isTapped .~ False)

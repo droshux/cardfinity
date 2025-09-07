@@ -10,14 +10,16 @@ module AtomActions
     playCard,
     actSpell,
     trigger,
+    castAndTap,
   )
 where
 
 import Atoms
 import Control.Monad
-import Control.Monad.Except (ExceptT, throwError)
+import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.RWS (gets, lift, liftIO, put)
 import Control.Monad.Reader (MonadReader (ask), asks, runReaderT)
+import Data.Either (isRight)
 import Data.Foldable (Foldable (..))
 import Data.Functor ((<&>))
 import Data.List (findIndex)
@@ -256,20 +258,20 @@ trigger t
         _ -> liftIO $ do
           putStrLn "Discard effects can only trigger on cards in the graveyard."
           return False
-    activateCard = ask >>= cardElim (`actSpell` t) (`actMonster` t)
+    activateCard = ask >>= cardElim (fmap isRight . flip actSpell t) (`actMonster` t)
 
-actSpell :: Spell -> Trigger -> GameOpWithCardContext Bool
-actSpell s t = try $ do
-  unless (s ^. spellTrigger == t) $ throwError ()
+actSpell :: Spell -> Trigger -> GameOpWithCardContext (Either Bool ())
+actSpell s t = runExceptT $ do
+  unless (s ^. spellTrigger == t) $ throwError False
   countered <- lift $ lift $ asOpponent allowReaction
   when countered $ do
     liftIO $ putStrLn "COUNTERED!"
-    throwError ()
+    throwError True
   liftIO $ putStrLn ("Attempting to cast " ++ s ^. spellName)
   r <- lift $ checkAll (s ^. castingConditions)
   unless r $ do
     liftIO $ putStrLn ("Can't cast " ++ s ^. spellName)
-    throwError ()
+    throwError False
   lift $ mapM_ performEffect $ s ^. effects
 
 -- Returns true if the spell was a counter spell and succeeded
@@ -297,31 +299,33 @@ actMonster m t
       [] -> do
         liftIO $ putStrLn (m ^. monsterName ++ " has no spells that trigger when attached.")
         return False
-      (s : _) -> actSpell s t
+      (s : _) -> actSpell s t <&> isRight
   | isManual t = case validMSpells m of
       [] -> do
         liftIO $ putStrLn (m ^. monsterName ++ " has no spells that can be activated in that way.")
         return False
-      [only] -> castAndTap only
+      [only] -> castAndTap t only
       options ->
         selectFromListCancelable' "Select a monster spell to activate:" options >>= \case
           Cancel -> liftIO $ putStrLn "Canncelled." >> return False
-          Option (_, s) -> do
-            didCast <- actSpell s t
-            when (didCast && t == OnTap) tapThisCard
-            return didCast
+          Option (_, s) -> castAndTap t s
   | otherwise = do
-      spellResults <- mapM (`actSpell` t) $ validMSpells m
+      spellResults <- mapM (fmap isRight . flip actSpell t) $ validMSpells m
       return $ or spellResults
   where
-    castAndTap s = do
-      didCast <- actSpell s t
-      when (didCast && t == OnTap) tapThisCard
-      return didCast
     validMSpells monster = filter (\s -> s ^. spellTrigger == t) $ monster ^. monsterSpells
     isManual OnTap = True
     isManual Infinity = True
     isManual _ = False
+
+castAndTap :: Trigger -> Spell -> GameOpWithCardContext Bool
+castAndTap t s = do
+  shouldTap <-
+    actSpell s t <&> \case
+      Left False -> False
+      _ -> True
+  when (shouldTap && t == OnTap) tapThisCard
+  return shouldTap
 
 playCard :: SearchType -> GameOperation ()
 playCard t = void $ try $ do
