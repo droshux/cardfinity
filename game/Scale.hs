@@ -95,7 +95,7 @@ instance HasScale Monster where
       anyTap = any ((OnTap ==) . (^. spellTrigger))
 
 instance HasScale Trigger where
-  scale Infinity = return 50
+  scale Infinity = return 20
   scale OnPlay = return 0
   scale OnAttach = return 0
   scale _ = return 5
