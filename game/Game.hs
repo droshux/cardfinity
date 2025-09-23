@@ -2,12 +2,15 @@
 
 module Game (runGame) where
 
+import Control.Monad (void)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Random (MonadRandom)
 import Control.Monad.State (StateT (runStateT))
-import Optics.Operators ((.~))
+import Optics.Operators ((.~), (^.))
+import Optics.Optic ((%))
 import Round (gameRound)
 import Scale (isLegal)
+import System.Console.ANSI (clearScreen)
 import System.Random.Shuffle (shuffleM)
 import Types
 
@@ -49,9 +52,19 @@ runGame d1 d2 =
     d1 <- isLegal d1
     d2 <- isLegal d2
     gs <- initGameState d1 d2
+    showP2StartingHand (gs ^. player2State % hand)
     (result, _) <- flip runStateT gs $ runExceptT gameRound
     case result of
       Right () -> putStrLn "Somehow the game has ended without a winner! Most likely a glitch!"
       Left loser -> putStrLn $ case loser of
         Player1 -> "Player 2 wins!"
         Player2 -> "Player 1 wins!"
+
+showP2StartingHand :: [Card] -> IO ()
+showP2StartingHand hand = do
+  putStrLn "Player 2's starting hand:\t(Hit enter to view)"
+  void getLine
+  mapM_ print hand
+  putStrLn "Hit enter to begin game."
+  void getLine
+  clearScreen
