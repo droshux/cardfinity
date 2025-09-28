@@ -37,15 +37,15 @@ instance HasScale Effect where
   scale DiscardEnemy = scale DiscardSelf <&> (3 -)
   scale (DealDamage n isTrue) = let mult = if isTrue then 7 else 5 in return $ mult * natToInt n
   scale (Heal n) = return $ 7 * natToInt n
-  scale DECKOUT = return $ -punishment
+  scale DECKOUT = return 0
   scale (Draw n) = return $ natToInt n * 10
   scale (Peek n) = return $ 2 ^ n
   scale (Scry n) = scale (Peek n)
-  scale (Optional e) = scale e <&> max (-punishment)
+  scale (Optional e) = scale e
   scale (ChooseEffect es) = mapM scale (NonE.toList es) <&> (+ length es) . maximum
   scale (Attack piercing) = return $ if piercing then 20 else 10
   scale (Play t) = case t of
-    ForSpell -> return $ -3
+    ForSpell -> return 0
     o -> scale o
   scale (Search (SearchFor ForSpell)) = return 10
   scale (Search (SearchFor _)) = return 15
@@ -54,8 +54,20 @@ instance HasScale Effect where
     when notFound $ throwError $ SearchTypeNotFound (show t)
     return 0
   scale (Attach t) = scale t <&> (+ 5)
-  scale (Buff by forItself) = return $ max (-punishment) $ if forItself then 2 * fromIntegral by else 3 * fromIntegral by
+  scale (Buff by forItself) = return $ if forItself then 2 * fromIntegral by else 3 * fromIntegral by
   scale (AsEffect cond) = scale cond
+
+class (HasScale a) => Punishable a where
+  incursPunishment :: a -> Bool
+
+instance Punishable Effect where
+  incursPunishment DECKOUT = False
+  incursPunishment (Play ForSpell) = False
+  incursPunishment (AsEffect _) = False
+  incursPunishment _ = True
+
+instance Punishable Spell where
+  incursPunishment _ = True
 
 instance HasScale Spell where
   scale (Spell n t r e) = do
@@ -134,11 +146,12 @@ runScale dck x = runReader (runExceptT $ scale x) $ LegalityContext {deckContext
 sumScale :: (HasScale a, Traversable t) => t a -> Scale
 sumScale = (<&> sum) . mapM scale
 
-sumWithPunishment :: (HasScale a, Traversable t) => Int -> t a -> Scale
-sumWithPunishment mul xs = do
-  total <- sumScale xs
-  let count = max 0 (length xs - 1)
-  return $ total + mul * count * punishment
+sumWithPunishment :: (Punishable a) => Int -> [a] -> Scale
+sumWithPunishment _ [] = return 0
+sumWithPunishment mul (x : xs) = do
+  let punished = length $ filter incursPunishment xs
+  total <- sumScale (x : xs)
+  return $ total + mul * punished * punishment
 
 deckLegal :: LegalityCheck ()
 deckLegal = do
