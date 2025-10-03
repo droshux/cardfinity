@@ -11,7 +11,7 @@ cabal-version:      3.0
 --   http://haskell.org/cabal/users-guide/
 --
 -- The name of the package.
-name:               cardfinity
+name:               cardfinity-core
 
 -- The package version.
 -- See the Haskell package versioning policy (PVP) for standards
@@ -23,7 +23,7 @@ name:               cardfinity
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
-synopsis:           A TCG that uses totally custom cards composed from atoms.
+synopsis:           The heart of a TCG that uses totally custom cards composed from atoms.
 
 -- A longer description of the package.
 -- description:
@@ -54,6 +54,41 @@ build-type:         Simple
 common warnings
     ghc-options: -Wall
 
+library
+    exposed-modules: Types, Atoms, Scale
+
+    build-depends:    
+      base >=4.19.2.0,
+      mtl,
+      transformers,
+      containers,
+      ordered-containers,
+      random,
+      random-shuffle,
+      MonadRandom,
+      ansi-terminal,
+      optics,
+      data-default,
+      megaparsec,
+      optparse-simple,
+      HPDF,
+      text
+
+    -- Directories containing source files.
+    hs-source-dirs:   
+      app
+      game
+      parser
+      atoms
+
+
+    other-modules:
+      Utils
+      GameUtils
+
+    -- Base language which the package is written in.
+    default-language: GHC2021
+
 executable cardfinity
     -- Import common warning flags.
     import:           warnings
@@ -76,7 +111,7 @@ executable cardfinity
       Types
       Utils
       GameUtils
-      Paths_cardfinity
+      Paths_cardfinity_core
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -104,7 +139,6 @@ executable cardfinity
       app
       game
       parser
-      excards
       atoms
 
     -- Base language which the package is written in.
