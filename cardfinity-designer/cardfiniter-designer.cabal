@@ -1,0 +1,25 @@
+cabal-version: 2.2
+name: cardfinity-designer
+version: 0.1.0.0
+synopsis: UI for designing Cardfinity decks
+category: Game
+
+common wasm
+    if arch(wasm32)
+        ghc-options:
+            -no-hs-main
+            -optl-mexec-model=reactor
+            "-optl-Wl,--export=hs_start"
+        cpp-options:
+            -DWASM
+
+executable cardfinity-designer
+    import: 
+        wasm
+    main-is:
+        Main.hs
+    build-depends:
+      base >=4.19.2.0,
+      cardfinity-core,
+      miso
+    default-language: GHC2021
