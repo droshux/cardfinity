@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Effects (effectEditor ) where
 
@@ -23,64 +24,65 @@ $(makeLenses ''Model)
 effectEditor :: M.Component parentModel  Model ()
 effectEditor = M.component defEffectEditor _ _
 
-class ToEffect a where
+class EffectModel a b where
     toEffect :: a -> A.Effect
+    editor :: M.Component Model a b
 
-instance ToEffect (A.DestroyType, A.FindCards) where
+instance EffectModel (A.DestroyType, A.FindCards) () where
     toEffect = uncurry DestroyEnemy
 
 data DiscardEnemyModel = DiscardEnemyModel
-instance ToEffect DiscardEnemyModel where
+instance EffectModel DiscardEnemyModel () where
     toEffect = const DiscardEnemy
 
-instance ToEffect (Natural, Bool) where
+instance EffectModel (Natural, Bool) () where
     toEffect  = uncurry DealDamage
 
 newtype HealModel = HealModel Natural
-instance ToEffect HealModel where
+instance EffectModel HealModel () where
     toEffect (HealModel n) = Heal n
 
 data DECKOUTModel = DECKOUTModel
-instance ToEffect DECKOUTModel where
+instance EffectModel DECKOUTModel () where
     toEffect = const DECKOUT
 
 newtype DrawModel = DrawModel Natural
-instance ToEffect DrawModel where
+instance EffectModel DrawModel () where
     toEffect (DrawModel n) = Draw n
 
 data PeekScryModel = PeekModel Natural | ScryModel Natural
-instance ToEffect PeekScryModel where
+instance EffectModel PeekScryModel () where
     toEffect (PeekModel n) = Peek n
     toEffect (ScryModel n) = Scry n
 
-newtype OptionalModel = OptionalModel EffectModel
-instance ToEffect OptionalModel where
+newtype OptionalModel = OptionalModel IsEffectModel
+instance EffectModel OptionalModel () where
     toEffect (OptionalModel (EffectModel em)) = Optional $ toEffect em
 
-newtype ChooseModel = ChooseModel (NE.NonEmpty EffectModel)
-instance ToEffect ChooseModel where
+newtype ChooseModel = ChooseModel (NE.NonEmpty IsEffectModel)
+instance EffectModel ChooseModel () where
     toEffect (ChooseModel ems) = ChooseEffect $ NE.map h ems
         where h (EffectModel e) = toEffect e
 
 newtype AttackModel = AttackModel Bool
-instance ToEffect AttackModel where
+instance EffectModel AttackModel () where
     toEffect (AttackModel b) = Attack b
 
 newtype PlayModel = PlayModel A.SearchType
-instance ToEffect PlayModel where
+instance EffectModel PlayModel () where
     toEffect  (PlayModel s) = Play s
 
 newtype SearchModel = SearchModel A.SearchMethod
-instance ToEffect SearchModel where
+instance EffectModel SearchModel () where
     toEffect (SearchModel m) = Search m
 
 newtype AttachModel = AttachModel A.SearchType
-instance ToEffect AttachModel where
+instance EffectModel AttachModel () where
     toEffect  (AttachModel s) = Attach s
 
-instance ToEffect (Integer, Bool) where
+instance EffectModel (Integer, Bool) () where
     toEffect = uncurry Buff
 
 -- TODO: AsEffect
 
-data EffectModel = forall a . ToEffect a => EffectModel a
+data IsEffectModel = forall a b . EffectModel a b => EffectModel a
