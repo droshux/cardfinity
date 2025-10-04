@@ -23,3 +23,8 @@ executable cardfinity-designer
       cardfinity-core,
       miso
     default-language: GHC2021
+    hs-source-dirs:   
+        editor
+        app
+    other-modules:
+        Effects
