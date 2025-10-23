@@ -23,6 +23,8 @@ import GHC.Natural (Natural)
 import Miso.Types ((+>), Component (bindings), (<--))
 import Text.Read (readMaybe)
 import Data.Maybe (fromMaybe)
+import Control.Monad (unless)
+import qualified Miso.CSS as P
 
 data SearchTypeModel = STModel {
     _currentType :: M.MisoString,
@@ -31,17 +33,16 @@ data SearchTypeModel = STModel {
 
 searchType :: Lens SearchTypeModel SearchType
 searchType = let 
-    get (STModel st t) | st == "Card" = ForCard
-        | st == "Monster" = ForMonster
-        | st == "Spell" = ForSpell
-        | st == "Name" = ForName $ M.fromMisoString t
-        | st == "Family" = ForFamily $ M.fromMisoString t
-    set (STModel st t) = \case
-        ForCard -> STModel "Card" t
-        ForMonster -> STModel "Monster" t
-        ForSpell -> STModel "Spell" t
-        ForName t' -> STModel "Name" (M.toMisoString t')
-        ForFamily t' -> STModel "Family" (M.toMisoString t')
+    get (STModel "name" t) = ForName $ M.fromMisoString  t
+    get (STModel "family" t) = ForFamily $ M.fromMisoString t
+    get (STModel "monster" _) = ForMonster
+    get (STModel "spell" _) = ForSpell
+    get (STModel _ _) = ForCard
+    set m ForCard = m {_currentType = "card"}
+    set m ForMonster = m {_currentType  = "monster"}
+    set m ForSpell = m {_currentType  = "spell"}
+    set m (ForName s) = m {_currentType ="name", _currentText = M.toMisoString s}
+    set m (ForFamily s) = m {_currentType ="family", _currentText = M.toMisoString s}
     in lens get set
 
 $(makeLenses ''SearchTypeModel)
@@ -51,26 +52,27 @@ data SearchTypeAction = SetType M.MisoString | SetText M.MisoString
 searchTypeEditor :: M.Component parentModel SearchTypeModel SearchTypeAction
 searchTypeEditor  = M.component def update view
     where
-        def = STModel "Card" ""
+        def = STModel "card" ""
         update (SetType t) = currentType .= t
         update (SetText t) = currentText .= t
         view m =
           H.span_
-            [] $ H.select_
-                [H.onChange SetType ]
-                [
-                H.option_ [] [text "Card"],
-                H.option_ [] [text "Monster"],
-                H.option_ [] [text "Spell"],
-                H.option_ [] [text "Name"],
-                H.option_ [] [text "Family"]
-                ] : [H.input_ [
-                    H.onChange SetText,
-                    P.type_ "text",
-                    P.value_ (m ^. currentText)
-                ]| hasTxt (m ^. currentType)]
-        hasTxt "Name" = True
-        hasTxt "Family" = True
+            []
+            [ H.select_ [H.onInput SetType]
+                [ H.option_ [P.value_ "card"] [text "Card"],
+                  H.option_ [P.value_ "monster"] [text "Monster"],
+                  H.option_ [P.value_ "spell"] [text "Spell"],
+                  H.option_ [P.value_ "name"] [text "Name"],
+                  H.option_ [P.value_ "family"] [text "Family"]
+                ],
+                H.input_ [
+                    H.onInput SetText,
+                    P.style_ [("display", "none") | not $ hasTxt $ m^.currentType ] 
+                ],
+                H.span_ [] [text $ m^.currentText]
+            ]
+        hasTxt "name" = True
+        hasTxt "family" = True
         hasTxt  _ = False
 
 data FindCardsModel = FCModel {
@@ -91,29 +93,24 @@ findCards = let
 
 $(makeLenses  ''FindCardsModel)
 
-data FindCardsAction = SetCount Natural | Inc | Dec | Toggle
+data FindCardsAction = Inc | Dec | Toggle
 
 findCardsEditor :: M.Component parentModel FindCardsModel FindCardsAction
 findCardsEditor = M.component def update view
     where
         def = FCModel {_searchTypeFC=ForCard, _count = 0, _isHand = True}
         update Inc = count += 1
-        update Dec = count -= 1
-        update (SetCount n) = count .= n
+        update Dec = do
+            c <- M.gets (^. count)
+            unless (c == 0) (count -= 1)
         update Toggle = do
             findCards %= \case
                 A.FindCardsHand n st -> A.FindCardsField n st
                 A.FindCardsField n st -> A.FindCardsHand n st
-        view m = H.div_ [] [
+        view m = H.span_ [] [
+            H.span_ [] [text $ M.toMisoString $ show $ m ^.searchTypeFC],
             H.button_ [H.onClick Toggle] [text "Toggle"],
             H.button_ [H.onClick Inc] [text "+"],
-            H.input_ [
-                P.type_ "number",
-                H.onChange (SetCount . parseNat),
-                P.value_ (M.toMisoString $ show (m ^. count))
-            ],
             H.button_ [H.onClick Dec] [text "-"],
-            H.span_ []  +> (searchTypeEditor {bindings=[searchTypeFC <-- searchType]})
+            H.span_ []  +> (searchTypeEditor {bindings=[searchTypeFC <-- searchType ]})
             ]
-        parseNat :: M.MisoString -> Natural
-        parseNat  = fromMaybe 0 . readMaybe . M.fromMisoString 

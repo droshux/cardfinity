@@ -1,88 +1,109 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 
-module Effects (effectEditor ) where
+module Effects (effectEditor,effect ) where
 
 import qualified Atoms as A
 import qualified Miso as M
-import Miso.Lens (Lens,lens)
+import qualified Miso.Html as H
+import qualified Miso.Html.Property as P
+import Miso.Lens (Lens,lens, (.=), (%=), (^.))
 import Miso.Lens.TH (makeLenses)
+import Miso ((<--), (+>), text)
 import Atoms (Effect(..))
 import GHC.Natural (Natural)
 import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)), map)
+import Shared (findCardsEditor,findCards )
+import Data.Maybe (fromMaybe)
+import Data.List (findIndex)
+import Data.Function ((&))
 
 
 
-newtype Model = EffectEditorModel {
-    _effect :: A.Effect
-}
-
-defEffectEditor = EffectEditorModel A.DECKOUT
+data Model = EffectEditorModel {
+    _effectName :: Int,
+    _effect :: Effect
+} deriving (Eq)
 
 $(makeLenses ''Model)
 
-effectEditor :: M.Component parentModel  Model ()
-effectEditor = M.component defEffectEditor _ _
+data GenericActions = Toggle | Inc | Dec
 
-class EffectModel a b where
-    toEffect :: a -> A.Effect
-    editor :: M.Component Model a b
+data DestroyModel = DestroyM {
+    _banish :: Bool,
+    _findCardsD :: A.FindCards
+} deriving (Eq)
 
-instance EffectModel (A.DestroyType, A.FindCards) () where
-    toEffect = uncurry DestroyEnemy
+$(makeLenses ''DestroyModel)
 
-data DiscardEnemyModel = DiscardEnemyModel
-instance EffectModel DiscardEnemyModel () where
-    toEffect = const DiscardEnemy
+destroy :: Lens DestroyModel Effect
+destroy = let 
+    get (DestroyM b fc) = flip DestroyEnemy fc $ if b then A.Banish else A.Discard
+    set m = \case
+        DestroyEnemy A.Discard fc -> DestroyM False fc
+        DestroyEnemy A.Banish fc -> DestroyM True fc
+        _ -> m
+    in lens get set
 
-instance EffectModel (Natural, Bool) () where
-    toEffect  = uncurry DealDamage
+destroyEditor :: M.Component Model DestroyModel GenericActions
+destroyEditor = M.component def update view 
+    where
+        def =  DestroyM False $ A.FindCardsHand 0 A.ForCard
+        update Toggle = banish %= not
+        update _ = return ()
+        view _ = H.span_ [] [
+            H.button_ [H.onClick Toggle] [text "Banish"],
+            H.span_ [] +> (findCardsEditor {M.bindings=[findCardsD <-- findCards]})
+            ]
 
-newtype HealModel = HealModel Natural
-instance EffectModel HealModel () where
-    toEffect (HealModel n) = Heal n
 
-data DECKOUTModel = DECKOUTModel
-instance EffectModel DECKOUTModel () where
-    toEffect = const DECKOUT
+discard :: Lens () Effect
+discard = lens (const DiscardEnemy) (const (const ())) 
 
-newtype DrawModel = DrawModel Natural
-instance EffectModel DrawModel () where
-    toEffect (DrawModel n) = Draw n
+discardEditor :: M.Component Model () ()
+discardEditor = M.component () M.noop (const $ text "")
 
-data PeekScryModel = PeekModel Natural | ScryModel Natural
-instance EffectModel PeekScryModel () where
-    toEffect (PeekModel n) = Peek n
-    toEffect (ScryModel n) = Scry n
+bind component b = flip (+>) $ component {M.bindings=[effect <-- b]}
 
-newtype OptionalModel = OptionalModel IsEffectModel
-instance EffectModel OptionalModel () where
-    toEffect (OptionalModel (EffectModel em)) = Optional $ toEffect em
+type Bound = ([M.View Model Int] -> M.View Model Int) -> M.View Model Int
 
-newtype ChooseModel = ChooseModel (NE.NonEmpty IsEffectModel)
-instance EffectModel ChooseModel () where
-    toEffect (ChooseModel ems) = ChooseEffect $ NE.map h ems
-        where h (EffectModel e) = toEffect e
+info :: [(M.MisoString,Bound)]
+info = [
+    ("Destroy", bind destroyEditor destroy),
+    ("Discard", bind discardEditor discard)
+    ]
 
-newtype AttackModel = AttackModel Bool
-instance EffectModel AttackModel () where
-    toEffect (AttackModel b) = Attack b
+effectEditor :: M.Component parentModel  Model Int
+effectEditor = M.component def update view 
+    where 
+        def = EffectEditorModel 0 DiscardEnemy
+        update t = effectName .= t
+        view m = H.span_ [] [ 
+            H.select_ [H.onChange effIndex ] (map mkOption info),
+            map mkEditor info !! (m ^. effectName)
+         ]
+        effIndex s = fromMaybe 0 $ findIndex ((==) s . fst) info
+        -- z m = 
+        mkOption (k,_) = H.option_ [P.value_ k] [text k]
+        mkEditor (k,comp) = M.node M.HTML k [] [comp (H.span_ []) ]
 
-newtype PlayModel = PlayModel A.SearchType
-instance EffectModel PlayModel () where
-    toEffect  (PlayModel s) = Play s
-
-newtype SearchModel = SearchModel A.SearchMethod
-instance EffectModel SearchModel () where
-    toEffect (SearchModel m) = Search m
-
-newtype AttachModel = AttachModel A.SearchType
-instance EffectModel AttachModel () where
-    toEffect  (AttachModel s) = Attach s
-
-instance EffectModel (Integer, Bool) () where
-    toEffect = uncurry Buff
-
--- TODO: AsEffect
-
-data IsEffectModel = forall a b . EffectModel a b => EffectModel a
+{- data Effect
+  = DestroyEnemy DestroyType FindCards
+  | DiscardEnemy
+  | DealDamage Natural Bool
+  | Heal Natural
+  | DECKOUT
+  | Draw Natural
+  | Peek Natural
+  | Scry Natural
+  | Optional Effect
+  | ChooseEffect (NonEmpty Effect)
+  | Attack Bool
+  | Play SearchType
+  | Search SearchMethod
+  | Attach SearchType
+  | Buff Integer Bool
+  | AsEffect Condition
+  deriving (Eq, Ord) -}
