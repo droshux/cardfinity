@@ -9,7 +9,7 @@ import qualified Atoms as A
 import qualified Miso as M
 import qualified Miso.Html as H
 import qualified Miso.Html.Property as P
-import Miso.Lens (Lens,lens, (.=), (%=), (^.))
+import Miso.Lens (Lens (_get, _set),lens, (.=), (%=), (^.))
 import Miso.Lens.TH (makeLenses)
 import Miso ((<--), (+>), text)
 import Atoms (Effect(..))
@@ -19,6 +19,9 @@ import Shared (findCardsEditor,findCards )
 import Data.Maybe (fromMaybe)
 import Data.List (findIndex)
 import Data.Function ((&))
+import Data.Bifunctor (second, first)
+import Numeric (readInt)
+import qualified GHC.Generics as M
 
 
 
@@ -39,7 +42,7 @@ data DestroyModel = DestroyM {
 $(makeLenses ''DestroyModel)
 
 destroy :: Lens DestroyModel Effect
-destroy = let 
+destroy = let
     get (DestroyM b fc) = flip DestroyEnemy fc $ if b then A.Banish else A.Discard
     set m = \case
         DestroyEnemy A.Discard fc -> DestroyM False fc
@@ -48,7 +51,7 @@ destroy = let
     in lens get set
 
 destroyEditor :: M.Component Model DestroyModel GenericActions
-destroyEditor = M.component def update view 
+destroyEditor = M.component def update view
     where
         def =  DestroyM False $ A.FindCardsHand 0 A.ForCard
         update Toggle = banish %= not
@@ -60,35 +63,108 @@ destroyEditor = M.component def update view
 
 
 discard :: Lens () Effect
-discard = lens (const DiscardEnemy) (const (const ())) 
+discard = lens (const DiscardEnemy) (const (const ()))
 
 discardEditor :: M.Component Model () ()
 discardEditor = M.component () M.noop (const $ text "")
 
-bind component b = flip (+>) $ component {M.bindings=[effect <-- b]}
+dealDamage :: Lens (Natural, Bool) Effect
+dealDamage = let
+    get  = uncurry A.DealDamage
+    unget (A.DealDamage n b)  = (n,b)
+    unget _ = (0,False)
+    in lens get (const unget)
+
+dealDamageEditor :: M.Component Model (Natural,Bool) (Maybe Natural)
+dealDamageEditor = M.component (0,False) update view
+    where update Nothing = M.modify (second not)
+          update (Just n) = M.modify (first (const n))
+          view _ = H.span_ [] [
+            H.button_ [H.onClick Nothing] [text "Toggle"],
+            H.input_ [
+                P.type_ "number",
+                P.min_ "0",
+                H.onChange (Just . read . M.fromMisoString )
+            ]
+              ]
+
+heal :: Lens Natural Effect
+heal = lens A.Heal $ const $ \case
+    A.Heal n -> n
+    _ -> 0
+
+draw :: Lens Natural Effect
+draw = lens A.Draw $ const $ \case
+    A.Draw n -> n
+    _ -> 0
+
+peek :: Lens Natural Effect
+peek = lens A.Peek $ const $ \case
+    A.Peek n -> n
+    _ -> 0
+
+scry :: Lens Natural Effect
+scry = lens A.Scry $ const $ \case
+    A.Scry n -> n
+    _ -> 0
+
+natEditor :: M.Component Model Natural Natural
+natEditor = M.component 0 M.put view
+    where view =const $ H.input_ [
+            P.type_ "number",
+            P.min_ "0",
+            H.onChange (read . M.fromMisoString )
+            ]
+
+deckout :: Lens () Effect
+deckout = lens (const DECKOUT) (const (const ()))
+
+deckoutEditor :: M.Component Model () ()
+deckoutEditor = M.component () M.noop (const $ text "")
+
+newtype OptionalModel = OM {
+    _optionalEffect :: Effect
+} deriving Eq
+
+$(makeLenses ''OptionalModel)
+
+optionalEditor :: M.Component Model OptionalModel ()
+optionalEditor  = M.component (OM A.DiscardEnemy) M.noop view
+    where view _ = H.span_ [] +> (effectEditor {M.bindings=[optionalEffect<--mkOptional effect]})
+          -- It's ok that the set for this isn't correct because the binding is
+          -- one way.
+          mkOptional l = lens (A.Optional . _get l) (const (const (EffectEditorModel 0 A.DiscardEnemy)))
+
+bind component b = flip M.mount $ component {M.bindings=[effect <-- b]}
 
 type Bound = ([M.View Model Int] -> M.View Model Int) -> M.View Model Int
 
-info :: [(M.MisoString,Bound)]
+info :: [(M.MisoString, M.MisoString,Bound)]
 info = [
-    ("Destroy", bind destroyEditor destroy),
-    ("Discard", bind discardEditor discard)
+    ("Discard","discard", bind discardEditor discard),
+    ("Destroy","destroy", bind destroyEditor destroy),
+    ("Deal Damage","dealdamage", bind dealDamageEditor dealDamage),
+    ("Heal","heal", bind natEditor heal),
+    ("DECKOUT", "deckout", bind deckoutEditor deckout),
+    ("Draw","draw",bind natEditor draw),
+    ("Peek","peek",bind natEditor peek),
+    ("Scry","scry",bind natEditor scry),
+    ("Optional","optional",bind optionalEditor optionalEffect)
     ]
 
 effectEditor :: M.Component parentModel  Model Int
-effectEditor = M.component def update view 
-    where 
+effectEditor = M.component def update view
+    where
         def = EffectEditorModel 0 DiscardEnemy
         update t = effectName .= t
-        view m = H.span_ [] [ 
+        view m = H.span_ [] [
             H.select_ [H.onChange effIndex ] (map mkOption info),
             map mkEditor info !! (m ^. effectName)
          ]
-        effIndex s = fromMaybe 0 $ findIndex ((==) s . fst) info
-        -- z m = 
-        mkOption (k,_) = H.option_ [P.value_ k] [text k]
-        mkEditor (k,comp) = M.node M.HTML k [] [comp (H.span_ []) ]
-
+        effIndex s = let f (_,x,_)=x
+           in fromMaybe 0 $ findIndex ((==) s . f) info
+        mkOption (n,k,_) = H.option_ [P.value_ k] [text n]
+        mkEditor (_,k,comp) = M.node M.HTML k [] [comp (H.span_ []) ]
 {- data Effect
   = DestroyEnemy DestroyType FindCards
   | DiscardEnemy

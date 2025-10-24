@@ -137,11 +137,11 @@ instance Show Effect where
       ]
   show (Scry n) =
     concat
-      [ "Banish the top ",
+      [ "See the top ",
         if n == 1 then "" else show n ++ " ",
         "card",
         if n == 1 then "" else "s",
-        " of the graveyard"
+        " of the opponent's deck"
       ]
   show (Optional e) = "You may " ++ show e
   show (ChooseEffect es) = "Choose one of (" ++ showFold " or " es ++ ")"
