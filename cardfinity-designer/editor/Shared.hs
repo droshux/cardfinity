@@ -20,7 +20,7 @@ import Miso.Lens.TH (makeLenses)
 import Atoms (SearchType(..))
 import Miso (text)
 import GHC.Natural (Natural)
-import Miso.Types ((+>), Component (bindings), (<--))
+import Miso.Types ((+>), Component (bindings), (<-->))
 import Text.Read (readMaybe)
 import Data.Maybe (fromMaybe)
 import Control.Monad (unless)
@@ -43,21 +43,21 @@ searchTypeEditor  = M.component def update view
         update (SetType "monster") = searchType .= ForMonster
         update (SetType "spell") = searchType .= ForSpell
         update (SetType "family") = do
-            t <- M.gets (M.fromMisoString  . _currentText) 
+            t <- M.gets (M.fromMisoString  . _currentText)
             searchType .= ForFamily t
         update (SetType "name") = do
-            t <- M.gets (M.fromMisoString  . _currentText) 
+            t <- M.gets (M.fromMisoString  . _currentText)
             searchType .= ForName t
         update (SetText t) = do
             currentText .= t
-            searchType %= \case 
-                ForName _ -> ForName (M.fromMisoString t) 
-                ForFamily _ -> ForFamily (M.fromMisoString t) 
+            searchType %= \case
+                ForName _ -> ForName (M.fromMisoString t)
+                ForFamily _ -> ForFamily (M.fromMisoString t)
                 st -> st
         view m =
           H.span_
             []
-            [ H.select_ [H.onInput SetType]
+            [ H.select_ [H.onInput SetType, P.value_ (getValue $ m^.searchType )]
                 [ H.option_ [P.value_ "card"] [text "Card"],
                   H.option_ [P.value_ "monster"] [text "Monster"],
                   H.option_ [P.value_ "spell"] [text "Spell"],
@@ -66,12 +66,21 @@ searchTypeEditor  = M.component def update view
                 ],
                 H.input_ [
                     H.onInput SetText,
+                    (P.value_ . M.toMisoString  . getText . _searchType ) m,
                     P.style_ [("display", "none") | hideInput $ m^.searchType ]
                 ]
             ]
         hideInput (ForFamily _)  = False
         hideInput (ForName _)= False
         hideInput  _ = True
+        getValue ForCard = "card"
+        getValue ForMonster = "monster"
+        getValue ForSpell = "spell"
+        getValue (ForFamily _) = "family"
+        getValue (ForName _) = "name"
+        getText (ForName t) = t
+        getText (ForFamily t) = t
+        getText _ = ""
 
 data FindCardsModel = FCModel {
     _searchTypeFC :: SearchType,
@@ -80,8 +89,8 @@ data FindCardsModel = FCModel {
 } deriving (Eq)
 
 findCards :: Lens FindCardsModel A.FindCards
-findCards = let 
-    get (FCModel st c True) = A.FindCardsHand c st 
+findCards = let
+    get (FCModel st c True) = A.FindCardsHand c st
     get (FCModel st c False) = A.FindCardsField c st
     set _ = \case
         A.FindCardsHand c st -> FCModel st c True
@@ -109,5 +118,5 @@ findCardsEditor = M.component def update view
             H.button_ [H.onClick Toggle] [text "Toggle"],
             H.button_ [H.onClick Inc] [text "+"],
             H.button_ [H.onClick Dec] [text "-"],
-            H.span_ []  +> (searchTypeEditor {bindings=[searchTypeFC <-- searchType ]})
+            H.span_ []  +> (searchTypeEditor {bindings=[searchTypeFC <--> searchType ]})
             ]

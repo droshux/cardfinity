@@ -11,7 +11,7 @@ import qualified Miso.Html as H
 import qualified Miso.Html.Property as P
 import Miso.Lens (Lens (_get, _set),lens, (.=), (%=), (^.))
 import Miso.Lens.TH (makeLenses)
-import Miso ((<--), (+>), text)
+import Miso ((<-->), (+>), text)
 import Atoms (Effect(..))
 import GHC.Natural (Natural)
 import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)), map)
@@ -26,8 +26,8 @@ import qualified GHC.Generics as M
 
 
 data Model = EffectEditorModel {
-    _effectName :: Int,
-    _effect :: Effect
+    _effectIdx :: Int,
+    _effect' :: Effect
 } deriving (Eq)
 
 $(makeLenses ''Model)
@@ -58,7 +58,7 @@ destroyEditor = M.component def update view
         update _ = return ()
         view _ = H.span_ [] [
             H.button_ [H.onClick Toggle] [text "Banish"],
-            H.span_ [] +> (findCardsEditor {M.bindings=[findCardsD <-- findCards]})
+            H.span_ [] +> (findCardsEditor {M.bindings=[findCardsD <--> findCards]})
             ]
 
 
@@ -130,12 +130,12 @@ $(makeLenses ''OptionalModel)
 
 optionalEditor :: M.Component Model OptionalModel ()
 optionalEditor  = M.component (OM A.DiscardEnemy) M.noop view
-    where view _ = H.span_ [] +> (effectEditor {M.bindings=[optionalEffect<--mkOptional effect]})
-          -- It's ok that the set for this isn't correct because the binding is
-          -- one way.
-          mkOptional l = lens (A.Optional . _get l) (const (const (EffectEditorModel 0 A.DiscardEnemy)))
+    where view _ = H.span_ [] +> (effectEditor {M.bindings=[optionalEffect<-->mkOptional effect]})
+          mkOptional l = lens (A.Optional . _get l) $ const $ \case
+            A.Optional e -> setEffect e
+            _ -> EffectEditorModel 0 A.DiscardEnemy
 
-bind component b = flip M.mount $ component {M.bindings=[effect <-- b]}
+bind component b = flip M.mount $ component {M.bindings=[effect <--> b]}
 
 type Bound = ([M.View Model Int] -> M.View Model Int) -> M.View Model Int
 
@@ -152,19 +152,43 @@ info = [
     ("Optional","optional",bind optionalEditor optionalEffect)
     ]
 
+-- Must match the order of `info`
+setEffect = \case           
+    A.DiscardEnemy ->  EffectEditorModel 0 A.DiscardEnemy
+    e@(A.DestroyEnemy _ _) -> EffectEditorModel 1 e 
+    e@(A.DealDamage _ _) -> EffectEditorModel 2 e
+    e@(A.Heal _) -> EffectEditorModel 3 e
+    A.DECKOUT -> EffectEditorModel 4 A.DECKOUT
+    e@(A.Draw _) -> EffectEditorModel 5 e
+    e@(A.Peek _) -> EffectEditorModel 6 e
+    e@(A.Scry _) -> EffectEditorModel 7 e
+    e@(A.Optional _) -> EffectEditorModel 8 e
+    e@(A.ChooseEffect _) -> EffectEditorModel 9 e
+    e@(A.Attack _) -> EffectEditorModel 10 e
+    e@(A.Play _) -> EffectEditorModel 11 e
+    e@(A.Search _) -> EffectEditorModel 12 e
+    e@(A.Attach _) -> EffectEditorModel 13 e
+    e@(A.Buff _ _) -> EffectEditorModel 14 e
+    e@(A.AsEffect _) -> EffectEditorModel 15 e
+
+effect = lens _effect' (const setEffect )
+
 effectEditor :: M.Component parentModel  Model Int
 effectEditor = M.component def update view
     where
         def = EffectEditorModel 0 DiscardEnemy
-        update t = effectName .= t
+        update t = effectIdx .= t
         view m = H.span_ [] [
-            H.select_ [H.onChange effIndex ] (map mkOption info),
-            map mkEditor info !! (m ^. effectName)
+            H.select_ [
+                H.onChange getIndex,
+                P.value_ (f $ info !! (m^.effectIdx ))
+                ] (map mkOption info),
+            map mkEditor info !! (m ^. effectIdx)
          ]
-        effIndex s = let f (_,x,_)=x
-           in fromMaybe 0 $ findIndex ((==) s . f) info
+        getIndex s = fromMaybe 0 $ findIndex ((==) s . f) info
         mkOption (n,k,_) = H.option_ [P.value_ k] [text n]
         mkEditor (_,k,comp) = M.node M.HTML k [] [comp (H.span_ []) ]
+        f (_,x,_) = x
 {- data Effect
   = DestroyEnemy DestroyType FindCards
   | DiscardEnemy

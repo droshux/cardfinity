@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
@@ -11,7 +12,7 @@ import qualified Atoms as A
 import Miso.Effect (noop)
 import Miso.Lens (Lens, lens, (^.), (.=), (%=))
 import Shared (findCardsEditor, findCards)
-import Miso.Types ( (<--), (+>) )
+import Miso.Types ( (<-->), (+>) )
 import Effects (effectEditor, effect)
 
 main :: IO ()
@@ -23,11 +24,15 @@ newtype Model = Model {
 
 exEffect = lens _exEffect $ \r e -> r {_exEffect  = e}
 
-app = M.component (Model A.DiscardEnemy) noop view
+app = M.component (Model A.DiscardEnemy) update view
+
+update _ = exEffect .= A.Optional (A.DestroyEnemy A.Banish (A.FindCardsField 2 (A.ForFamily "test")))
 
 view :: Model -> M.View Model ()
 view m = H.div_ [] [
     H.p_ [] [ (text . toMisoString . show) (m ^. exEffect)],
-    H.div_ [] +> (effectEditor {bindings = [exEffect <-- effect ]})
+    H.button_ [H.onClick ()] [text "Reset"],
+    H.div_ [] +> (effectEditor {bindings = [exEffect <--> effect]})
     ]
+
 
