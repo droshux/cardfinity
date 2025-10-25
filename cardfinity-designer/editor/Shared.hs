@@ -27,12 +27,16 @@ import Control.Monad (unless)
 import qualified Miso.CSS as P
 
 data SearchTypeModel = STModel {
-    _searchType :: SearchType,
+    _searchType' :: SearchType,
     _currentText :: M.MisoString
 } deriving (Eq)
 
 $(makeLenses ''SearchTypeModel)
 
+searchType = lens _searchType' $ \m -> \case 
+    st@(ForName s) -> STModel st (M.toMisoString  s)
+    st@(ForFamily s) -> STModel st (M.toMisoString  s)
+    st -> STModel st (_currentText m)
 data SearchTypeAction = SetType M.MisoString | SetText M.MisoString
 
 searchTypeEditor :: M.Component parentModel SearchTypeModel SearchTypeAction
@@ -66,7 +70,7 @@ searchTypeEditor  = M.component def update view
                 ],
                 H.input_ [
                     H.onInput SetText,
-                    (P.value_ . M.toMisoString  . getText . _searchType ) m,
+                    P.value_ (m^.currentText),
                     P.style_ [("display", "none") | hideInput $ m^.searchType ]
                 ]
             ]
@@ -78,9 +82,6 @@ searchTypeEditor  = M.component def update view
         getValue ForSpell = "spell"
         getValue (ForFamily _) = "family"
         getValue (ForName _) = "name"
-        getText (ForName t) = t
-        getText (ForFamily t) = t
-        getText _ = ""
 
 data FindCardsModel = FCModel {
     _searchTypeFC :: SearchType,
