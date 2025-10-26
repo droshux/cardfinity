@@ -22,6 +22,7 @@ import Data.Function ((&))
 import Data.Bifunctor (second, first)
 import Numeric (readInt)
 import qualified GHC.Generics as M
+import Control.Monad (when)
 
 
 
@@ -177,7 +178,10 @@ effectEditor :: M.Component parentModel  Model Int
 effectEditor = M.component def update view
     where
         def = EffectEditorModel 0 DiscardEnemy
-        update t = effectIdx .= t
+        update t =do
+            effectIdx .= t
+            -- When setting to optional: set the effect manually
+            when (t == 8) $ effect' .= A.Optional A.DiscardEnemy
         view m = H.span_ [] [
             H.select_ [
                 H.onChange getIndex,

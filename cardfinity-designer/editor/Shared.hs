@@ -61,7 +61,7 @@ searchTypeEditor  = M.component def update view
         view m =
           H.span_
             []
-            [ H.select_ [H.onInput SetType, P.value_ (getValue $ m^.searchType )]
+            [ H.select_ [H.onInput SetType , P.value_ (getValue $ m^.searchType ) ]
                 [ H.option_ [P.value_ "card"] [text "Card"],
                   H.option_ [P.value_ "monster"] [text "Monster"],
                   H.option_ [P.value_ "spell"] [text "Spell"],
