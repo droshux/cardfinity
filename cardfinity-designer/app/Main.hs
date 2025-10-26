@@ -13,6 +13,7 @@ import Miso.Effect (noop)
 import Miso.Lens (Lens, lens, (^.), (.=), (%=))
 import Shared (findCardsEditor, findCards)
 import Miso.Types ( (<-->), (+>) )
+import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)))
 import Effects (effectEditor, effect)
 
 main :: IO ()
@@ -26,7 +27,7 @@ exEffect = lens _exEffect $ \r e -> r {_exEffect  = e}
 
 app = M.component (Model A.DiscardEnemy) update view
 
-update _ = exEffect .= A.Optional (A.DestroyEnemy A.Banish (A.FindCardsField 2 (A.ForFamily "test")))
+update _ = exEffect .= A.ChooseEffect (A.Optional A.DECKOUT NE.:| [A.Draw 1, A.DealDamage 2 True])
 
 view :: Model -> M.View Model ()
 view m = H.div_ [] [

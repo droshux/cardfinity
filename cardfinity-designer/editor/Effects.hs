@@ -14,10 +14,10 @@ import Miso.Lens.TH (makeLenses)
 import Miso ((<-->), (+>), text)
 import Atoms (Effect(..))
 import GHC.Natural (Natural)
-import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)), map)
+import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)), map,cons, head, tail)
 import Shared (findCardsEditor,findCards )
 import Data.Maybe (fromMaybe)
-import Data.List (findIndex)
+import Data.List (findIndex, (!?))
 import Data.Function ((&))
 import Data.Bifunctor (second, first)
 import Numeric (readInt)
@@ -80,11 +80,12 @@ dealDamageEditor :: M.Component Model (Natural,Bool) (Maybe Natural)
 dealDamageEditor = M.component (0,False) update view
     where update Nothing = M.modify (second not)
           update (Just n) = M.modify (first (const n))
-          view _ = H.span_ [] [
+          view (n,_) = H.span_ [] [
             H.button_ [H.onClick Nothing] [text "Toggle"],
             H.input_ [
                 P.type_ "number",
                 P.min_ "0",
+                P.value_ (M.toMisoString $ show n),
                 H.onChange (Just . read . M.fromMisoString )
             ]
               ]
@@ -111,9 +112,10 @@ scry = lens A.Scry $ const $ \case
 
 natEditor :: M.Component Model Natural Natural
 natEditor = M.component 0 M.put view
-    where view =const $ H.input_ [
+    where view n = H.input_ [
             P.type_ "number",
             P.min_ "0",
+            P.value_ (M.toMisoString $ show n),
             H.onChange (read . M.fromMisoString )
             ]
 
@@ -136,6 +138,36 @@ optionalEditor  = M.component (OM A.DiscardEnemy) M.noop view
             A.Optional e -> setEffect e
             _ -> EffectEditorModel 0 A.DiscardEnemy
 
+choose :: Lens (NE.NonEmpty Effect) Effect
+choose = lens A.ChooseEffect $ const $ \case 
+    A.ChooseEffect es -> es
+    _ -> A.DiscardEnemy NE.:| []
+
+chooseEditor :: M.Component Model (NE.NonEmpty Effect) (Maybe Int)
+chooseEditor  = M.component def update view 
+    where 
+        def =  A.DiscardEnemy NE.:| []
+        update Nothing = M.modify $ NE.cons A.DiscardEnemy
+        update (Just i) = do
+            (e NE.:| es) <- M.get
+            let es' = take i es ++ drop (i+1) es
+            M.put (e NE.:| es')
+        headLens = lens NE.head $ \(_ NE.:| es) e -> e NE.:| es
+        bodyLens i = let 
+            get (_ NE.:| es) = fromMaybe A.DiscardEnemy $ es !? i
+            set (e NE.:| es) e' = let 
+                es' = take i es ++  (e':drop (i+1) es)
+                in e NE.:| es'
+            in lens get set
+        view (_ NE.:| es) = let
+                headHtml = H.div_ [] +> (effectEditor {M.bindings=[headLens <-->effect]})
+                bodyHtml i = H.div_[] [
+                   H.span_ [] +> (effectEditor {M.bindings=[bodyLens i <--> effect]}),
+                   H.button_ [H.onClick (Just i)] [text "-"]
+                   ]
+                addBtn = H.button_ [H.onClick Nothing] [text "+"]
+                in H.div_ [] $ addBtn:headHtml:map bodyHtml [0..length es-1]
+
 bind component b = flip M.mount $ component {M.bindings=[effect <--> b]}
 
 type Bound = ([M.View Model Int] -> M.View Model Int) -> M.View Model Int
@@ -150,7 +182,8 @@ info = [
     ("Draw","draw",bind natEditor draw),
     ("Peek","peek",bind natEditor peek),
     ("Scry","scry",bind natEditor scry),
-    ("Optional","optional",bind optionalEditor optionalEffect)
+    ("Optional","optional",bind optionalEditor optionalEffect),
+    ("Choose","choose",bind chooseEditor choose)
     ]
 
 -- Must match the order of `info`
