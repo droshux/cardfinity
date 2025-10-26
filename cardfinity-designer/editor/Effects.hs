@@ -15,7 +15,7 @@ import Miso ((<-->), (+>), text)
 import Atoms (Effect(..))
 import GHC.Natural (Natural)
 import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)), map,cons, head, tail)
-import Shared (findCardsEditor,findCards,searchTypeEditor,searchType )
+import Shared 
 import Data.Maybe (fromMaybe)
 import Data.List (findIndex, (!?))
 import Data.Function ((&))
@@ -31,15 +31,6 @@ data Model = EffectEditorModel {
 
 $(makeLenses ''Model)
 
-data GenericActions = Toggle | Inc | Dec
-
-data DestroyModel = DestroyM {
-    _banish :: Bool,
-    _findCardsD :: A.FindCards
-} deriving (Eq)
-
-$(makeLenses ''DestroyModel)
-
 destroy :: Lens DestroyModel Effect
 destroy = let
     get (DestroyM b fc) = flip DestroyEnemy fc $ if b then A.Banish else A.Discard
@@ -48,18 +39,6 @@ destroy = let
         DestroyEnemy A.Banish fc -> DestroyM True fc
         _ -> m
     in lens get set
-
-destroyEditor :: M.Component Model DestroyModel GenericActions
-destroyEditor = M.component def update view
-    where
-        def =  DestroyM False $ A.FindCardsHand 0 A.ForCard
-        update Toggle = banish %= not
-        update _ = return ()
-        view _ = H.span_ [] [
-            H.button_ [H.onClick Toggle] [text "Banish"],
-            H.span_ [] +> (findCardsEditor {M.bindings=[findCardsD <--> findCards]})
-            ]
-
 
 discard :: Lens () Effect
 discard = lens (const DiscardEnemy) (const (const ()))
@@ -73,20 +52,6 @@ dealDamage = let
     unget (A.DealDamage n b)  = (n,b)
     unget _ = (0,False)
     in lens get (const unget)
-
-dealDamageEditor :: M.Component Model (Natural,Bool) (Maybe Natural)
-dealDamageEditor = M.component (0,False) update view
-    where update Nothing = M.modify (second not)
-          update (Just n) = M.modify (first (const n))
-          view (n,_) = H.span_ [] [
-            H.button_ [H.onClick Nothing] [text "Toggle"],
-            H.input_ [
-                P.type_ "number",
-                P.min_ "0",
-                P.value_ (M.toMisoString $ show n),
-                H.onChange (Just . read . M.fromMisoString )
-            ]
-              ]
 
 heal :: Lens Natural Effect
 heal = lens A.Heal $ const $ \case
@@ -108,64 +73,23 @@ scry = lens A.Scry $ const $ \case
     A.Scry n -> n
     _ -> 0
 
-natEditor :: M.Component Model Natural Natural
-natEditor = M.component 0 M.put view
-    where view n = H.input_ [
-            P.type_ "number",
-            P.min_ "0",
-            P.value_ (M.toMisoString $ show n),
-            H.onChange (read . M.fromMisoString )
-            ]
-
 deckout :: Lens () Effect
 deckout = lens (const DECKOUT) (const (const ()))
 
 deckoutEditor :: M.Component Model () ()
 deckoutEditor = M.component () M.noop (const $ text "")
 
-newtype OptionalModel = OM {
-    _optionalEffect :: Effect
-} deriving Eq
+optionalEffectEditor = optionalEditor A.DiscardEnemy effectEditor optionalEffect
+optionalEffect = lens (A.Optional . _get effect) $ const $ \case
+    A.Optional e -> setEffect e
+    _ -> EffectEditorModel 0 A.DiscardEnemy
 
-$(makeLenses ''OptionalModel)
-
-optionalEditor :: M.Component Model OptionalModel ()
-optionalEditor  = M.component (OM A.DiscardEnemy) M.noop view
-    where view _ = H.span_ [] +> (effectEditor {M.bindings=[optionalEffect<-->mkOptional effect]})
-          mkOptional l = lens (A.Optional . _get l) $ const $ \case
-            A.Optional e -> setEffect e
-            _ -> EffectEditorModel 0 A.DiscardEnemy
-
-choose :: Lens (NE.NonEmpty Effect) Effect
-choose = lens A.ChooseEffect $ const $ \case 
+chooseEffect :: Lens (NE.NonEmpty Effect) Effect
+chooseEffect = lens A.ChooseEffect $ const $ \case 
     A.ChooseEffect es -> es
     _ -> A.DiscardEnemy NE.:| []
 
-chooseEditor :: M.Component Model (NE.NonEmpty Effect) (Maybe Int)
-chooseEditor  = M.component def update view 
-    where 
-        def =  A.DiscardEnemy NE.:| []
-        update Nothing = M.modify $ NE.cons A.DiscardEnemy
-        update (Just i) = do
-            (e NE.:| es) <- M.get
-            let es' = take i es ++ drop (i+1) es
-            M.put (e NE.:| es')
-        headLens = lens NE.head $ \(_ NE.:| es) e -> e NE.:| es
-        bodyLens i = let 
-            get (_ NE.:| es) = fromMaybe A.DiscardEnemy $ es !? i
-            set (e NE.:| es) e' = let 
-                es' = take i es ++  (e':drop (i+1) es)
-                in e NE.:| es'
-            in lens get set
-        view (_ NE.:| es) = let
-                headHtml = H.div_ [] +> (effectEditor {M.bindings=[headLens <-->effect]})
-                bodyHtml i = H.div_[] [
-                   H.span_ [] +> (effectEditor {M.bindings=[bodyLens i <--> effect]}),
-                   H.button_ [H.onClick (Just i)] [text "-"]
-                   ]
-                addBtn = H.button_ [H.onClick Nothing] [text "+"]
-                in H.div_ [] $ addBtn:headHtml:map bodyHtml [0..length es-1]
-
+chooseEffectEditor = chooseEditor A.DiscardEnemy effectEditor effect
 
 attack :: Lens Bool Effect
 attack = lens A.Attack $ const $ \case 
@@ -191,7 +115,6 @@ stEditor = M.component A.ForCard M.noop view
     where 
         view :: A.SearchType -> M.View A.SearchType ()
         view = const $ H.span_ [] +> (searchTypeEditor {M.bindings=[noLens <-->searchType ]})
-        noLens = lens id (\x y -> y)
 
 search :: Lens (Bool, A.SearchType) Effect
 search = let 
@@ -239,28 +162,24 @@ asEffectEditor :: M.Component Model A.Condition ()
 asEffectEditor = M.component A.DiscardSelf M.noop view
     where view _ = text "TODO"
 
-bind component b = flip M.mount $ component {M.bindings=[effect <--> b]}
-
-type Bound = ([M.View Model Int] -> M.View Model Int) -> M.View Model Int
-
-info :: [(M.MisoString, M.MisoString,Bound)]
+info :: [(M.MisoString, M.MisoString,Bound Model)]
 info = [
-    ("Discard","discard", bind discardEditor discard),
-    ("Destroy","destroy", bind destroyEditor destroy),
-    ("Deal Damage","dealdamage", bind dealDamageEditor dealDamage),
-    ("Heal","heal", bind natEditor heal),
-    ("DECKOUT", "deckout", bind deckoutEditor deckout),
-    ("Draw","draw",bind natEditor draw),
-    ("Peek","peek",bind natEditor peek),
-    ("Scry","scry",bind natEditor scry),
-    ("Optional","optional",bind optionalEditor optionalEffect),
-    ("Choose","choose",bind chooseEditor choose),
-    ("Attack", "attack", bind attackEditor attack),
-    ("Play", "play", bind stEditor play),
-    ("Search", "search", bind searchEditor search),
-    ("Attach", "attach", bind stEditor attach),
-    ("Buff", "buff", bind buffEditor buff),
-    ("As Effect", "aseffect", bind asEffectEditor asEffect )
+    ("Discard","discard", bind effect discardEditor discard),
+    ("Destroy","destroy", bind effect destroyEditor destroy),
+    ("Deal Damage","dealdamage", bind effect damageEditor dealDamage),
+    ("Heal","heal", bind effect natEditor heal),
+    ("DECKOUT", "deckout", bind effect deckoutEditor deckout),
+    ("Draw","draw",bind effect natEditor draw),
+    ("Peek","peek",bind effect natEditor peek),
+    ("Scry","scry",bind effect natEditor scry),
+    ("Optional","optional",bind effect optionalEffectEditor noLens),
+    ("Choose","choose",bind effect chooseEffectEditor chooseEffect),
+    ("Attack", "attack", bind effect attackEditor attack),
+    ("Play", "play", bind effect stEditor play),
+    ("Search", "search", bind effect searchEditor search),
+    ("Attach", "attach", bind effect stEditor attach),
+    ("Buff", "buff", bind effect buffEditor buff),
+    ("As Effect", "aseffect", bind effect asEffectEditor asEffect )
     ]
 
 -- Must match the order of `info`
@@ -303,21 +222,3 @@ effectEditor = M.component def update view
         mkOption (n,k,_) = H.option_ [P.value_ k] [text n]
         mkEditor (_,k,comp) = M.node M.HTML k [] [comp (H.span_ []) ]
         f (_,x,_) = x
-{- data Effect
-  = DestroyEnemy DestroyType FindCards
-  | DiscardEnemy
-  | DealDamage Natural Bool
-  | Heal Natural
-  | DECKOUT
-  | Draw Natural
-  | Peek Natural
-  | Scry Natural
-  | Optional Effect
-  | ChooseEffect (NonEmpty Effect)
-  | Attack Bool
-  | Play SearchType
-  | Search SearchMethod
-  | Attach SearchType
-  | Buff Integer Bool
-  | AsEffect Condition
-  deriving (Eq, Ord) -}

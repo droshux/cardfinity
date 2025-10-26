@@ -7,6 +7,15 @@ module Shared
     findCardsEditor,
     searchType,
     findCards,
+    damageEditor,
+    Bound,
+    bind,
+    DestroyModel(DestroyM),
+    destroyEditor,
+    natEditor,
+    chooseEditor ,
+    optionalEditor ,
+    noLens
   )
 where
 
@@ -19,11 +28,14 @@ import Miso.Lens
 import Miso.Lens.TH (makeLenses)
 import Atoms (SearchType(..))
 import Miso (text)
+import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)), map,cons, head, tail)
 import GHC.Natural (Natural)
 import Miso.Types ((+>), Component (bindings), (<-->))
 import Text.Read (readMaybe)
+import Data.Bifunctor (second, first)
 import Data.Maybe (fromMaybe)
 import Control.Monad (unless)
+import Data.List ((!?))
 import qualified Miso.CSS as P
 
 data SearchTypeModel = STModel {
@@ -101,9 +113,9 @@ findCards = let
 
 $(makeLenses  ''FindCardsModel)
 
-data FindCardsAction = Inc | Dec | Toggle
+data GenericActions = Toggle | Inc | Dec
 
-findCardsEditor :: M.Component parentModel FindCardsModel FindCardsAction
+findCardsEditor :: M.Component parentModel FindCardsModel GenericActions
 findCardsEditor = M.component def update view
     where
         def = FCModel {_searchTypeFC=ForCard, _count = 0, _isHand = True}
@@ -121,3 +133,84 @@ findCardsEditor = M.component def update view
             H.button_ [H.onClick Dec] [text "-"],
             H.span_ []  +> (searchTypeEditor {bindings=[searchTypeFC <--> searchType ]})
             ]
+
+
+damageEditor :: M.Component a (Natural,Bool) (Maybe Natural)
+damageEditor = M.component (0,False) update view
+    where update Nothing = M.modify (second not)
+          update (Just n) = M.modify (first (const n))
+          view (n,_) = H.span_ [] [
+            H.button_ [H.onClick Nothing] [text "Toggle"],
+            H.input_ [
+                P.type_ "number",
+                P.min_ "0",
+                P.value_ (M.toMisoString $ show n),
+                H.onChange (Just . read . M.fromMisoString )
+            ]
+              ]
+
+
+data DestroyModel = DestroyM {
+    _banish :: Bool,
+    _findCardsD :: A.FindCards
+} deriving (Eq)
+
+$(makeLenses ''DestroyModel)
+
+destroyEditor :: M.Component a DestroyModel GenericActions
+destroyEditor = M.component def update view
+    where
+        def =  DestroyM False $ A.FindCardsHand 0 A.ForCard
+        update Toggle = banish %= not
+        update _ = return ()
+        view _ = H.span_ [] [
+            H.button_ [H.onClick Toggle] [text "Banish"],
+            H.span_ [] +> (findCardsEditor {M.bindings=[findCardsD <--> findCards]})
+            ]
+
+
+natEditor :: M.Component a Natural Natural
+natEditor = M.component 0 M.put view
+    where view n = H.input_ [
+            P.type_ "number",
+            P.min_ "0",
+            P.value_ (M.toMisoString $ show n),
+            H.onChange (read . M.fromMisoString )
+            ]
+
+chooseEditor :: (Eq parent) => a -> M.Component (NE.NonEmpty a) parent b -> Lens parent a -> M.Component parent (NE.NonEmpty a) (Maybe Int)
+chooseEditor def editor l  = M.component (def NE.:| []) update view 
+    where 
+        update Nothing = M.modify $ NE.cons def
+        update (Just i) = do
+            (e NE.:| es) <- M.get
+            let es' = take i es ++ drop (i+1) es
+            M.put (e NE.:| es')
+        headLens = lens NE.head $ \(_ NE.:| es) e -> e NE.:| es
+        bodyLens i = let 
+            get (_ NE.:| es) = fromMaybe def $ es !? i
+            set (e NE.:| es) e' = let 
+                es' = take i es ++  (e':drop (i+1) es)
+                in e NE.:| es'
+            in lens get set
+        view (_ NE.:| es) = let
+                headHtml = H.div_ [] +> editor{M.bindings=[headLens <--> l]}
+                bodyHtml i = H.div_[] [
+                   H.span_ [] +> editor{M.bindings=[bodyLens i <--> l]},
+                   H.button_ [H.onClick (Just i)] [text "-"]
+                   ]
+                addBtn = H.button_ [H.onClick Nothing] [text "+"]
+                in H.div_ [] $ addBtn:headHtml:map bodyHtml [0..length es-1]
+
+
+optionalEditor :: (Eq parent) => a -> M.Component a parent c -> Lens parent a -> M.Component parent a b
+optionalEditor def editor l = 
+    let 
+        view = H.span_ [] +> editor{M.bindings=[noLens <--> l]}
+    in  M.component def M.noop  (const view)
+
+noLens = lens id (\x y -> y)
+bind l component b = flip M.mount $ component {M.bindings=[l <--> b]}
+
+type Bound a = ([M.View a Int] -> M.View a Int) -> M.View a Int
+
