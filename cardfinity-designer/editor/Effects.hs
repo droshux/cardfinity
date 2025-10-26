@@ -15,7 +15,7 @@ import Miso ((<-->), (+>), text)
 import Atoms (Effect(..))
 import GHC.Natural (Natural)
 import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)), map,cons, head, tail)
-import Shared (findCardsEditor,findCards )
+import Shared (findCardsEditor,findCards,searchTypeEditor,searchType )
 import Data.Maybe (fromMaybe)
 import Data.List (findIndex, (!?))
 import Data.Function ((&))
@@ -23,8 +23,6 @@ import Data.Bifunctor (second, first)
 import Numeric (readInt)
 import qualified GHC.Generics as M
 import Control.Monad (when)
-
-
 
 data Model = EffectEditorModel {
     _effectIdx :: Int,
@@ -168,6 +166,79 @@ chooseEditor  = M.component def update view
                 addBtn = H.button_ [H.onClick Nothing] [text "+"]
                 in H.div_ [] $ addBtn:headHtml:map bodyHtml [0..length es-1]
 
+
+attack :: Lens Bool Effect
+attack = lens A.Attack $ const $ \case 
+    A.Attack b -> b
+    _ -> False
+
+attackEditor :: M.Component Model Bool ()
+attackEditor = M.component False (const $ M.modify not) view
+    where view = const $ H.button_ [H.onClick ()] [text "Toggle"]
+
+play :: Lens A.SearchType Effect
+play = lens A.Play $ const $ \case
+    A.Play st -> st
+    _ -> A.ForCard
+
+attach :: Lens A.SearchType Effect
+attach = lens A.Attach $ const $ \case
+    A.Attach st -> st
+    _ -> A.ForCard
+
+stEditor :: M.Component Model A.SearchType ()
+stEditor = M.component A.ForCard M.noop view
+    where 
+        view :: A.SearchType -> M.View A.SearchType ()
+        view = const $ H.span_ [] +> (searchTypeEditor {M.bindings=[noLens <-->searchType ]})
+        noLens = lens id (\x y -> y)
+
+search :: Lens (Bool, A.SearchType) Effect
+search = let 
+    get (d,t) = (A.Search . (if d then A.DrillFor else A.SearchFor)) t
+    set = const $ \case 
+        A.Search (A.SearchFor t) -> (,) False t
+        A.Search (A.DrillFor t) -> (,) True t
+        _ -> (,) False A.ForCard
+    in lens get set
+
+searchEditor :: M.Component Model (Bool,A.SearchType) ()
+searchEditor = M.component (False, A.ForCard) (const $ M.modify (first not)) view
+    where 
+    sndLens = lens snd $ \(a,_) b -> (a,b) 
+    view = const $ H.span_ [] [
+        H.button_ [H.onClick ()] [text "Toggle"],
+        H.span_ [] +> (searchTypeEditor {M.bindings=[sndLens<-->searchType ]})
+        ]
+
+buff :: Lens (Integer,Bool) Effect
+buff = lens (uncurry A.Buff) $ const $ \case
+    A.Buff x b -> (x,b)
+    _ -> (0,False)
+
+buffEditor :: M.Component Model (Integer, Bool) (Maybe Integer)
+buffEditor = M.component (0,False) update view
+    where
+        update (Just i) = M.modify $ first $ const i
+        update Nothing = M.modify $ second not
+        view (i,_) = H.span_ [] [
+            H.input_ [
+                P.type_ "number",
+                P.value_ (M.toMisoString $ show  i),
+                H.onChange (Just . read . M.fromMisoString )
+            ],
+            H.button_ [H.onClick Nothing] [text "Toggle"]
+            ]
+
+asEffect :: Lens A.Condition Effect
+asEffect = lens A.AsEffect $ const $ \case
+    A.AsEffect c -> c
+    _ -> A.DiscardSelf
+
+asEffectEditor :: M.Component Model A.Condition ()
+asEffectEditor = M.component A.DiscardSelf M.noop view
+    where view _ = text "TODO"
+
 bind component b = flip M.mount $ component {M.bindings=[effect <--> b]}
 
 type Bound = ([M.View Model Int] -> M.View Model Int) -> M.View Model Int
@@ -183,7 +254,13 @@ info = [
     ("Peek","peek",bind natEditor peek),
     ("Scry","scry",bind natEditor scry),
     ("Optional","optional",bind optionalEditor optionalEffect),
-    ("Choose","choose",bind chooseEditor choose)
+    ("Choose","choose",bind chooseEditor choose),
+    ("Attack", "attack", bind attackEditor attack),
+    ("Play", "play", bind stEditor play),
+    ("Search", "search", bind searchEditor search),
+    ("Attach", "attach", bind stEditor attach),
+    ("Buff", "buff", bind buffEditor buff),
+    ("As Effect", "aseffect", bind asEffectEditor asEffect )
     ]
 
 -- Must match the order of `info`
