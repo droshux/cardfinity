@@ -60,10 +60,10 @@ deckout = lens (const A.DECKOUT) (const (const ()))
 
 deckoutEditor = M.component () M.noop (const $ text "")
 
-optionalEffectEditor = optionalEditor A.DiscardEnemy effectEditor optionalEffect
-optionalEffect = lens (A.Optional . _get effect) $ const $ \case
-    A.Optional e -> setEffect e
-    _ -> (,) 0 A.DiscardEnemy
+optionalEffect =let
+   set _ (A.Optional e) = setEffect  e
+   set ie _ = ie
+   in lens (A.Optional . snd) set
 
 chooseEffect :: Lens (NE.NonEmpty A.Effect) A.Effect
 chooseEffect = lens A.ChooseEffect $ const $ \case 
@@ -148,7 +148,7 @@ info = [
     ("Draw","draw",bind effect natEditor draw),
     ("Peek","peek",bind effect natEditor peek),
     ("Scry","scry",bind effect natEditor scry),
-    ("Optional","optional",bind effect optionalEffectEditor noLens),
+    ("Optional","optional",bind effect effectEditor optionalEffect),
     ("Choose","choose",bind effect chooseEffectEditor chooseEffect),
     ("Attack", "attack", bind effect attackEditor attack),
     ("Play", "play", bind effect stEditor play),
@@ -178,4 +178,4 @@ setEffect = \case
     e@(A.AsEffect _) -> (,) 15 e
 
 effect = lens snd (const setEffect)
-effectEditor = atomEditor A.DiscardEnemy (8,A.Optional) info
+effectEditor = atomEditor A.DiscardEnemy info

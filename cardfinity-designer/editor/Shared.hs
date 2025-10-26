@@ -14,7 +14,6 @@ module Shared
     destroyEditor,
     natEditor,
     chooseEditor ,
-    optionalEditor ,
     atomEditor,
     noLens
   )
@@ -204,19 +203,11 @@ chooseEditor def editor l  = M.component (def NE.:| []) update view
                 in H.div_ [] $ addBtn:headHtml:map bodyHtml [0..length es-1]
 
 
-optionalEditor :: (Eq parent) => a -> M.Component a parent c -> Lens parent a -> M.Component parent a b
-optionalEditor def editor l = 
-    let 
-        view = H.span_ [] +> editor{M.bindings=[noLens <--> l]}
-    in  M.component def M.noop  (const view)
-
-atomEditor :: a -> (Int,a->a) -> [(M.MisoString,M.MisoString,Bound (Int,a))] -> M.Component parent (Int,a) Int
-atomEditor def specCase info = M.component (0,def) update view
+atomEditor :: a -> [(M.MisoString,M.MisoString,Bound (Int,a))] -> M.Component parent (Int,a) Int
+atomEditor def info = M.component (0,def) update view
     where 
         update i = do
             M.modify $ first $ const i
-            -- Special case for opitionals 
-            when (i == fst specCase ) $ M.modify $ second $ const $ snd specCase def
         view (i,_) = H.span_ [] [
                 H.select_ [
                     H.onChange getIndex ,
