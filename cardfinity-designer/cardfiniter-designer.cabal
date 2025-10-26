@@ -28,4 +28,5 @@ executable cardfinity-designer
         app
     other-modules:
         Effects
+        Conditions
         Shared

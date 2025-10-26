@@ -15,6 +15,7 @@ module Shared
     natEditor,
     chooseEditor ,
     optionalEditor ,
+    atomEditor,
     noLens
   )
 where
@@ -34,8 +35,8 @@ import Miso.Types ((+>), Component (bindings), (<-->))
 import Text.Read (readMaybe)
 import Data.Bifunctor (second, first)
 import Data.Maybe (fromMaybe)
-import Control.Monad (unless)
-import Data.List ((!?))
+import Control.Monad (unless, when)
+import Data.List ((!?), findIndex)
 import qualified Miso.CSS as P
 
 data SearchTypeModel = STModel {
@@ -209,7 +210,27 @@ optionalEditor def editor l =
         view = H.span_ [] +> editor{M.bindings=[noLens <--> l]}
     in  M.component def M.noop  (const view)
 
+atomEditor :: a -> (Int,a->a) -> [(M.MisoString,M.MisoString,Bound (Int,a))] -> M.Component parent (Int,a) Int
+atomEditor def specCase info = M.component (0,def) update view
+    where 
+        update i = do
+            M.modify $ first $ const i
+            -- Special case for opitionals 
+            when (i == fst specCase ) $ M.modify $ second $ const $ snd specCase def
+        view (i,_) = H.span_ [] [
+                H.select_ [
+                    H.onChange getIndex ,
+                    P.value_ $ f $ info !! i
+                ] (map mkOption info),
+                map mkEditor info !! i
+            ]
+        getIndex s = fromMaybe 0 $ findIndex ((==) s . f) info
+        mkOption (n,k,_) = H.option_ [P.value_ k] [text n]
+        mkEditor (_,k,comp) = M.node M.HTML k [] [comp (H.span_ []) ]
+        f (_,x,_) = x
+
 noLens = lens id (\x y -> y)
+
 bind l component b = flip M.mount $ component {M.bindings=[l <--> b]}
 
 type Bound a = ([M.View a Int] -> M.View a Int) -> M.View a Int
