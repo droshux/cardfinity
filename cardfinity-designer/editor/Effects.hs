@@ -13,6 +13,7 @@ import GHC.Natural (Natural)
 import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)))
 import Shared 
 import Data.Bifunctor (second, first)
+import Conditions (conditionEditor, asEffect )
 
 destroy :: Lens DestroyModel A.Effect
 destroy = let
@@ -130,14 +131,6 @@ buffEditor = M.component (0,False) update view
             H.button_ [H.onClick Nothing] [text "Toggle"]
             ]
 
-asEffect :: Lens A.Condition A.Effect
-asEffect = lens A.AsEffect $ const $ \case
-    A.AsEffect c -> c
-    _ -> A.DiscardSelf
-
-asEffectEditor = M.component A.DiscardSelf M.noop view
-    where view _ = text "TODO"
-
 info :: [(M.MisoString, M.MisoString,Bound (Int,A.Effect))]
 info = [
     ("Discard","discard", bind effect discardEditor discard),
@@ -155,7 +148,7 @@ info = [
     ("Search", "search", bind effect searchEditor search),
     ("Attach", "attach", bind effect stEditor attach),
     ("Buff", "buff", bind effect buffEditor buff),
-    ("As Effect", "aseffect", bind effect asEffectEditor asEffect )
+    ("As Effect", "aseffect", bind effect conditionEditor asEffect)
     ]
 
 -- Must match the order of `info`

@@ -26,7 +26,6 @@ import qualified Atoms as A
 import Miso.Lens
     ( Lens, lens, (.=), (<%=), (%=), (^.), (+=), (-=), compose )
 import Miso.Lens.TH (makeLenses)
-import Atoms (SearchType(..))
 import Miso (text)
 import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)), map,cons, head, tail)
 import GHC.Natural (Natural)
@@ -37,6 +36,7 @@ import Data.Maybe (fromMaybe)
 import Control.Monad (unless, when)
 import Data.List ((!?), findIndex)
 import qualified Miso.CSS as P
+import Atoms (SearchType(..))
 
 data SearchTypeModel = STModel {
     _searchType' :: SearchType,
