@@ -15,26 +15,49 @@ import Shared (findCardsEditor, findCards, noLens, listEditor)
 import Miso.Types ( (<-->), (+>) )
 import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)))
 import Effects (effectEditor, effect)
+import Types (Spell (Spell), Trigger (OnPlay))
+import Spell (spellEditor)
+import Data.Set.Ordered
+import Data.Foldable (toList)
 
 main :: IO ()
 main = M.run (M.startApp app )
 
 newtype Model = Model {
-    _exEffects :: [ A.Effect ]
+    _spell :: Spell
 } deriving (Eq)
 
-exEffects = lens _exEffects $ \r e -> r {_exEffects  = e}
 
-app = M.component (Model []) update view
+spell = lens _spell $ \m s -> m {_spell = s}
 
-update _ = exEffects .= []
+app = M.component (Model def) update view
+
+
+def = Spell "Pot of Greed" OnPlay empty [A.Draw 2]
+update _ = spell .= def
 
 view :: Model -> M.View Model ()
 view m = H.div_ [] [
-    H.p_ [] [ (text . toMisoString . show) (m ^. exEffects)],
+    H.div_[] [
     H.button_ [H.onClick ()] [text "Reset"],
-    H.div_ [] +> (effectListEditor {bindings = [exEffects <--> noLens ]})
+    text $ M.toMisoString $ tempShow $ m^.spell
+    ],
+    H.div_ [] +> (spellEditor {bindings = [spell <--> noLens ]})
     ]
-    where effectListEditor = listEditor A.DiscardEnemy effect effectEditor 
 
 
+tempShow :: Spell -> String
+tempShow (Spell n t cs es) =  concat [
+    show n,
+    " ",
+    show t,
+    ": ",
+    implode ", " (toList cs),
+    " ",
+    implode ", " es
+    ] 
+
+implode :: (Show a) => String -> [a] -> String
+implode j [] = ""
+implode j [x] = show x
+implode j (x:xs) = show x ++ j ++ implode j xs

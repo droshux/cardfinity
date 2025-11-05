@@ -69,7 +69,7 @@ data Trigger
   | OnAttach
   | Infinity
   | Counter
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Enum)
 
 instance Show Trigger where
   show OnPlay = "When played"
