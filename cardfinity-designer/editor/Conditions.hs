@@ -48,7 +48,7 @@ chooseCond :: Lens (NE.NonEmpty A.Condition) A.Condition
 chooseCond = lens A.Choose $ const $ \case
     A.Choose cs -> cs
     _ -> A.DiscardSelf NE.:| []
-chooseCondEdior = chooseEditor A.DiscardSelf conditionEditor condition
+chooseCondEdior = neListEditor A.DiscardSelf condition conditionEditor 
 
 info :: [(M.MisoString, M.MisoString, Bound (Int,A.Condition))]
 info = [

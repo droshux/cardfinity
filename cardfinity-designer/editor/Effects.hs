@@ -71,7 +71,7 @@ chooseEffect = lens A.ChooseEffect $ const $ \case
     A.ChooseEffect es -> es
     _ -> A.DiscardEnemy NE.:| []
 
-chooseEffectEditor = chooseEditor A.DiscardEnemy effectEditor effect
+chooseEffectEditor = neListEditor A.DiscardEnemy effect effectEditor 
 
 attack :: Lens Bool A.Effect
 attack = lens A.Attack $ const $ \case 

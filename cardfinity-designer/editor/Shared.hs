@@ -13,9 +13,11 @@ module Shared
     DestroyModel(DestroyM),
     destroyEditor,
     natEditor,
-    chooseEditor ,
     atomEditor,
-    noLens
+    noLens,
+    listEditor,
+    neListEditor,
+    osetEditor 
   )
 where
 
@@ -28,6 +30,7 @@ import Miso.Lens
 import Miso.Lens.TH (makeLenses)
 import Miso (text)
 import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)), map,cons, head, tail)
+import qualified Data.Set.Ordered as OS (OSet, empty, (|>), fromList, elemAt )
 import GHC.Natural (Natural)
 import Miso.Types ((+>), Component (bindings), (<-->))
 import Text.Read (readMaybe)
@@ -37,6 +40,7 @@ import Control.Monad (unless, when)
 import Data.List ((!?), findIndex)
 import qualified Miso.CSS as P
 import Atoms (SearchType(..))
+import Data.Foldable (toList)
 
 data SearchTypeModel = STModel {
     _searchType' :: SearchType,
@@ -45,7 +49,7 @@ data SearchTypeModel = STModel {
 
 $(makeLenses ''SearchTypeModel)
 
-searchType = lens _searchType' $ \m -> \case 
+searchType = lens _searchType' $ \m -> \case
     st@(ForName s) -> STModel st (M.toMisoString  s)
     st@(ForFamily s) -> STModel st (M.toMisoString  s)
     st -> STModel st (_currentText m)
@@ -178,34 +182,9 @@ natEditor = M.component 0 M.put view
             H.onChange (read . M.fromMisoString )
             ]
 
-chooseEditor :: (Eq parent) => a -> M.Component (NE.NonEmpty a) parent b -> Lens parent a -> M.Component parent (NE.NonEmpty a) (Maybe Int)
-chooseEditor def editor l  = M.component (def NE.:| []) update view 
-    where 
-        update Nothing = M.modify $ NE.cons def
-        update (Just i) = do
-            (e NE.:| es) <- M.get
-            let es' = take i es ++ drop (i+1) es
-            M.put (e NE.:| es')
-        headLens = lens NE.head $ \(_ NE.:| es) e -> e NE.:| es
-        bodyLens i = let 
-            get (_ NE.:| es) = fromMaybe def $ es !? i
-            set (e NE.:| es) e' = let 
-                es' = take i es ++  (e':drop (i+1) es)
-                in e NE.:| es'
-            in lens get set
-        view (_ NE.:| es) = let
-                headHtml = H.div_ [] +> editor{M.bindings=[headLens <--> l]}
-                bodyHtml i = H.div_[] [
-                   H.span_ [] +> editor{M.bindings=[bodyLens i <--> l]},
-                   H.button_ [H.onClick (Just i)] [text "-"]
-                   ]
-                addBtn = H.button_ [H.onClick Nothing] [text "+"]
-                in H.div_ [] $ addBtn:headHtml:map bodyHtml [0..length es-1]
-
-
 atomEditor :: a -> [(M.MisoString,M.MisoString,Bound (Int,a))] -> M.Component parent (Int,a) Int
 atomEditor def info = M.component (0,def) update view
-    where 
+    where
         update i = do
             M.modify $ first $ const i
         view (i,_) = H.span_ [] [
@@ -220,8 +199,64 @@ atomEditor def info = M.component (0,def) update view
         mkEditor (_,k,comp) = M.node M.HTML k [] [comp (H.span_ []) ]
         f (_,x,_) = x
 
+listEditor :: (Eq b) => a -> Lens b a -> M.Component [a] b c -> M.Component parent [a] (Maybe Int)
+listEditor def l comp = let 
+    update Nothing = M.modify (def:)
+    update (Just i) = M.modify (without i)
+    addNew = H.button_ [H.onClick  Nothing] [text "+"]
+    idxLens i = lens (fromMaybe def . (!? i)) $ \xs x -> take i xs ++ (x:drop (i+1) xs)
+    toEditor i x = H.div_ [] [
+        H.span_ [] +> (comp {M.bindings=[idxLens i <--> l]}),
+        H.button_ [H.onClick (Just i)] [text "-"]
+        ]
+    view xs = H.div_ [] (addNew : zipWith toEditor [0..] xs)
+    in M.component [] update view
+
+neListEditor :: (Eq parent) => a -> Lens parent a -> M.Component (NE.NonEmpty a) parent b -> M.Component parent (NE.NonEmpty a) (Maybe Int)
+neListEditor def l editor  = M.component (def NE.:| []) update view
+    where
+        update Nothing = M.modify $ NE.cons def
+        update (Just i) = do
+            (e NE.:| es) <- M.get
+            let es' = take i es ++ drop (i+1) es
+            M.put (e NE.:| es')
+        headLens = lens NE.head $ \(_ NE.:| es) e -> e NE.:| es
+        bodyLens i = let
+            get (_ NE.:| es) = fromMaybe def $ es !? i
+            set (e NE.:| es) e' = let
+                es' = take i es ++  (e':drop (i+1) es)
+                in e NE.:| es'
+            in lens get set
+        view (_ NE.:| es) = let
+                headHtml = H.div_ [] +> editor{M.bindings=[headLens <--> l]}
+                bodyHtml i = H.div_ [] [
+                   H.span_ [] +> editor{M.bindings=[bodyLens i <--> l]},
+                   H.button_ [H.onClick (Just i)] [text "-"]
+                   ]
+                addBtn = H.button_ [H.onClick Nothing] [text "+"]
+                in H.div_ [] $ addBtn:headHtml:map bodyHtml [0..length es-1]
+
+osetEditor :: (Ord a, Eq b) => a -> Lens b a -> M.Component (OS.OSet a) b c -> M.Component parent (OS.OSet a) (Maybe Int)
+osetEditor def l child = let
+           update Nothing = M.modify $ flip (OS.|>) def
+           update (Just i) = M.modify (OS.fromList . without i . toList)
+           idxLens i = let
+              get = fromMaybe def . flip OS.elemAt i
+              set xs x = OS.fromList $ take i (toList xs) ++ x:drop (i+1) (toList xs)
+            in lens get set
+           view m = let
+             toOption i x = H.div_ [] [
+                 H.span_ [] +> (child {M.bindings=[idxLens i <--> l]}),
+                 H.button_ [H.onClick (Just i)] [text "-"]
+                 ]
+             addNew = H.button_ [H.onClick  Nothing] [text "+"]
+             in H.div_ [] (addNew : zipWith toOption [0..] (toList m))
+         in M.component OS.empty update view
+
+
 noLens = lens id (\x y -> y)
 
+without i xs = take i xs ++ drop (i+1) xs
 bind l component b = flip M.mount $ component {M.bindings=[l <--> b]}
 
 type Bound a = ([M.View a Int] -> M.View a Int) -> M.View a Int
