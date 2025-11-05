@@ -15,39 +15,53 @@ import Shared (findCardsEditor, findCards, noLens, listEditor)
 import Miso.Types ( (<-->), (+>) )
 import qualified Data.List.NonEmpty as NE (NonEmpty ((:|)))
 import Effects (effectEditor, effect)
-import Types (Spell (Spell), Trigger (OnPlay))
+import Types (Spell (Spell), Trigger (OnPlay), Monster (..))
 import Spell (spellEditor)
 import Data.Set.Ordered
 import Data.Foldable (toList)
+import Monster (monsterEditor)
 
 main :: IO ()
 main = M.run (M.startApp app )
 
 newtype Model = Model {
-    _spell :: Spell
+    _monster :: Monster
 } deriving (Eq)
 
 
-spell = lens _spell $ \m s -> m {_spell = s}
+monster = lens _monster $ \m m' -> m {_monster = m'}
 
 app = M.component (Model def) update view
 
 
-def = Spell "Pot of Greed" OnPlay empty [A.Draw 2]
-update _ = spell .= def
+def = Monster {_summoningConditions=empty , _monsterSpells=[], _monsterName="", _isTapped=False, _combatPower=0}
+update _ = monster .= def
 
 view :: Model -> M.View Model ()
 view m = H.div_ [] [
     H.div_[] [
     H.button_ [H.onClick ()] [text "Reset"],
-    text $ M.toMisoString $ tempShow $ m^.spell
+    text $ M.toMisoString $ tempShowMonster $ m^.monster
     ],
-    H.div_ [] +> (spellEditor {bindings = [spell <--> noLens ]})
+    H.div_ [] +> (monsterEditor {bindings = [monster <--> noLens ]})
     ]
 
 
-tempShow :: Spell -> String
-tempShow (Spell n t cs es) =  concat [
+tempShowMonster :: Monster -> String
+tempShowMonster (Monster n ss cs p t) = concat [
+    show n,
+    ":\n",
+    implode ", " (toList cs),
+    "\n",
+    implode "\n" (map tempShowSpell ss),
+    "\n",
+    show p,
+    " ",
+    show t
+    ] 
+
+tempShowSpell :: Spell -> String
+tempShowSpell (Spell n t cs es) =  concat [
     show n,
     " ",
     show t,

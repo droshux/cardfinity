@@ -28,6 +28,7 @@ executable cardfinity-designer
         editor
         app
     other-modules:
+        Monster
         Spell
         Effects
         Conditions
