@@ -25,11 +25,10 @@ executable cardfinity-designer
       miso
     default-language: GHC2021
     hs-source-dirs:   
-        editor
-        app
+        src
     other-modules:
-        Monster
-        Spell
-        Effects
-        Conditions
-        Shared
+        Editor.Monster
+        Editor.Spell
+        Editor.Effects
+        Editor.Conditions
+        Editor.Shared
