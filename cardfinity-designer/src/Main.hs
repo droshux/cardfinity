@@ -18,6 +18,7 @@ import Miso.Html qualified as H
 import Miso.Lens (Lens, lens, (%=), (.=), (^.))
 import Miso.Lens.TH (makeLenses)
 import Miso.Types ((+>), (<-->))
+import Scale (runScale)
 import Types (Monster (..), Spell (Spell), Trigger (OnPlay))
 
 main :: IO ()
@@ -30,7 +31,7 @@ newtype Model = Model
 
 monster = lens _monster $ \m m' -> m {_monster = m'}
 
-app = M.component (Model def) update view
+app = (M.component (Model def) update view) {M.styles = [M.Href "assets/style.css"]}
 
 def = Monster {_summoningConditions = empty, _monsterSpells = [], _monsterName = "", _isTapped = False, _combatPower = 0}
 
@@ -42,7 +43,8 @@ view m =
     []
     [ H.div_
         []
-        [ H.button_ [H.onClick ()] [text "Reset"],
+        [ text (M.toMisoString $ show $ runScale [] (m ^. monster)),
+          H.button_ [H.onClick ()] [text "Reset"],
           text $ M.toMisoString $ tempShowMonster $ m ^. monster
         ],
       H.div_ [] +> (monsterEditor {bindings = [monster <--> noLens]})

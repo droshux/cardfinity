@@ -10,7 +10,6 @@ import Editor.Effects (effect, effectEditor)
 import Editor.Shared
 import Miso qualified as M
 import Miso.Binding ((<-->))
-import Miso.CSS qualified as C
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
 import Miso.Lens (Lens, lens, (.=), (^.))
@@ -44,8 +43,8 @@ view m =
           H.onChange SetTrigger
         ]
         (map triggerOption [toEnum 0 ..]),
-      H.div_ [C.style_ [C.borderWidth "1h", C.border "solid"]] +> conditionsEditor {M.bindings = [castingConditions <--> noLens]},
-      H.div_ [C.style_ [C.borderWidth "1h", C.border "solid"]] +> effectsEditor {M.bindings = [effects <--> noLens]}
+      H.div_ [] +> conditionsEditor {M.bindings = [castingConditions <--> noLens]},
+      H.div_ [] +> effectsEditor {M.bindings = [effects <--> noLens]}
     ]
   where
     conditionsEditor = osetEditor A.DiscardSelf condition conditionEditor

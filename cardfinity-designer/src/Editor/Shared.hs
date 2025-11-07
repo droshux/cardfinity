@@ -33,7 +33,7 @@ import Data.Set.Ordered qualified as OS (OSet, elemAt, empty, fromList, (|>))
 import GHC.Natural (Natural)
 import Miso (text)
 import Miso qualified as M
-import Miso.CSS qualified as P
+import Miso.CSS qualified as C
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
 import Miso.Lens
@@ -99,7 +99,7 @@ searchTypeEditor = M.component def update view
           H.input_
             [ H.onInput SetText,
               P.value_ (m ^. currentText),
-              P.style_ [("display", "none") | hideInput $ m ^. searchType]
+              C.style_ [("display", "none") | hideInput $ m ^. searchType]
             ]
         ]
     hideInput (ForFamily _) = False
@@ -233,7 +233,7 @@ listEditor def l comp =
           [ H.span_ [] +> (comp {M.bindings = [idxLens i <--> l]}),
             H.button_ [H.onClick (Just i)] [text "-"]
           ]
-      view xs = H.div_ [] (addNew : zipWith toEditor [0 ..] xs)
+      view xs = H.div_ [P.className "collectionEditor listEditor"] (addNew : zipWith toEditor [0 ..] xs)
    in M.component [] update view
 
 neListEditor :: (Eq parent) => a -> Lens parent a -> M.Component (NE.NonEmpty a) parent b -> M.Component parent (NE.NonEmpty a) (Maybe Int)
@@ -260,7 +260,7 @@ neListEditor def l editor = M.component (def NE.:| []) update view
                 H.button_ [H.onClick (Just i)] [text "-"]
               ]
           addBtn = H.button_ [H.onClick Nothing] [text "+"]
-       in H.div_ [] $ addBtn : headHtml : map bodyHtml [0 .. length es - 1]
+       in H.div_ [P.className "collectionEditor"] $ addBtn : headHtml : map bodyHtml [0 .. length es - 1]
 
 osetEditor :: (Ord a, Eq b) => a -> Lens b a -> M.Component (OS.OSet a) b c -> M.Component parent (OS.OSet a) (Maybe Int)
 osetEditor def l child =
@@ -278,7 +278,7 @@ osetEditor def l child =
                   H.button_ [H.onClick (Just i)] [text "-"]
                 ]
             addNew = H.button_ [H.onClick Nothing] [text "+"]
-         in H.div_ [] (addNew : zipWith toOption [0 ..] (toList m))
+         in H.div_ [P.className "collectionEditor"] (addNew : zipWith toOption [0 ..] (toList m))
    in M.component OS.empty update view
 
 noLens = lens id (\x y -> y)
