@@ -5,11 +5,12 @@ module Editor.Monster (monsterEditor, defaultMonster) where
 import Atoms qualified as A
 import Data.Foldable (forM_)
 import Data.Set.Ordered qualified as OS
-import Editor.Conditions (condition, conditionEditor)
+import Editor.Conditions (condition, conditionEditor, conditionsEditorStyle)
 import Editor.Shared (listEditor, noLens, osetEditor)
 import Editor.Spell (defaultSpell, spellEditor)
 import GHC.Natural (Natural)
 import Miso qualified as M
+import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
 import Miso.Lens (Lens, lens, (%=), (.=), (^.))
@@ -35,13 +36,17 @@ update (SetPower p) = do
 view :: CF.Monster -> M.View CF.Monster MonsterAction
 view m =
   H.div_
-    []
+    [ CSS.style_
+        [ CSS.backgroundColor (CSS.hex "ffd07f"),
+          CSS.width "fit-content"
+        ]
+    ]
     [ H.input_
         [ P.type_ "text",
           P.value_ (M.toMisoString $ m ^. monsterName),
           H.onChange SetName
         ],
-      H.div_ [] +> summonConditionsEditor {M.bindings = [summoningConditions <--> noLens]},
+      H.div_ [CSS.style_ conditionsEditorStyle] +> summonConditionsEditor {M.bindings = [summoningConditions <--> noLens]},
       H.div_ [] +> spellsEditor {M.bindings = [monsterSpells <--> noLens]},
       H.input_
         [ P.type_ "number",

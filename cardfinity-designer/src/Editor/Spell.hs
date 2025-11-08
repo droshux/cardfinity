@@ -5,11 +5,12 @@ module Editor.Spell (spellEditor, defaultSpell, spellName, spellTrigger, casting
 import Atoms qualified as A
 import Data.Maybe (fromMaybe)
 import Data.Set.Ordered as OS
-import Editor.Conditions (condition, conditionEditor)
-import Editor.Effects (effect, effectEditor)
+import Editor.Conditions (condition, conditionEditor, conditionsEditorStyle)
+import Editor.Effects (effect, effectEditor, effectsEditorStyle)
 import Editor.Shared
 import Miso qualified as M
 import Miso.Binding ((<-->))
+import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
 import Miso.Lens (Lens, lens, (.=), (^.))
@@ -31,7 +32,11 @@ update (SetTrigger t) = spellTrigger .= strTrig t
 view :: CF.Spell -> M.View CF.Spell SpellAction
 view m =
   H.div_
-    []
+    [ CSS.style_
+        [ CSS.backgroundColor (CSS.hex "7fffff"),
+          CSS.padding "0.5em"
+        ]
+    ]
     [ H.input_
         [ P.type_ "text",
           P.value_ (M.toMisoString (m ^. spellName)),
@@ -43,8 +48,8 @@ view m =
           H.onChange SetTrigger
         ]
         (map triggerOption [toEnum 0 ..]),
-      H.div_ [] +> conditionsEditor {M.bindings = [castingConditions <--> noLens]},
-      H.div_ [] +> effectsEditor {M.bindings = [effects <--> noLens]}
+      H.div_ [CSS.style_ conditionsEditorStyle] +> conditionsEditor {M.bindings = [castingConditions <--> noLens]},
+      H.div_ [CSS.style_ effectsEditorStyle] +> effectsEditor {M.bindings = [effects <--> noLens]}
     ]
   where
     conditionsEditor = osetEditor A.DiscardSelf condition conditionEditor

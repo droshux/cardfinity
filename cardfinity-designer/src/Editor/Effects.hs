@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Editor.Effects (effectEditor, effect) where
+module Editor.Effects (effectEditor, effect, effectsEditorStyle) where
 
 import Atoms qualified as A
 import Data.Bifunctor (first, second)
@@ -11,6 +11,7 @@ import Editor.Shared
 import GHC.Natural (Natural)
 import Miso (text, (+>), (<-->))
 import Miso qualified as M
+import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
 import Miso.Lens (Lens (_get, _set), lens)
@@ -179,3 +180,9 @@ setEffect = \case
 effect = lens snd (const setEffect)
 
 effectEditor = atomEditor A.DiscardEnemy info
+
+effectsEditorStyle :: [CSS.Style]
+effectsEditorStyle =
+  [ CSS.backgroundColor (CSS.hex "7fff7f"),
+    CSS.width "fit-content"
+  ]

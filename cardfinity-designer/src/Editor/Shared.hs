@@ -33,7 +33,7 @@ import Data.Set.Ordered qualified as OS (OSet, elemAt, empty, fromList, (|>))
 import GHC.Natural (Natural)
 import Miso (text)
 import Miso qualified as M
-import Miso.CSS qualified as C
+import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
 import Miso.Lens
@@ -99,7 +99,7 @@ searchTypeEditor = M.component def update view
           H.input_
             [ H.onInput SetText,
               P.value_ (m ^. currentText),
-              C.style_ [("display", "none") | hideInput $ m ^. searchType]
+              CSS.style_ [("display", "none") | hideInput $ m ^. searchType]
             ]
         ]
     hideInput (ForFamily _) = False
@@ -221,19 +221,30 @@ atomEditor def info = M.component (0, def) update view
     mkEditor (_, k, comp) = M.node M.HTML k [] [comp (H.span_ [])]
     f (_, x, _) = x
 
+collectionEditorStyle :: [CSS.Style]
+collectionEditorStyle =
+  [ CSS.border "thin black solid",
+    CSS.width "fit-content",
+    CSS.padding "0.3em"
+  ]
+
+collectionEditorItemStyle :: [CSS.Style]
+collectionEditorItemStyle =
+  [CSS.margin "0.1em"]
+
 listEditor :: (Eq b) => a -> Lens b a -> M.Component [a] b c -> M.Component parent [a] (Maybe Int)
 listEditor def l comp =
-  let update Nothing = M.modify (def :)
+  let update Nothing = M.modify (++ [def])
       update (Just i) = M.modify (without i)
       addNew = H.button_ [H.onClick Nothing] [text "+"]
       idxLens i = lens (fromMaybe def . (!? i)) $ \xs x -> take i xs ++ (x : drop (i + 1) xs)
       toEditor i x =
         H.div_
-          []
+          [CSS.style_ collectionEditorItemStyle]
           [ H.span_ [] +> (comp {M.bindings = [idxLens i <--> l]}),
             H.button_ [H.onClick (Just i)] [text "-"]
           ]
-      view xs = H.div_ [P.className "collectionEditor listEditor"] (addNew : zipWith toEditor [0 ..] xs)
+      view xs = H.div_ [CSS.style_ collectionEditorStyle] (addNew : zipWith toEditor [0 ..] xs)
    in M.component [] update view
 
 neListEditor :: (Eq parent) => a -> Lens parent a -> M.Component (NE.NonEmpty a) parent b -> M.Component parent (NE.NonEmpty a) (Maybe Int)
@@ -252,15 +263,15 @@ neListEditor def l editor = M.component (def NE.:| []) update view
              in e NE.:| es'
        in lens get set
     view (_ NE.:| es) =
-      let headHtml = H.div_ [] +> editor {M.bindings = [headLens <--> l]}
+      let headHtml = H.div_ [CSS.style_ collectionEditorItemStyle] +> editor {M.bindings = [headLens <--> l]}
           bodyHtml i =
             H.div_
-              []
+              [CSS.style_ collectionEditorItemStyle]
               [ H.span_ [] +> editor {M.bindings = [bodyLens i <--> l]},
                 H.button_ [H.onClick (Just i)] [text "-"]
               ]
           addBtn = H.button_ [H.onClick Nothing] [text "+"]
-       in H.div_ [P.className "collectionEditor"] $ addBtn : headHtml : map bodyHtml [0 .. length es - 1]
+       in H.div_ [CSS.style_ collectionEditorStyle] $ addBtn : headHtml : map bodyHtml [0 .. length es - 1]
 
 osetEditor :: (Ord a, Eq b) => a -> Lens b a -> M.Component (OS.OSet a) b c -> M.Component parent (OS.OSet a) (Maybe Int)
 osetEditor def l child =
@@ -273,12 +284,12 @@ osetEditor def l child =
       view m =
         let toOption i x =
               H.div_
-                []
+                [CSS.style_ collectionEditorItemStyle]
                 [ H.span_ [] +> (child {M.bindings = [idxLens i <--> l]}),
                   H.button_ [H.onClick (Just i)] [text "-"]
                 ]
             addNew = H.button_ [H.onClick Nothing] [text "+"]
-         in H.div_ [P.className "collectionEditor"] (addNew : zipWith toOption [0 ..] (toList m))
+         in H.div_ [CSS.style_ collectionEditorStyle] (addNew : zipWith toOption [0 ..] (toList m))
    in M.component OS.empty update view
 
 noLens = lens id (\x y -> y)

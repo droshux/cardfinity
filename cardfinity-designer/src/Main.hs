@@ -31,7 +31,7 @@ newtype Model = Model
 
 monster = lens _monster $ \m m' -> m {_monster = m'}
 
-app = (M.component (Model def) update view) {M.styles = [M.Href "assets/style.css"]}
+app = M.component (Model def) update view
 
 def = Monster {_summoningConditions = empty, _monsterSpells = [], _monsterName = "", _isTapped = False, _combatPower = 0}
 
@@ -55,9 +55,9 @@ tempShowMonster (Monster n ss cs p t) =
   concat
     [ show n,
       ":\n",
-      implode ", " (toList cs),
+      implode show ", " (toList cs),
       "\n",
-      implode "\n" (map tempShowSpell ss),
+      implode tempShowSpell "\n" ss,
       "\n",
       show p,
       " ",
@@ -71,12 +71,12 @@ tempShowSpell (Spell n t cs es) =
       " ",
       show t,
       ": ",
-      implode ", " (toList cs),
+      implode show ", " (toList cs),
       " ",
-      implode ", " es
+      implode show ", " es
     ]
 
-implode :: (Show a) => String -> [a] -> String
-implode j [] = ""
-implode j [x] = show x
-implode j (x : xs) = show x ++ j ++ implode j xs
+implode :: (a -> String) -> String -> [a] -> String
+implode f j [] = ""
+implode f j [x] = f x
+implode f j (x : xs) = f x ++ j ++ implode f j xs

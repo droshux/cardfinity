@@ -1,17 +1,18 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Editor.Conditions (condition, conditionEditor, asEffect) where
+module Editor.Conditions (condition, conditionEditor, conditionsEditorStyle, asEffect) where
 
 import Atoms qualified as A
 import Control.Monad (when)
 import Data.List.NonEmpty qualified as NE
+import Editor.Shared
 import GHC.Natural (Natural)
 import Miso qualified as M
+import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
 import Miso.Lens (Lens, lens)
-import Editor.Shared
 
 discard = lens (const A.DiscardSelf) (const (const ()))
 
@@ -78,8 +79,13 @@ condition = lens snd (const setCondition)
 
 conditionEditor = atomEditor A.DiscardSelf info
 
+conditionsEditorStyle :: [CSS.Style]
+conditionsEditorStyle =
+  [ CSS.backgroundColor (CSS.hex "ff7f7f"),
+    CSS.width "fit-content"
+  ]
+
 asEffect :: Lens (Int, A.Condition) A.Effect
 asEffect = lens (A.AsEffect . snd) $ const $ \case
   A.AsEffect c -> setCondition c
   _ -> setCondition A.DiscardSelf
-
