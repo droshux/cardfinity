@@ -49,11 +49,14 @@ card = do
   stats <- MonsterStats <$> try monster <|> SpellStats <$> try spell
   space
   f <- families
+  space
+  i <- image
   return
     Card
       { _cardStats = stats,
         _cardID = 0,
-        _cardFamilies = f
+        _cardFamilies = f,
+        _cardImageUrl = i
       }
 
 trigger :: CardParser Trigger
@@ -73,6 +76,11 @@ trigger = do
 
 families :: CardParser (OSet String)
 families = option Data.Set.Ordered.empty $ fmap fromList $ surround '(' ')' $ name `sepBy` gap
+
+image :: CardParser (Maybe String)
+image = option Nothing $ do
+  string' "image:" *> hspace
+  Just <$> name
 
 spell :: CardParser Spell
 spell = do

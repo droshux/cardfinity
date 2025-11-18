@@ -161,7 +161,8 @@ prismMonsterStats = prism MonsterStats $ \case
 data Card = Card
   { _cardID :: Natural,
     _cardFamilies :: OS.OSet String,
-    _cardStats :: CardStats
+    _cardStats :: CardStats,
+    _cardImageUrl :: Maybe String
   }
 
 instance Eq Card where
