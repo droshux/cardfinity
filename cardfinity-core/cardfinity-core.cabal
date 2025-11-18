@@ -55,7 +55,7 @@ common warnings
     ghc-options: -Wall
 
 library
-    exposed-modules: Types, Atoms, Scale
+    exposed-modules: Types, Atoms, Scale, ShowCard
 
     build-depends:    
       base >=4.19.2.0,
@@ -111,6 +111,7 @@ executable cardfinity
       Types
       Utils
       GameUtils
+      ShowCard
       Paths_cardfinity_core
 
     -- LANGUAGE extensions used by modules in this package.

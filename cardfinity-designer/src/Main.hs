@@ -13,12 +13,14 @@ import Editor.Shared (noLens)
 import Editor.Spell (spellEditor)
 import Miso (Component (bindings), text, toMisoString)
 import Miso qualified as M
+import Miso.CSS qualified as CSS
 import Miso.Effect (noop)
 import Miso.Html qualified as H
 import Miso.Lens (Lens, lens, (%=), (.=), (^.))
 import Miso.Lens.TH (makeLenses)
 import Miso.Types ((+>), (<-->))
 import Scale (runScale)
+import ShowCard ()
 import Types (Monster (..), Spell (Spell), Trigger (OnPlay))
 
 main :: IO ()
@@ -45,38 +47,13 @@ view m =
         []
         [ text (M.toMisoString $ show $ runScale [] (m ^. monster)),
           H.button_ [H.onClick ()] [text "Reset"],
-          text $ M.toMisoString $ tempShowMonster $ m ^. monster
+          H.pre_
+            [ CSS.style_
+                [ CSS.border "solid",
+                  CSS.width "fit-content"
+                ]
+            ]
+            [text $ M.toMisoString $ show $ m ^. monster]
         ],
       H.div_ [] +> (monsterEditor {bindings = [monster <--> noLens]})
     ]
-
-tempShowMonster :: Monster -> String
-tempShowMonster (Monster n ss cs p t) =
-  concat
-    [ show n,
-      ":\n",
-      implode show ", " (toList cs),
-      "\n",
-      implode tempShowSpell "\n" ss,
-      "\n",
-      show p,
-      " ",
-      show t
-    ]
-
-tempShowSpell :: Spell -> String
-tempShowSpell (Spell n t cs es) =
-  concat
-    [ show n,
-      " ",
-      show t,
-      ": ",
-      implode show ", " (toList cs),
-      " ",
-      implode show ", " es
-    ]
-
-implode :: (a -> String) -> String -> [a] -> String
-implode f j [] = ""
-implode f j [x] = f x
-implode f j (x : xs) = f x ++ j ++ implode f j xs

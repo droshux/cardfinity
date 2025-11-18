@@ -31,6 +31,7 @@ import GameUtils
 import Numeric.Natural (Natural)
 import Optics (Ixed (..), (%))
 import Optics.Operators ((^.), (^?))
+import ShowCard ()
 import System.Random.Shuffle (shuffleM)
 import Types
 import Utils (addInteger, ifEmpty, ifNone, natToInt, try)
