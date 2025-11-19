@@ -8,6 +8,7 @@ import Atoms qualified as A
 import Data.Foldable (toList)
 import Data.List.NonEmpty qualified as NE (NonEmpty ((:|)))
 import Data.Set.Ordered
+import Editor.Card (cardEditor)
 import Editor.Monster (monsterEditor)
 import Editor.Shared (noLens)
 import Editor.Spell (spellEditor)
@@ -21,25 +22,25 @@ import Miso.Lens.TH (makeLenses)
 import Miso.Types ((+>), (<-->))
 import Scale (runScale)
 import ShowCard ()
-import Types (Monster (..), Spell (Spell), Trigger (OnPlay))
+import Types (Card (..), CardStats (SpellStats), Monster (..), Spell (..), Trigger (OnPlay))
 
 main :: IO ()
 main = M.run (M.startApp app)
 
-newtype Model = Model
-  { _monster :: Monster
+newtype MainModel = Model
+  { _monster :: Card
   }
   deriving (Eq)
 
 monster = lens _monster $ \m m' -> m {_monster = m'}
 
-app = M.component (Model def) update view
-
-def = Monster {_summoningConditions = empty, _monsterSpells = [], _monsterName = "", _isTapped = False, _combatPower = 0}
+app = M.component (Model {_monster = def}) update view
 
 update _ = monster .= def
 
-view :: Model -> M.View Model ()
+def = Card {_cardStats = SpellStats (Spell {_spellTrigger = OnPlay, _spellName = "", _effects = [], _castingConditions = empty}), _cardImageUrl = Nothing, _cardID = 0, _cardFamilies = empty}
+
+view :: MainModel -> M.View MainModel ()
 view m =
   H.div_
     []
@@ -55,5 +56,5 @@ view m =
             ]
             [text $ M.toMisoString $ show $ m ^. monster]
         ],
-      H.div_ [] +> (monsterEditor {bindings = [monster <--> noLens]})
+      H.div_ [] +> (cardEditor {bindings = [monster <--> noLens]})
     ]
