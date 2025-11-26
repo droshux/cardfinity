@@ -28,3 +28,4 @@ executable cardfinity-designer
         src
     other-modules:
         Editor.Types
+        Editor.Update
