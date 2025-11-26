@@ -27,9 +27,3 @@ executable cardfinity-designer
     hs-source-dirs:   
         src
     other-modules:
-        Editor.Card
-        Editor.Monster
-        Editor.Spell
-        Editor.Effects
-        Editor.Conditions
-        Editor.Shared
