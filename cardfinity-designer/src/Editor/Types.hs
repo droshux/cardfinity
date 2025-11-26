@@ -71,7 +71,7 @@ data SearchTypeID
   | ForSpell
   | ForName
   | ForFamily
-  deriving (Enum)
+  deriving (Enum, Eq, Ord)
 
 data ConditionID
   = Destroy
@@ -81,7 +81,7 @@ data ConditionID
   | Pop
   | YouMay
   | Choose
-  deriving (Enum)
+  deriving (Enum, Eq, Ord)
 
 data EffectID
   = DestroyEnemy
@@ -100,7 +100,7 @@ data EffectID
   | Attach
   | Buff
   | AsEffect
-  deriving (Enum)
+  deriving (Enum, Eq)
 
 newtype DeckAction = DeckAction (ListAction CardAction)
 
@@ -151,6 +151,7 @@ data SearchTypeModel = SearchTypeModel
   { _searchTypeID :: SearchTypeID,
     _searchTypeText :: M.MisoString
   }
+  deriving (Eq, Ord)
 
 $(makeLenses ''SearchTypeModel)
 
@@ -163,6 +164,7 @@ data ConditionModel = ConditionModel
     _subCondition :: ConditionModel,
     _subConditions :: NonEmpty ConditionModel
   }
+  deriving (Eq, Ord)
 
 $(makeLenses ''ConditionModel)
 
@@ -176,6 +178,7 @@ data EffectModel = EffectModel
     _effectSearchType :: SearchTypeModel,
     _effectCondition :: ConditionModel
   }
+  deriving (Eq)
 
 $(makeLenses ''EffectModel)
 
@@ -185,6 +188,7 @@ data SpellModel = SpellModel
     _castingConditions :: OSet ConditionModel,
     _spellEffects :: [EffectModel]
   }
+  deriving (Eq)
 
 $(makeLenses ''SpellModel)
 
@@ -195,6 +199,7 @@ data MonsterModel = MonsterModel
     _combatPower :: Natural,
     _entersTapped :: Bool
   }
+  deriving (Eq)
 
 $(makeLenses ''MonsterModel)
 
@@ -205,14 +210,86 @@ data CardModel = CardModel
     _editingSpell :: Bool,
     _imageUrl :: M.MisoString
   }
+  deriving (Eq)
 
 $(makeLenses ''CardModel)
 
 newtype DeckModel = DeckModel
   { _deck :: [CardModel]
   }
+  deriving (Eq)
 
 $(makeLenses ''DeckModel)
+
+class Default a where
+  def :: a
+
+instance Default DeckModel where
+  def = DeckModel {_deck = []}
+
+instance Default CardModel where
+  def =
+    CardModel
+      { _spellStats = def,
+        _monsterStats = def,
+        _families = empty,
+        _editingSpell = True,
+        _imageUrl = ""
+      }
+
+instance Default MonsterModel where
+  def =
+    MonsterModel
+      { _monsterName = "",
+        _monsterSpells = [],
+        _summoningConditions = empty,
+        _combatPower = 0,
+        _entersTapped = False
+      }
+
+instance Default SpellModel where
+  def =
+    SpellModel
+      { _spellName = "",
+        _spellTrigger = OnPlay,
+        _castingConditions = empty,
+        _spellEffects = []
+      }
+
+instance Default SearchTypeModel where
+  def =
+    SearchTypeModel
+      { _searchTypeID = ForCard,
+        _searchTypeText = ""
+      }
+
+instance Default ConditionModel where
+  def =
+    ConditionModel
+      { _currentCondition = DiscardSelf,
+        _conditionCount = 0,
+        _conditionToggle = False,
+        _conditionToggle2 = False,
+        _conditionSearchType = def,
+        _subCondition = def,
+        _subConditions = def :| []
+      }
+
+instance Default EffectModel where
+  def =
+    EffectModel
+      { _currentEffect = DiscardEnemy,
+        _effectCount = 0,
+        _effectToggle = False,
+        _effectToggle2 = False,
+        _subEffect = def,
+        _subEffects = def :| [],
+        _effectSearchType = def,
+        _effectCondition = def
+      }
+
+instance Default M.MisoString where
+  def = ""
 
 instance M.ToMisoString Trigger where
   toMisoString OnPlay = "play"
