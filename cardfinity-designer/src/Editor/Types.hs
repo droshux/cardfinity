@@ -1,18 +1,71 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Editor.Types where
+module Editor.Types
+  ( SearchTypeID (..),
+    ConditionID (..),
+    EffectID (..),
+    DeckAction (..),
+    CardAction (..),
+    SpellAction (..),
+    MonsterAction (..),
+    EffectAction (..),
+    ConditionAction (..),
+    SearchTypeAction (..),
+    ListAction (..),
+    SearchTypeModel,
+    searchTypeID,
+    searchTypeText,
+    ConditionModel,
+    currentCondition,
+    conditionCount,
+    conditionToggle,
+    conditionToggle2,
+    conditionSearchType,
+    subCondition,
+    subConditions,
+    currentEffect,
+    EffectModel,
+    effectCount,
+    effectToggle,
+    effectToggle2,
+    subEffect,
+    subEffects,
+    effectSearchType,
+    effectCondition,
+    SpellModel,
+    spellName,
+    spellTrigger,
+    castingConditions,
+    spellEffects,
+    MonsterModel,
+    monsterName,
+    monsterSpells,
+    summoningConditions,
+    combatPower,
+    entersTapped,
+    CardModel,
+    spellStats,
+    monsterStats,
+    families,
+    editingSpell,
+    imageUrl,
+    DeckModel,
+    deck,
+    Default (..),
+  )
+where
 
-import Data.Set.Ordered qualified as OS
-import GHC.Base qualified as NE
+import Data.List.NonEmpty (NonEmpty ((:|)))
+import Data.Set.Ordered (OSet, empty)
 import GHC.Natural (Natural)
 import Miso qualified as M
 import Miso.Lens (Lens, lens)
 import Miso.Lens.TH (makeLenses)
 import Miso.String qualified as M
-import Types qualified as C
+import Types (Trigger (..))
 
-data SearchTypeId
+data SearchTypeID
   = ForCard
   | ForMonster
   | ForSpell
@@ -49,6 +102,8 @@ data EffectID
   | AsEffect
   deriving (Enum)
 
+newtype DeckAction = DeckAction (ListAction CardAction)
+
 data CardAction
   = Families (ListAction M.MisoString)
   | ToggleCardStats
@@ -58,7 +113,7 @@ data CardAction
 
 data SpellAction
   = SetSpellName M.MisoString
-  | SetTrigger M.MisoString
+  | SetTrigger Trigger
   | Effects (ListAction EffectAction)
   | CastingConditions (ListAction ConditionAction)
 
@@ -72,8 +127,8 @@ data MonsterAction
 data EffectAction
   = SetEffect EffectID
   | ESetCount Natural
-  | ESetToggle1 Bool
-  | ESetToggle2 Bool
+  | EToggle1
+  | EToggle2
   | SubEffectAction EffectAction
   | SubEffectsAction (ListAction EffectAction)
   | ESearchTypeAction SearchTypeAction
@@ -82,31 +137,31 @@ data EffectAction
 data ConditionAction
   = SetCondition ConditionID
   | CSetCount Natural
-  | CSetToggle1 Bool
-  | CSetToggle2 Bool
+  | CToggle1
+  | CToggle2
   | CSearchTypeAction SearchTypeAction
   | SubConditionAction ConditionAction
   | SubConditionsAction (ListAction ConditionAction)
 
-data SearchTypeAction = SetSearchType SearchTypeId | SetText M.MisoString
+data SearchTypeAction = SetSearchType SearchTypeID | SetText M.MisoString
 
 data ListAction a = NewItem | Delete Int | ItemAction Int a
 
 data SearchTypeModel = SearchTypeModel
-  { _searchTypeID :: SearchTypeId,
+  { _searchTypeID :: SearchTypeID,
     _searchTypeText :: M.MisoString
   }
 
 $(makeLenses ''SearchTypeModel)
 
 data ConditionModel = ConditionModel
-  { _currentConditon :: ConditionID,
+  { _currentCondition :: ConditionID,
     _conditionCount :: Natural,
     _conditionToggle :: Bool,
     _conditionToggle2 :: Bool,
     _conditionSearchType :: SearchTypeModel,
     _subCondition :: ConditionModel,
-    _subConditions :: NE.NonEmpty ConditionModel
+    _subConditions :: NonEmpty ConditionModel
   }
 
 $(makeLenses ''ConditionModel)
@@ -117,7 +172,7 @@ data EffectModel = EffectModel
     _effectToggle :: Bool,
     _effectToggle2 :: Bool,
     _subEffect :: EffectModel,
-    _subEffects :: NE.NonEmpty EffectModel,
+    _subEffects :: NonEmpty EffectModel,
     _effectSearchType :: SearchTypeModel,
     _effectCondition :: ConditionModel
   }
@@ -126,8 +181,8 @@ $(makeLenses ''EffectModel)
 
 data SpellModel = SpellModel
   { _spellName :: M.MisoString,
-    _spellTrigger :: C.Trigger,
-    _castingConditions :: OS.OSet ConditionModel,
+    _spellTrigger :: Trigger,
+    _castingConditions :: OSet ConditionModel,
     _spellEffects :: [EffectModel]
   }
 
@@ -136,7 +191,7 @@ $(makeLenses ''SpellModel)
 data MonsterModel = MonsterModel
   { _monsterName :: M.MisoString,
     _monsterSpells :: [SpellModel],
-    _summoningConditions :: OS.OSet ConditionModel,
+    _summoningConditions :: OSet ConditionModel,
     _combatPower :: Natural,
     _entersTapped :: Bool
   }
@@ -146,7 +201,7 @@ $(makeLenses ''MonsterModel)
 data CardModel = CardModel
   { _spellStats :: SpellModel,
     _monsterStats :: MonsterModel,
-    _families :: OS.OSet M.MisoString,
+    _families :: OSet M.MisoString,
     _editingSpell :: Bool,
     _imageUrl :: M.MisoString
   }
@@ -154,32 +209,32 @@ data CardModel = CardModel
 $(makeLenses ''CardModel)
 
 newtype DeckModel = DeckModel
-  { _cards :: CardModel
+  { _deck :: [CardModel]
   }
 
 $(makeLenses ''DeckModel)
 
-instance M.ToMisoString C.Trigger where
-  toMisoString C.OnPlay = "play"
-  toMisoString C.OnDiscard = "discard"
-  toMisoString C.OnDraw = "draw"
-  toMisoString C.OnTap = "tap"
-  toMisoString C.OnVictory = "victory"
-  toMisoString C.OnDefeat = "defeat"
-  toMisoString C.OnAttach = "attach"
-  toMisoString C.Infinity = "infinity"
-  toMisoString C.Counter = "counter"
+instance M.ToMisoString Trigger where
+  toMisoString OnPlay = "play"
+  toMisoString OnDiscard = "discard"
+  toMisoString OnDraw = "draw"
+  toMisoString OnTap = "tap"
+  toMisoString OnVictory = "victory"
+  toMisoString OnDefeat = "defeat"
+  toMisoString OnAttach = "attach"
+  toMisoString Infinity = "infinity"
+  toMisoString Counter = "counter"
 
-instance M.FromMisoString C.Trigger where
-  fromMisoStringEither "play" = Right C.OnPlay
-  fromMisoStringEither "discard" = Right C.OnDiscard
-  fromMisoStringEither "draw" = Right C.OnDraw
-  fromMisoStringEither "tap" = Right C.OnTap
-  fromMisoStringEither "victory" = Right C.OnVictory
-  fromMisoStringEither "defeat" = Right C.OnDefeat
-  fromMisoStringEither "attach" = Right C.OnAttach
-  fromMisoStringEither "infinity" = Right C.Infinity
-  fromMisoStringEither "counter" = Right C.Counter
+instance M.FromMisoString Trigger where
+  fromMisoStringEither "play" = Right OnPlay
+  fromMisoStringEither "discard" = Right OnDiscard
+  fromMisoStringEither "draw" = Right OnDraw
+  fromMisoStringEither "tap" = Right OnTap
+  fromMisoStringEither "victory" = Right OnVictory
+  fromMisoStringEither "defeat" = Right OnDefeat
+  fromMisoStringEither "attach" = Right OnAttach
+  fromMisoStringEither "infinity" = Right Infinity
+  fromMisoStringEither "counter" = Right Counter
   fromMisoStringEither s = Left ("failed to convert " ++ M.fromMisoString s ++ " to Trigger")
 
 instance M.ToMisoString ConditionID where
@@ -238,14 +293,14 @@ instance M.FromMisoString EffectID where
   fromMisoStringEither "AsEffect" = Right AsEffect
   fromMisoStringEither s = Left ("failed to convert " ++ M.fromMisoString s ++ " to Effect ID")
 
-instance M.ToMisoString SearchTypeId where
+instance M.ToMisoString SearchTypeID where
   toMisoString ForCard = "ForCard"
   toMisoString ForMonster = "ForMonster"
   toMisoString ForSpell = "ForSpell"
   toMisoString ForName = "ForName"
   toMisoString ForFamily = "ForFamily"
 
-instance M.FromMisoString SearchTypeId where
+instance M.FromMisoString SearchTypeID where
   fromMisoStringEither "ForCard" = Right ForCard
   fromMisoStringEither "ForMonster" = Right ForMonster
   fromMisoStringEither "ForSpell" = Right ForSpell
