@@ -27,3 +27,4 @@ executable cardfinity-designer
     hs-source-dirs:   
         src
     other-modules:
+        Editor.Types
