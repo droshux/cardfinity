@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Editor.Types where
 
@@ -6,8 +7,47 @@ import Data.Set.Ordered qualified as OS
 import GHC.Base qualified as NE
 import GHC.Natural (Natural)
 import Miso qualified as M
+import Miso.Lens (Lens, lens)
+import Miso.Lens.TH (makeLenses)
 import Miso.String qualified as M
 import Types qualified as C
+
+data SearchTypeId
+  = ForCard
+  | ForMonster
+  | ForSpell
+  | ForName
+  | ForFamily
+  deriving (Enum)
+
+data ConditionID
+  = Destroy
+  | DiscardSelf
+  | TakeDamage
+  | HealOpponent
+  | Pop
+  | YouMay
+  | Choose
+  deriving (Enum)
+
+data EffectID
+  = DestroyEnemy
+  | DiscardEnemy
+  | DealDamage
+  | Heal
+  | DECKOUT
+  | Draw
+  | Peek
+  | Scry
+  | Optional
+  | ChooseEffect
+  | Attack
+  | Play
+  | Search
+  | Attach
+  | Buff
+  | AsEffect
+  deriving (Enum)
 
 data CardAction
   = Families (ListAction M.MisoString)
@@ -52,32 +92,12 @@ data SearchTypeAction = SetSearchType SearchTypeId | SetText M.MisoString
 
 data ListAction a = NewItem | Delete Int | ItemAction Int a
 
-newtype DeckModel = DeckModel
-  { _cards :: CardModel
+data SearchTypeModel = SearchTypeModel
+  { _searchTypeID :: SearchTypeId,
+    _searchTypeText :: M.MisoString
   }
 
-data CardModel = CardModel
-  { _spellStats :: SpellModel,
-    _monsterStats :: MonsterModel,
-    _families :: OS.OSet M.MisoString,
-    _editingSpell :: Bool,
-    _imageUrl :: M.MisoString
-  }
-
-data MonsterModel = MonsterModel
-  { _monsterName :: M.MisoString,
-    _monsterSpells :: [SpellModel],
-    _summoningConditions :: OS.OSet ConditionModel,
-    _combatPower :: Natural,
-    _entersTapped :: Bool
-  }
-
-data SpellModel = SpellModel
-  { _spellName :: M.MisoString,
-    _spellTrigger :: C.Trigger,
-    _castingConditions :: OS.OSet ConditionModel,
-    _spellEffects :: [EffectModel]
-  }
+$(makeLenses ''SearchTypeModel)
 
 data ConditionModel = ConditionModel
   { _currentConditon :: ConditionID,
@@ -89,15 +109,7 @@ data ConditionModel = ConditionModel
     _subConditions :: NE.NonEmpty ConditionModel
   }
 
-data ConditionID
-  = Destroy
-  | DiscardSelf
-  | TakeDamage
-  | HealOpponent
-  | Pop
-  | YouMay
-  | Choose
-  deriving (Enum)
+$(makeLenses ''ConditionModel)
 
 data EffectModel = EffectModel
   { _currentEffect :: EffectID,
@@ -110,37 +122,42 @@ data EffectModel = EffectModel
     _effectCondition :: ConditionModel
   }
 
-data EffectID
-  = DestroyEnemy
-  | DiscardEnemy
-  | DealDamage
-  | Heal
-  | DECKOUT
-  | Draw
-  | Peek
-  | Scry
-  | Optional
-  | ChooseEffect
-  | Attack
-  | Play
-  | Search
-  | Attach
-  | Buff
-  | AsEffect
-  deriving (Enum)
+$(makeLenses ''EffectModel)
 
-data SearchTypeModel = SearchTypeModel
-  { _searchTypeID :: SearchTypeId,
-    _searchTypeText :: M.MisoString
+data SpellModel = SpellModel
+  { _spellName :: M.MisoString,
+    _spellTrigger :: C.Trigger,
+    _castingConditions :: OS.OSet ConditionModel,
+    _spellEffects :: [EffectModel]
   }
 
-data SearchTypeId
-  = ForCard
-  | ForMonster
-  | ForSpell
-  | ForName
-  | ForFamily
-  deriving (Enum)
+$(makeLenses ''SpellModel)
+
+data MonsterModel = MonsterModel
+  { _monsterName :: M.MisoString,
+    _monsterSpells :: [SpellModel],
+    _summoningConditions :: OS.OSet ConditionModel,
+    _combatPower :: Natural,
+    _entersTapped :: Bool
+  }
+
+$(makeLenses ''MonsterModel)
+
+data CardModel = CardModel
+  { _spellStats :: SpellModel,
+    _monsterStats :: MonsterModel,
+    _families :: OS.OSet M.MisoString,
+    _editingSpell :: Bool,
+    _imageUrl :: M.MisoString
+  }
+
+$(makeLenses ''CardModel)
+
+newtype DeckModel = DeckModel
+  { _cards :: CardModel
+  }
+
+$(makeLenses ''DeckModel)
 
 instance M.ToMisoString C.Trigger where
   toMisoString C.OnPlay = "play"
