@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Editor.Types where
 
 import Data.Set.Ordered qualified as OS
@@ -139,3 +141,97 @@ data SearchTypeId
   | ForName
   | ForFamily
   deriving (Enum)
+
+instance M.ToMisoString C.Trigger where
+  toMisoString C.OnPlay = "play"
+  toMisoString C.OnDiscard = "discard"
+  toMisoString C.OnDraw = "draw"
+  toMisoString C.OnTap = "tap"
+  toMisoString C.OnVictory = "victory"
+  toMisoString C.OnDefeat = "defeat"
+  toMisoString C.OnAttach = "attach"
+  toMisoString C.Infinity = "infinity"
+  toMisoString C.Counter = "counter"
+
+instance M.FromMisoString C.Trigger where
+  fromMisoStringEither "play" = Right C.OnPlay
+  fromMisoStringEither "discard" = Right C.OnDiscard
+  fromMisoStringEither "draw" = Right C.OnDraw
+  fromMisoStringEither "tap" = Right C.OnTap
+  fromMisoStringEither "victory" = Right C.OnVictory
+  fromMisoStringEither "defeat" = Right C.OnDefeat
+  fromMisoStringEither "attach" = Right C.OnAttach
+  fromMisoStringEither "infinity" = Right C.Infinity
+  fromMisoStringEither "counter" = Right C.Counter
+  fromMisoStringEither s = Left ("failed to convert " ++ M.fromMisoString s ++ " to Trigger")
+
+instance M.ToMisoString ConditionID where
+  toMisoString Destroy = "Destroy"
+  toMisoString DiscardSelf = "DiscardSelf"
+  toMisoString TakeDamage = "TakeDamage"
+  toMisoString HealOpponent = "HealOpponent"
+  toMisoString Pop = "Pop"
+  toMisoString YouMay = "YouMay"
+  toMisoString Choose = "Choose"
+
+instance M.FromMisoString ConditionID where
+  fromMisoStringEither "Destroy" = Right Destroy
+  fromMisoStringEither "DiscardSelf" = Right DiscardSelf
+  fromMisoStringEither "TakeDamage" = Right TakeDamage
+  fromMisoStringEither "HealOpponent" = Right HealOpponent
+  fromMisoStringEither "Pop" = Right Pop
+  fromMisoStringEither "YouMay" = Right YouMay
+  fromMisoStringEither "Choose" = Right Choose
+  fromMisoStringEither s = Left ("failed to convert " ++ M.fromMisoString s ++ " to Condition ID")
+
+instance M.ToMisoString EffectID where
+  toMisoString DestroyEnemy = "DestroyEnemy"
+  toMisoString DiscardEnemy = "DiscardEnemy"
+  toMisoString DealDamage = "DealDamage"
+  toMisoString Heal = "Heal"
+  toMisoString DECKOUT = "DECKOUT"
+  toMisoString Draw = "Draw"
+  toMisoString Peek = "Peek"
+  toMisoString Scry = "Scry"
+  toMisoString Optional = "Optional"
+  toMisoString ChooseEffect = "ChooseEffect"
+  toMisoString Attack = "Attack"
+  toMisoString Play = "Play"
+  toMisoString Search = "Search"
+  toMisoString Attach = "Attach"
+  toMisoString Buff = "Buff"
+  toMisoString AsEffect = "AsEffect"
+
+instance M.FromMisoString EffectID where
+  fromMisoStringEither "DestroyEnemy" = Right DestroyEnemy
+  fromMisoStringEither "DiscardEnemy" = Right DiscardEnemy
+  fromMisoStringEither "DealDamage" = Right DealDamage
+  fromMisoStringEither "Heal" = Right Heal
+  fromMisoStringEither "DECKOUT" = Right DECKOUT
+  fromMisoStringEither "Draw" = Right Draw
+  fromMisoStringEither "Peek" = Right Peek
+  fromMisoStringEither "Scry" = Right Scry
+  fromMisoStringEither "Optional" = Right Optional
+  fromMisoStringEither "ChooseEffect" = Right ChooseEffect
+  fromMisoStringEither "Attack" = Right Attack
+  fromMisoStringEither "Play" = Right Play
+  fromMisoStringEither "Search" = Right Search
+  fromMisoStringEither "Attach" = Right Attach
+  fromMisoStringEither "Buff" = Right Buff
+  fromMisoStringEither "AsEffect" = Right AsEffect
+  fromMisoStringEither s = Left ("failed to convert " ++ M.fromMisoString s ++ " to Effect ID")
+
+instance M.ToMisoString SearchTypeId where
+  toMisoString ForCard = "ForCard"
+  toMisoString ForMonster = "ForMonster"
+  toMisoString ForSpell = "ForSpell"
+  toMisoString ForName = "ForName"
+  toMisoString ForFamily = "ForFamily"
+
+instance M.FromMisoString SearchTypeId where
+  fromMisoStringEither "ForCard" = Right ForCard
+  fromMisoStringEither "ForMonster" = Right ForMonster
+  fromMisoStringEither "ForSpell" = Right ForSpell
+  fromMisoStringEither "ForName" = Right ForName
+  fromMisoStringEither "ForFamily" = Right ForFamily
+  fromMisoStringEither s = Left ("failed to convert " ++ M.fromMisoString s ++ " to Search Type ID")
