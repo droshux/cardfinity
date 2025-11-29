@@ -58,10 +58,12 @@ where
 
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Set.Ordered (OSet, empty)
-import GHC.Natural (Natural)
+import GHC.Natural (Natural, naturalFromInteger)
+import GHC.Num (integerFromInt)
 import Miso qualified as M
 import Miso.Lens (Lens, lens)
 import Miso.Lens.TH (makeLenses)
+import Miso.String (FromMisoString (fromMisoStringEither))
 import Miso.String qualified as M
 import Types (Trigger (..))
 
@@ -384,3 +386,40 @@ instance M.FromMisoString SearchTypeID where
   fromMisoStringEither "ForName" = Right ForName
   fromMisoStringEither "ForFamily" = Right ForFamily
   fromMisoStringEither s = Left ("failed to convert " ++ M.fromMisoString s ++ " to Search Type ID")
+
+instance M.FromMisoString Natural where
+  fromMisoStringEither = fmap (naturalFromInteger . integerFromInt) . fromMisoStringEither
+
+instance Show SearchTypeID where
+  show ForCard = "Card"
+  show ForMonster = "Monster"
+  show ForSpell = "Spell"
+  show ForName = "By Name"
+  show ForFamily = "By Family"
+
+instance Show ConditionID where
+  show Destroy = "Discard/Banish"
+  show DiscardSelf = "Discard Top"
+  show TakeDamage = "Take damage"
+  show HealOpponent = "Heal the opponent"
+  show Pop = "Pop"
+  show YouMay = "Optional"
+  show Choose = "Choose"
+
+instance Show EffectID where
+  show DestroyEnemy = "Discard/Banish Enemy"
+  show DiscardEnemy = "Discard Enemy Top"
+  show DealDamage = "Deal Damage"
+  show Heal = "Heal"
+  show DECKOUT = "DECKOUT"
+  show Draw = "Draw"
+  show Peek = "Peek"
+  show Scry = "Scry"
+  show Optional = "You May"
+  show ChooseEffect = "Choose"
+  show Attack = "Attack"
+  show Play = "Play"
+  show Search = "Search/Drill"
+  show Attach = "Attach"
+  show Buff = "Buff"
+  show AsEffect = "As Effect"

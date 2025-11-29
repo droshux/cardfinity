@@ -29,3 +29,4 @@ executable cardfinity-designer
     other-modules:
         Editor.Types
         Editor.Update
+        Editor.View
