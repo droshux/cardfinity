@@ -76,8 +76,8 @@ data SearchTypeID
   deriving (Enum, Eq, Ord)
 
 data ConditionID
-  = Destroy
-  | DiscardSelf
+  = DiscardSelf -- This is first because it needs no other inputs
+  | Destroy
   | TakeDamage
   | HealOpponent
   | Pop
@@ -86,8 +86,8 @@ data ConditionID
   deriving (Enum, Eq, Ord)
 
 data EffectID
-  = DestroyEnemy
-  | DiscardEnemy
+  = DiscardEnemy
+  | DestroyEnemy
   | DealDamage
   | Heal
   | DECKOUT
@@ -163,8 +163,8 @@ data ConditionModel = ConditionModel
     _conditionToggle :: Bool,
     _conditionToggle2 :: Bool,
     _conditionSearchType :: SearchTypeModel,
-    _subCondition :: ConditionModel,
-    _subConditions :: NonEmpty ConditionModel
+    _subCondition :: Maybe ConditionModel,
+    _subConditions :: Maybe (NonEmpty ConditionModel)
   }
   deriving (Eq, Ord)
 
@@ -175,8 +175,8 @@ data EffectModel = EffectModel
     _effectCount :: Natural,
     _effectToggle :: Bool,
     _effectToggle2 :: Bool,
-    _subEffect :: EffectModel,
-    _subEffects :: NonEmpty EffectModel,
+    _subEffect :: Maybe EffectModel,
+    _subEffects :: Maybe (NonEmpty EffectModel),
     _effectSearchType :: SearchTypeModel,
     _effectCondition :: ConditionModel
   }
@@ -273,8 +273,8 @@ instance Default ConditionModel where
         _conditionToggle = False,
         _conditionToggle2 = False,
         _conditionSearchType = def,
-        _subCondition = def,
-        _subConditions = def :| []
+        _subCondition = Nothing,
+        _subConditions = Nothing
       }
 
 instance Default EffectModel where
@@ -284,14 +284,17 @@ instance Default EffectModel where
         _effectCount = 0,
         _effectToggle = False,
         _effectToggle2 = False,
-        _subEffect = def,
-        _subEffects = def :| [],
+        _subEffect = Nothing,
+        _subEffects = Nothing,
         _effectSearchType = def,
         _effectCondition = def
       }
 
 instance Default M.MisoString where
   def = ""
+
+instance (Default a) => Default (NonEmpty a) where
+  def = def :| []
 
 instance M.ToMisoString Trigger where
   toMisoString OnPlay = "play"

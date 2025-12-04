@@ -1,8 +1,10 @@
-module Editor.Update (update) where
+module Editor.Update (update, wrapLens) where
 
+import Control.Monad (when)
 import Data.Foldable (Foldable (toList))
-import Data.List.NonEmpty (NonEmpty ((:|)), cons)
-import Data.Set.Ordered (OSet, fromList, (<|))
+import Data.List.NonEmpty (NonEmpty ((:|)), appendList)
+import Data.Maybe (fromMaybe, isNothing)
+import Data.Set.Ordered (OSet, fromList, (|>))
 import Editor.Types
 import Miso qualified as M
 import Miso.Lens (Lens, lens, (%=), (%~), (.=), (.~), (^.))
@@ -32,24 +34,40 @@ updateSpell s (SetTrigger t) = s % spellTrigger .= t
 updateSpell s (Effects action) = listHelper (s % spellEffects) updateEffect action
 updateSpell s (CastingConditions action) = osetHelper (s % castingConditions) updateCondition action
 
+wrapLens :: (Default b) => Lens a (Maybe b) -> Lens a b
+wrapLens l =
+  let get = fromMaybe def . (^. l)
+      set = (l %~) . fmap . const
+   in lens get (flip set)
+
 updateEffect :: SubUpdate EffectAction EffectModel parent
-updateEffect e (SetEffect id) = e % currentEffect .= id
+updateEffect e (SetEffect id) = do
+  e % currentEffect .= id
+  noChild <- M.gets $ isNothing . (^. e % subEffect)
+  when (id == Optional && noChild) $ e % subEffect .= Just def
+  noChildren <- M.gets $ isNothing . (^. e % subEffects)
+  when (id == ChooseEffect && noChildren) $ e % subEffects .= Just def
 updateEffect e (ESetCount n) = e % effectCount .= n
 updateEffect e EToggle1 = e % effectToggle %= not
 updateEffect e EToggle2 = e % effectToggle2 %= not
-updateEffect e (SubEffectAction action) = updateEffect (e % subEffect) action
-updateEffect e (SubEffectsAction action) = nelistHelper (e % subEffects) updateEffect action
+updateEffect e (SubEffectAction action) = updateEffect (e % wrapLens subEffect) action
+updateEffect e (SubEffectsAction action) = nelistHelper (e % wrapLens subEffects) updateEffect action
 updateEffect e (ESearchTypeAction action) = updateSearchType (e % effectSearchType) action
 updateEffect e (EConditionAction action) = updateCondition (e % effectCondition) action
 
 updateCondition :: SubUpdate ConditionAction ConditionModel parent
-updateCondition c (SetCondition id) = c % currentCondition .= id
+updateCondition c (SetCondition id) = do
+  c % currentCondition .= id
+  noChild <- M.gets $ isNothing . (^. c % subCondition)
+  when (id == YouMay && noChild) $ c % subCondition .= Just def
+  noChildren <- M.gets $ isNothing . (^. c % subConditions)
+  when (id == Choose) $ c % subConditions .= Just def
 updateCondition c (CSetCount n) = c % conditionCount .= n
 updateCondition c CToggle1 = c % conditionToggle %= not
 updateCondition c CToggle2 = c % conditionToggle2 %= not
 updateCondition c (CSearchTypeAction action) = updateSearchType (c % conditionSearchType) action
-updateCondition c (SubConditionAction action) = updateCondition (c % subCondition) action
-updateCondition c (SubConditionsAction action) = nelistHelper (c % subConditions) updateCondition action
+updateCondition c (SubConditionAction action) = updateCondition (c % wrapLens subCondition) action
+updateCondition c (SubConditionsAction action) = nelistHelper (c % wrapLens subConditions) updateCondition action
 
 updateSearchType :: SubUpdate SearchTypeAction SearchTypeModel parent
 updateSearchType st (SetSearchType id) = st % searchTypeID .= id
@@ -63,8 +81,8 @@ listHelper ::
   SubUpdate a m parent ->
   ListAction a ->
   Effect parent
-listHelper l u NewItem = l %= (def :)
-listHelper l u (Delete i) = l %= replace i Nothing
+listHelper l _ NewItem = l %= (++ [def])
+listHelper l _ (Delete i) = l %= replace i Nothing
 listHelper l u (ItemAction i a) = u (focus l i) a
   where
     focus l i =
@@ -77,7 +95,7 @@ osetHelper ::
   SubUpdate a m parent ->
   ListAction a ->
   Effect parent
-osetHelper l u NewItem = l %= (def <|)
+osetHelper l u NewItem = l %= (|> def)
 osetHelper l u (Delete i) = l %= (fromList . replace i Nothing . toList)
 osetHelper l u (ItemAction i a) = u (focus l i) a
   where
@@ -92,7 +110,7 @@ nelistHelper ::
   SubUpdate a m parent ->
   ListAction a ->
   Effect parent
-nelistHelper l u NewItem = l %= cons def
+nelistHelper l u NewItem = l %= flip appendList [def]
 nelistHelper l u (Delete i) = l %= replaceNE i Nothing
 nelistHelper l u (ItemAction i a) = u (focus l i) a
   where
