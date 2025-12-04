@@ -31,7 +31,16 @@ cardView act m =
             [CSS.style_ [CSS.display $ if m ^. editingSpell then "none" else "block"]]
             [monsterView (act . MAction) (m ^. monsterStats)],
           listView def {addButtonText = "+ Family"} (act . Families) familyInput (m ^. families),
-          H.input_ [H.onChange (act . SetImage), P.value_ (m ^. imageUrl)]
+          H.input_ [H.onChange (act . SetImage), P.value_ (m ^. imageUrl)],
+          H.img_
+            [ P.src_ (m ^. imageUrl),
+              CSS.style_
+                [ CSS.width "2.5in",
+                  CSS.height "2in",
+                  CSS.display (if m ^. imageUrl == "" then "none" else "block"),
+                  ("object-fit", "cover")
+                ]
+            ]
         ]
 
 spellView :: SubView SpellAction SpellModel parent
