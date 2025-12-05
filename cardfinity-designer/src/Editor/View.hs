@@ -4,7 +4,7 @@ module Editor.View (view) where
 
 import Data.Foldable (Foldable (toList))
 import Editor.Types
-import Editor.Update (wrapLens)
+import Editor.Update (cardName, wrapLens)
 import Miso qualified as M
 import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
@@ -14,7 +14,30 @@ import Miso.String qualified as M
 import Types (Trigger)
 
 view :: DeckModel -> M.View parent DeckAction
-view m = listView def {addButtonText = "New Card"} DeckAction cardView (m ^. deck)
+view m =
+  let item i (copies, m) =
+        H.li_
+          []
+          [ M.text (if m ^. cardName /= "" then m ^. cardName else "[NO NAME]"),
+            H.button_ [H.onClick (ViewCard i)] [M.text "view"],
+            H.button_ [H.onClick (DeleteCard i)] [M.text "delete"],
+            H.input_
+              [ P.type_ "number",
+                P.min_ "0",
+                H.onChange (SetCopies i . M.fromMisoString),
+                P.value_ (M.toMisoString $ show copies)
+              ]
+          ]
+      currentCardView =
+        cardView
+          (DCardAction (m ^. currentCardIndex))
+          (snd $ (m ^. deck) !! (m ^. currentCardIndex))
+   in H.div_
+        []
+        [ H.button_ [H.onClick NewCard] [M.text "New Card"],
+          H.ol_ [] $ zipWith item [0 ..] (m ^. deck),
+          if m ^. currentCardIndex == -1 then M.text "No card selected" else currentCardView
+        ]
 
 type SubView a m parent = (a -> DeckAction) -> m -> M.View parent DeckAction
 
@@ -69,7 +92,8 @@ monsterView act m =
   H.div_
     [ CSS.style_
         [ CSS.backgroundColor (CSS.hex "ffd07f"),
-          CSS.width "fit-content"
+          CSS.width "fit-content",
+          CSS.padding (CSS.em 0.5)
         ]
     ]
     [ H.input_ [H.onChange (act . SetMonsterName), P.value_ (m ^. monsterName)],

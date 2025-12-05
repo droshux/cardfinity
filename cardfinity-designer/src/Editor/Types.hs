@@ -52,6 +52,7 @@ module Editor.Types
     imageUrl,
     DeckModel,
     deck,
+    currentCardIndex,
     Default (..),
   )
 where
@@ -61,7 +62,7 @@ import Data.Set.Ordered (OSet, empty)
 import GHC.Natural (Natural, naturalFromInteger)
 import GHC.Num (integerFromInt)
 import Miso qualified as M
-import Miso.Lens (Lens, lens)
+import Miso.Lens (Lens, lens, (^.))
 import Miso.Lens.TH (makeLenses)
 import Miso.String (FromMisoString (fromMisoStringEither))
 import Miso.String qualified as M
@@ -104,7 +105,12 @@ data EffectID
   | AsEffect
   deriving (Enum, Eq)
 
-newtype DeckAction = DeckAction (ListAction CardAction)
+data DeckAction
+  = NewCard
+  | SetCopies Int Natural
+  | DCardAction Int CardAction
+  | ViewCard Int
+  | DeleteCard Int
 
 data CardAction
   = Families (ListAction M.MisoString)
@@ -216,8 +222,9 @@ data CardModel = CardModel
 
 $(makeLenses ''CardModel)
 
-newtype DeckModel = DeckModel
-  { _deck :: [CardModel]
+data DeckModel = DeckModel
+  { _deck :: [(Natural, CardModel)],
+    _currentCardIndex :: Int
   }
   deriving (Eq)
 
@@ -227,7 +234,7 @@ class Default a where
   def :: a
 
 instance Default DeckModel where
-  def = DeckModel {_deck = []}
+  def = DeckModel {_deck = [(0, def)], _currentCardIndex = 0}
 
 instance Default CardModel where
   def =

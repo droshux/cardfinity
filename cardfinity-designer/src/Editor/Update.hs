@@ -1,4 +1,4 @@
-module Editor.Update (update, wrapLens) where
+module Editor.Update (update, wrapLens, cardName) where
 
 import Control.Monad (when)
 import Data.Foldable (Foldable (toList))
@@ -7,12 +7,21 @@ import Data.Maybe (fromMaybe, isNothing)
 import Data.Set.Ordered (OSet, fromList, (|>))
 import Editor.Types
 import Miso qualified as M
-import Miso.Lens (Lens, lens, (%=), (%~), (.=), (.~), (^.))
+import Miso.Lens (Lens, lens, (%=), (%~), (+=), (-=), (.=), (.~), (^.), _1, _2)
 
 type Effect parent = M.Effect parent DeckModel DeckAction
 
 update :: DeckAction -> Effect parent
-update (DeckAction la) = listHelper deck updateCard la
+update NewCard = do
+  deck %= ((0, def) :)
+  firstCard <- M.gets ((==) 0 . length . (^. deck))
+  when firstCard $ currentCardIndex .= 0
+update (SetCopies i n) = focus deck i % _1 .= n
+update (DCardAction i act) = flip updateCard act $ focus deck i % _2
+update (ViewCard i) = currentCardIndex .= i
+update (DeleteCard i) = do
+  deck %= replace i Nothing
+  currentCardIndex .= -1
 
 updateCard :: SubUpdate CardAction CardModel parent
 updateCard card (Families action) = osetHelper (card % families) (.=) action
@@ -84,10 +93,6 @@ listHelper ::
 listHelper l _ NewItem = l %= (++ [def])
 listHelper l _ (Delete i) = l %= replace i Nothing
 listHelper l u (ItemAction i a) = u (focus l i) a
-  where
-    focus l i =
-      let get m = (m ^. l) !! i; set x = l %~ replace i (Just x)
-       in lens get (flip set)
 
 osetHelper ::
   (Default m, Ord m) =>
@@ -134,4 +139,15 @@ replaceNE i mx (h :| tail) = h :| replace (i - 1) mx tail
 (%) f g =
   let get = (^. g) . (^. f)
       set a c = (f .~ (g .~ c) (a ^. f)) a
+   in lens get set
+
+focus l i =
+  let get m = (m ^. l) !! i; set x = l %~ replace i (Just x)
+   in lens get (flip set)
+
+cardName :: Lens CardModel M.MisoString
+cardName =
+  let l m = if m ^. editingSpell then spellStats % spellName else monsterStats % monsterName
+      get m = m ^. l m
+      set m n = (l m .~ n) m
    in lens get set
