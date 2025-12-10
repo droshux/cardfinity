@@ -1,24 +1,27 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Types
   ( Trigger (..),
-    Spell (..),
-    Monster (..),
-    CardStats (..),
-    Card (..),
+    Spell,
+    Monster,
+    CardStats,
+    _SpellStats,
+    _MonsterStats,
+    Card,
     hasId,
+    cardStatsElim,
     cardElim,
     cardElim',
     cardName,
     isMonster,
     Player (..),
     otherPlayer,
-    PlayerState (..),
+    PlayerState,
     CardLocation (..),
     allCardLocations,
     toLens,
-    GameState (..),
-    getPlayerState,
+    GameState,
     GameOperation,
     GameOpWithCardContext,
     spellName,
@@ -39,7 +42,7 @@ module Types
     field,
     deck,
     graveyard,
-    autoTapList,
+    autotapList,
     isFirstTurn,
     player1State,
     player2State,
@@ -103,22 +106,7 @@ data Spell = Spell
   }
   deriving (Eq, Ord)
 
--- Due to a dependency loop at the core of the problem, macros cannot be used to
--- create lenses.
-
-type SpellLens a = Lens' Spell a
-
-spellName :: SpellLens String
-spellName = lens _spellName $ \s x -> s {_spellName = x}
-
-spellTrigger :: SpellLens Trigger
-spellTrigger = lens _spellTrigger $ \s x -> s {_spellTrigger = x}
-
-castingConditions :: SpellLens (OS.OSet Condition)
-castingConditions = lens _castingConditions $ \s x -> s {_castingConditions = x}
-
-effects :: SpellLens [Effect]
-effects = lens _effects $ \s x -> s {_effects = x}
+$(makeLenses ''Spell)
 
 data Monster = Monster
   { _monsterName :: String,
@@ -129,34 +117,15 @@ data Monster = Monster
   }
   deriving (Eq, Ord)
 
-type MonsterLens a = Lens' Monster a
-
-monsterName :: MonsterLens String
-monsterName = lens _monsterName $ \m x -> m {_monsterName = x}
-
-monsterSpells :: MonsterLens [Spell]
-monsterSpells = lens _monsterSpells $ \m x -> m {_monsterSpells = x}
-
-summoningConditions :: MonsterLens (OS.OSet Condition)
-summoningConditions = lens _summoningConditions $ \m x -> m {_summoningConditions = x}
-
-combatPower :: MonsterLens Natural
-combatPower = lens _combatPower $ \m x -> m {_combatPower = x}
-
-isTapped :: MonsterLens Bool
-isTapped = lens _isTapped $ \m x -> m {_isTapped = x}
+$(makeLenses ''Monster)
 
 data CardStats = SpellStats Spell | MonsterStats Monster deriving (Eq, Ord)
 
-prismSpellStats :: Prism' CardStats Spell
-prismSpellStats = prism SpellStats $ \case
-  SpellStats s -> Right s
-  m -> Left m
+$(makePrisms ''CardStats)
 
-prismMonsterStats :: Prism' CardStats Monster
-prismMonsterStats = prism MonsterStats $ \case
-  MonsterStats m -> Right m
-  s -> Left s
+cardStatsElim :: (Spell -> a) -> (Monster -> a) -> CardStats -> a
+cardStatsElim f g (SpellStats s) = f s
+cardStatsElim f g (MonsterStats m) = g m
 
 data Card = Card
   { _cardID :: Natural,
@@ -164,6 +133,8 @@ data Card = Card
     _cardStats :: CardStats,
     _cardImageUrl :: Maybe String
   }
+
+$(makeLenses ''Card)
 
 instance Eq Card where
   (==) c1 c2 = _cardFamilies c1 == _cardFamilies c2 && _cardStats c1 == _cardStats c2
@@ -174,30 +145,14 @@ instance Ord Card where
 hasId :: Natural -> Card -> Bool
 hasId cid = (== cid) . _cardID
 
-type CardLens a = Lens' Card a
-
-cardID :: CardLens Natural
-cardID = lens _cardID $ \c x -> c {_cardID = x}
-
-cardFamilies :: CardLens (OS.OSet String)
-cardFamilies = lens _cardFamilies $ \c x -> c {_cardFamilies = x}
-
-cardStats :: CardLens CardStats
-cardStats = lens _cardStats $ \c x -> c {_cardStats = x}
-
 spellStats :: AffineTraversal' Card Spell
-spellStats = cardStats % prismSpellStats
+spellStats = cardStats % _SpellStats
 
 monsterStats :: AffineTraversal' Card Monster
-monsterStats = cardStats % prismMonsterStats
+monsterStats = cardStats % _MonsterStats
 
 cardElim :: (Spell -> a) -> (Monster -> a) -> Card -> a
-cardElim fs fm c = case _cardStats c of
-  SpellStats s -> fs s
-  MonsterStats m -> fm m
-
-cardElim' :: (Spell -> GameOpWithCardContext a) -> (Monster -> GameOpWithCardContext a) -> Card -> GameOperation a
-cardElim' fs fm c = cardElim (flip runReaderT c . fs) (flip runReaderT c . fm) c
+cardElim f g = cardStatsElim f g . _cardStats
 
 cardName :: Card -> String
 cardName = cardElim _spellName _monsterName
@@ -220,22 +175,7 @@ data PlayerState = PlayerState
     _autotapList :: [Natural]
   }
 
-type PSLens = Lens' PlayerState [Card]
-
-hand :: PSLens
-hand = lens _hand $ \p x -> p {_hand = x}
-
-deck :: PSLens
-deck = lens _deck $ \p x -> p {_deck = x}
-
-field :: PSLens
-field = lens _field $ \p x -> p {_field = x}
-
-graveyard :: PSLens
-graveyard = lens _graveyard $ \p x -> p {_graveyard = x}
-
-autoTapList :: Lens' PlayerState [Natural]
-autoTapList = lens _autotapList $ \p x -> p {_autotapList = x}
+$(makeLenses ''PlayerState)
 
 data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord, Enum)
 
@@ -254,27 +194,19 @@ data GameState = GameState
     _isFirstTurn :: Bool
   }
 
-player1State :: Lens' GameState PlayerState
-player1State = lens _player1State $ \g p -> g {_player1State = p}
-
-player2State :: Lens' GameState PlayerState
-player2State = lens _player2State $ \g p -> g {_player2State = p}
-
-isFirstTurn :: Lens' GameState Bool
-isFirstTurn = lens _isFirstTurn $ \g b -> g {_isFirstTurn = b}
+$(makeLenses ''GameState)
 
 playerLens :: Player -> Lens' GameState PlayerState
 playerLens = \case Player1 -> player1State; Player2 -> player2State
-
-getPlayerState :: Player -> GameState -> PlayerState
-getPlayerState Player1 = _player1State
-getPlayerState Player2 = _player2State
 
 {- Perform an operation for a given player, returning a player early if they
 deckout, keeping track of the game and taking user IO -}
 type GameOperation = ReaderT Player (ExceptT Player (StateT GameState IO))
 
 type GameOpWithCardContext = ReaderT Card GameOperation
+
+cardElim' :: (Spell -> GameOpWithCardContext a) -> (Monster -> GameOpWithCardContext a) -> Card -> GameOperation a
+cardElim' fs fm c = cardElim (flip runReaderT c . fs) (flip runReaderT c . fm) c
 
 class (Show a) => Display a where
   -- Concise or not

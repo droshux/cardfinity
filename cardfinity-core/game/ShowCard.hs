@@ -3,45 +3,46 @@
 module ShowCard () where
 
 import Data.Foldable (Foldable (toList))
-import Types (Card (..), CardStats (..), Monster (..), Spell (..))
+import GHC.Stats (GCDetails (gcdetails_block_fragmentation_bytes))
+import Optics.Operators ((^.))
+import Types
 import Utils (collapse, showFold)
 
 instance Show Spell where
-  show (Spell n t cs es) = concat [show n, " ", show t, if null cs then ": " else scs, ses]
+  show spell = concat [show (spell ^. spellName), " ", show (spell ^. spellTrigger), if null (spell ^. castingConditions) then ": " else scs, ses]
     where
-      scs = " " ++ showFold ", " (toList cs) ++ ": "
-      ses = showFold ", " es
+      scs = " " ++ showFold ", " (toList $ spell ^. castingConditions) ++ ": "
+      ses = showFold ", " $ spell ^. effects
 
 instance Show Monster where
-  show (Monster n ss rs p t) =
+  show monster =
     concat $
-      show n
-        : ( if null rs
+      show (monster ^. monsterName)
+        : ( if null (monster ^. summoningConditions)
               then []
               else
                 [ "\n",
-                  showFold ", " $ toList rs,
+                  showFold ", " $ toList $ monster ^. summoningConditions,
                   ":"
                 ]
           )
-        ++ map (\(s, c) -> "\n\t" ++ (if c > 1 then show c ++ "x " else "") ++ show s) (collapse ss)
+        ++ map (\(s, c) -> "\n\t" ++ (if c > 1 then show c ++ "x " else "") ++ show s) (collapse $ monster ^. monsterSpells)
         ++ [ "\n\tPower ",
-             show p,
-             if t then "\t[Tapped]" else ""
+             show $ monster ^. combatPower,
+             if monster ^. isTapped then "\t[Tapped]" else ""
            ]
 
 instance Show CardStats where
-  show (SpellStats s) = show s
-  show (MonsterStats s) = show s
+  show = cardStatsElim show show
 
 instance Show Card where
-  show (Card _ fs cs _) =
+  show card =
     concat $
-      show cs
-        : if null fs
+      show (card ^. cardStats)
+        : if null (card ^. cardFamilies)
           then []
           else
             [ "\n\t(",
-              showFold ", " $ toList fs,
+              showFold ", " $ toList $ card ^. cardFamilies,
               ")"
             ]
