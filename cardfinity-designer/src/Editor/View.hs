@@ -148,8 +148,12 @@ effectsView act m =
         H.input_
           [ P.type_ "number",
             P.min_ "0",
-            H.onChange (act . ESetCount . M.fromMisoString),
-            P.value_ (M.toMisoString $ show $ m ^. effectCount)
+            H.onChange (act . ESetCount . M.fromMisoString)
+          ]
+      countInt =
+        H.input_
+          [ P.type_ "number",
+            H.onChange (act . SetCountInt . M.fromMisoString)
           ]
       toggle t s = H.button_ [H.onClick (act t)] [M.text s]
       toggle1Txt = case (m ^. currentEffect, m ^. effectToggle) of
@@ -169,7 +173,10 @@ effectsView act m =
         $ concat
           [ [options (act . SetEffect) (m ^. currentEffect)],
             [ count
-              | m ^. currentEffect `elem` [DestroyEnemy, DealDamage, Heal, Draw, Peek, Scry, Buff]
+              | m ^. currentEffect `elem` [DestroyEnemy, DealDamage, Heal, Draw, Peek, Scry]
+            ],
+            [ countInt
+              | m ^. currentEffect == Buff
             ],
             [ toggle EToggle2 (if m ^. effectToggle2 then "Field" else "Hand")
               | m ^. currentEffect == DestroyEnemy

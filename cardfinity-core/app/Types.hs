@@ -3,12 +3,10 @@
 
 module Types
   ( Trigger (..),
-    Spell,
-    Monster,
-    CardStats,
-    _SpellStats,
-    _MonsterStats,
-    Card,
+    Spell (Spell),
+    Monster (Monster),
+    CardStats (SpellStats, MonsterStats),
+    Card (Card),
     hasId,
     cardStatsElim,
     cardElim,
@@ -17,11 +15,13 @@ module Types
     isMonster,
     Player (..),
     otherPlayer,
+    autotapList,
     PlayerState,
     CardLocation (..),
     allCardLocations,
     toLens,
     GameState,
+    initialGameState,
     GameOperation,
     GameOpWithCardContext,
     spellName,
@@ -42,7 +42,6 @@ module Types
     field,
     deck,
     graveyard,
-    autotapList,
     isFirstTurn,
     player1State,
     player2State,
@@ -124,8 +123,8 @@ data CardStats = SpellStats Spell | MonsterStats Monster deriving (Eq, Ord)
 $(makePrisms ''CardStats)
 
 cardStatsElim :: (Spell -> a) -> (Monster -> a) -> CardStats -> a
-cardStatsElim f g (SpellStats s) = f s
-cardStatsElim f g (MonsterStats m) = g m
+cardStatsElim f _ (SpellStats s) = f s
+cardStatsElim _ g (MonsterStats m) = g m
 
 data Card = Card
   { _cardID :: Natural,
@@ -195,6 +194,28 @@ data GameState = GameState
   }
 
 $(makeLenses ''GameState)
+
+initialGameState :: ([Card], [Card]) -> ([Card], [Card]) -> GameState
+initialGameState (hand1, deck1) (hand2, deck2) =
+  GameState
+    { _player1State =
+        PlayerState
+          { _hand = hand1,
+            _graveyard = [],
+            _field = [],
+            _deck = deck1,
+            _autotapList = []
+          },
+      _player2State =
+        PlayerState
+          { _hand = hand2,
+            _graveyard = [],
+            _field = [],
+            _deck = deck2,
+            _autotapList = []
+          },
+      _isFirstTurn = True
+    }
 
 playerLens :: Player -> Lens' GameState PlayerState
 playerLens = \case Player1 -> player1State; Player2 -> player2State

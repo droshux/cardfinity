@@ -31,3 +31,4 @@ executable cardfinity-designer
         Editor.Types
         Editor.Update
         Editor.View
+        Editor.Mapping

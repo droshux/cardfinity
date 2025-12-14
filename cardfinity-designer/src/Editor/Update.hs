@@ -1,4 +1,4 @@
-module Editor.Update (update, wrapLens, cardName) where
+module Editor.Update (update, wrapLens, cardName, (%), focus) where
 
 import Control.Monad (when)
 import Data.Foldable (Foldable (toList))
@@ -6,6 +6,8 @@ import Data.List.NonEmpty (NonEmpty ((:|)), appendList)
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Set.Ordered (OSet, fromList, (|>))
 import Editor.Types
+import GHC.Natural (naturalToInteger)
+import GHC.Num (integerToInt)
 import Miso qualified as M
 import Miso.Lens (Lens, lens, (%=), (%~), (+=), (-=), (.=), (.~), (^.), _1, _2)
 
@@ -16,7 +18,7 @@ update NewCard = do
   deck %= ((0, def) :)
   firstCard <- M.gets ((==) 0 . length . (^. deck))
   when firstCard $ currentCardIndex .= 0
-update (SetCopies i n) = focus deck i % _1 .= n
+update (SetCopies i n) = focus deck i % _1 .= integerToInt (naturalToInteger n)
 update (DCardAction i act) = flip updateCard act $ focus deck i % _2
 update (ViewCard i) = currentCardIndex .= i
 update (DeleteCard i) = do
@@ -57,6 +59,7 @@ updateEffect e (SetEffect id) = do
   noChildren <- M.gets $ isNothing . (^. e % subEffects)
   when (id == ChooseEffect && noChildren) $ e % subEffects .= Just def
 updateEffect e (ESetCount n) = e % effectCount .= n
+updateEffect e (SetCountInt i) = e % effectCountInt .= i
 updateEffect e EToggle1 = e % effectToggle %= not
 updateEffect e EToggle2 = e % effectToggle2 %= not
 updateEffect e (SubEffectAction action) = updateEffect (e % wrapLens subEffect) action

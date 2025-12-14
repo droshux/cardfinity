@@ -27,6 +27,7 @@ module Editor.Types
     currentEffect,
     EffectModel,
     effectCount,
+    effectCountInt,
     effectToggle,
     effectToggle2,
     subEffect,
@@ -135,6 +136,7 @@ data MonsterAction
 data EffectAction
   = SetEffect EffectID
   | ESetCount Natural
+  | SetCountInt Integer
   | EToggle1
   | EToggle2
   | SubEffectAction EffectAction
@@ -179,6 +181,7 @@ $(makeLenses ''ConditionModel)
 data EffectModel = EffectModel
   { _currentEffect :: EffectID,
     _effectCount :: Natural,
+    _effectCountInt :: Integer,
     _effectToggle :: Bool,
     _effectToggle2 :: Bool,
     _subEffect :: Maybe EffectModel,
@@ -223,7 +226,7 @@ data CardModel = CardModel
 $(makeLenses ''CardModel)
 
 data DeckModel = DeckModel
-  { _deck :: [(Natural, CardModel)],
+  { _deck :: [(Int, CardModel)],
     _currentCardIndex :: Int
   }
   deriving (Eq)
@@ -289,6 +292,7 @@ instance Default EffectModel where
     EffectModel
       { _currentEffect = DiscardEnemy,
         _effectCount = 0,
+        _effectCountInt = 0,
         _effectToggle = False,
         _effectToggle2 = False,
         _subEffect = Nothing,
@@ -399,6 +403,9 @@ instance M.FromMisoString SearchTypeID where
 
 instance M.FromMisoString Natural where
   fromMisoStringEither = fmap (naturalFromInteger . integerFromInt) . fromMisoStringEither
+
+instance M.FromMisoString Integer where
+  fromMisoStringEither = fmap integerFromInt . fromMisoStringEither
 
 instance Show SearchTypeID where
   show ForCard = "Card"
