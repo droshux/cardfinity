@@ -153,13 +153,13 @@ autoTap =
         player's field <&> find (\c -> c ^. cardID == cid) >>= \case
           Nothing -> return ()
           Just c -> void (trigger OnTap c)
-   in player's autoTapList >>= mapM_ tapById
+   in player's autotapList >>= mapM_ tapById
 
 editAutoTapList :: GameOperation ()
 editAutoTapList =
   let prompt = "Toggle which cards automatically to automatically tap at the start of your turn"
       optionName c = do
-        onList <- player's autoTapList <&> isJust . find (`hasId` c)
+        onList <- player's autotapList <&> isJust . find (`hasId` c)
         let prefix = if onList then "[T] " else "[ ] "
         return $ prefix ++ cardName c
       isAutoTap s = OnTap == s ^. spellTrigger
@@ -169,6 +169,6 @@ editAutoTapList =
         res <- selectFromListCancelable prompt options
         ifNotCancelled res $ \(i, _) -> do
           c <- player's field <&> (!! i)
-          player's autoTapList <&> findIndex (`hasId` c) >>= \case
-            Nothing -> autoTapList =: (c ^. cardID)
-            Just j -> autoTapList -= j
+          player's autotapList <&> findIndex (`hasId` c) >>= \case
+            Nothing -> autotapList =: (c ^. cardID)
+            Just j -> autotapList -= j

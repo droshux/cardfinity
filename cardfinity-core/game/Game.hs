@@ -19,26 +19,7 @@ initGameState d1 d2 = do
   d1'' <- shuffleM d1
   d2'' <- shuffleM d2
   let (d1', d2') = prepareDecks d1'' d2''
-  return
-    GameState
-      { _player1State =
-          PlayerState
-            { _hand = take 4 d1',
-              _graveyard = [],
-              _field = [],
-              _deck = drop 4 d1',
-              _autotapList = []
-            },
-        _player2State =
-          PlayerState
-            { _hand = take 5 d2',
-              _graveyard = [],
-              _field = [],
-              _deck = drop 5 d2',
-              _autotapList = []
-            },
-        _isFirstTurn = True
-      }
+  return $ initialGameState (splitAt 4 d1') (splitAt 5 d2')
   where
     prepareDecks :: [Card] -> [Card] -> ([Card], [Card])
     prepareDecks cs1 cs2 =

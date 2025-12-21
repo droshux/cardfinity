@@ -70,38 +70,38 @@ instance Punishable Spell where
   incursPunishment _ = True
 
 instance HasScale Spell where
-  scale (Spell n t r e) = do
+  scale spell = do
     -- Some requirements and effects only make sense for monsters,
     -- these cannot be used on spells that can be cast from the hand.
-    spellable <- asks ((&& not (isMonsterOnly t)) . not . inMonster)
-    case (find monsterOnlyEffect e, find monsterOnlyRequirement r) of
+    spellable <- asks ((&& not (isMonsterOnly (spell ^. spellTrigger))) . not . inMonster)
+    case (find monsterOnlyEffect $ spell ^. effects, find monsterOnlyRequirement $ spell ^. castingConditions) of
       (Nothing, Nothing) -> return ()
-      bad -> when spellable $ throwError $ MOonSpellable bad n
+      bad -> when spellable $ throwError $ MOonSpellable bad $ spell ^. spellName
 
-    ts <- scale t
-    rs <- sumScale $ toList r
-    es <- sumWithPunishment 1 e
+    ts <- scale $ spell ^. spellTrigger
+    rs <- sumScale $ toList $ spell ^. castingConditions
+    es <- sumWithPunishment 1 $ spell ^. effects
     let total = ts + rs + es
 
     -- Monster spells must be 15 scale or less but spell cards
     -- must be 10 scale or less.
     limit <- asks inMonster >>= \m -> return $ if m then 15 else 10
-    unless (total <= limit) $ throwError $ ScaleTooHigh limit total n
+    unless (total <= limit) $ throwError $ ScaleTooHigh limit total $ spell ^. spellName
 
     return total
 
 instance HasScale Monster where
-  scale (Monster n ss r p t) = do
-    requirements <- sumScale $ toList r
+  scale monster = do
+    requirements <- sumScale $ toList $ monster ^. summoningConditions
 
     -- Double punishment for additional monster spells
-    spells <- local (\c -> c {inMonster = True}) (sumWithPunishment 2 ss)
-    let power = fromIntegral p * length (show p) -- Multiply by number of digits
-    let tap = if t && anyTap ss then -5 else 0 -- Enters the field tapped
+    spells <- local (\c -> c {inMonster = True}) (sumWithPunishment 2 $ monster ^. monsterSpells)
+    let power = fromIntegral (monster ^. combatPower) * length (show $ monster ^. combatPower) -- Multiply by number of digits
+    let tap = if monster ^. isTapped && anyTap (monster ^. monsterSpells) then -5 else 0 -- Enters the field tapped
     let total = requirements + spells + power + tap
 
     -- Monsters must have scale of 10 or less
-    unless (total <= 10) $ throwError $ ScaleTooHigh 10 total n
+    unless (total <= 10) $ throwError $ ScaleTooHigh 10 total $ monster ^. monsterName
     return total
     where
       anyTap = any ((OnTap ==) . (^. spellTrigger))
@@ -179,8 +179,7 @@ instance HasScale Card where
   scale c = scale $ c ^. cardStats
 
 instance HasScale CardStats where
-  scale (SpellStats s) = scale s
-  scale (MonsterStats m) = scale m
+  scale = cardStatsElim scale scale
 
 -- Decreases from 5->1 as input doubles eg: f 1 = 5, f 2 = 4, f 4 = 3, f 8 = 2,
 -- f 16 = 1,... (minimum 1)

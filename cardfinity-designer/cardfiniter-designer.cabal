@@ -21,5 +21,15 @@ executable cardfinity-designer
     build-depends:
       base >=4.19.2.0,
       cardfinity-core,
+      ordered-containers,
       miso
     default-language: GHC2021
+    hs-source-dirs:   
+        src
+    other-modules:
+        Editor
+        Editor.Types
+        Editor.Update
+        Editor.View
+        Editor.Mapping
+        Shared

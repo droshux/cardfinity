@@ -49,12 +49,7 @@ card = do
   stats <- MonsterStats <$> try monster <|> SpellStats <$> try spell
   space
   f <- families
-  return
-    Card
-      { _cardStats = stats,
-        _cardID = 0,
-        _cardFamilies = f
-      }
+  Card 0 f stats <$> image
 
 trigger :: CardParser Trigger
 trigger = do
@@ -74,6 +69,11 @@ trigger = do
 families :: CardParser (OSet String)
 families = option Data.Set.Ordered.empty $ fmap fromList $ surround '(' ')' $ name `sepBy` gap
 
+image :: CardParser (Maybe String)
+image = option Nothing $ do
+  string' "image:" *> hspace
+  Just <$> name
+
 spell :: CardParser Spell
 spell = do
   n <- name
@@ -83,13 +83,7 @@ spell = do
   conds <- conditions
   char ':' *> space
   effects <- effect `sepBy1` gap
-  return
-    Spell
-      { _spellTrigger = t,
-        _spellName = n,
-        _effects = effects,
-        _castingConditions = conds
-      }
+  return $ Spell n t conds effects
 
 monster :: CardParser Monster
 monster = do
@@ -104,14 +98,7 @@ monster = do
   startsTapped <- option False $ do
     _ <- string' "tapped"
     return True
-  return
-    Monster
-      { _summoningConditions = conds,
-        _monsterSpells = spells,
-        _monsterName = monsterName,
-        _isTapped = startsTapped,
-        _combatPower = power
-      }
+  return $ Monster monsterName spells conds power startsTapped
   where
     mspells :: CardParser [Spell]
     mspells = do
