@@ -54,6 +54,7 @@ module Editor.Types
     DeckModel,
     deck,
     currentCardIndex,
+    showDecklist,
     Default (..),
   )
 where
@@ -112,6 +113,7 @@ data DeckAction
   | DCardAction Int CardAction
   | ViewCard Int
   | DeleteCard Int
+  | ToggleDecklist
 
 data CardAction
   = Families (ListAction M.MisoString)
@@ -227,7 +229,8 @@ $(makeLenses ''CardModel)
 
 data DeckModel = DeckModel
   { _deck :: [(Int, CardModel)],
-    _currentCardIndex :: Int
+    _currentCardIndex :: Int,
+    _showDecklist :: Bool
   }
   deriving (Eq)
 
@@ -237,7 +240,12 @@ class Default a where
   def :: a
 
 instance Default DeckModel where
-  def = DeckModel {_deck = [(0, def)], _currentCardIndex = 0}
+  def =
+    DeckModel
+      { _deck = [(0, def)],
+        _currentCardIndex = 0,
+        _showDecklist = True
+      }
 
 instance Default CardModel where
   def =

@@ -9,21 +9,25 @@ import Editor.Types
 import GHC.Natural (naturalToInteger)
 import GHC.Num (integerToInt)
 import Miso qualified as M
-import Miso.Lens (Lens, lens, (%=), (%~), (+=), (-=), (.=), (.~), (^.), _1, _2)
+import Miso.Lens (Lens, lens, (%=), (%~), (+=), (.=), (.~), (^.), _1, _2)
 
 type Effect parent = M.Effect parent DeckModel DeckAction
 
 update :: DeckAction -> Effect parent
 update NewCard = do
   deck %= ((0, def) :)
-  firstCard <- M.gets ((==) 0 . length . (^. deck))
-  when firstCard $ currentCardIndex .= 0
+  currentCardIndex .= 0
 update (SetCopies i n) = focus deck i % _1 .= integerToInt (naturalToInteger n)
 update (DCardAction i act) = flip updateCard act $ focus deck i % _2
 update (ViewCard i) = currentCardIndex .= i
 update (DeleteCard i) = do
+  current <- M.gets (^. currentCardIndex)
+  when (current == i) $ do
+    len <- M.gets (length . (^. deck))
+    let delta = if i + 1 < len then 0 else -1
+    currentCardIndex += delta
   deck %= replace i Nothing
-  currentCardIndex .= -1
+update ToggleDecklist = showDecklist %= not
 
 updateCard :: SubUpdate CardAction CardModel parent
 updateCard card (Families action) = osetHelper (card % families) (.=) action

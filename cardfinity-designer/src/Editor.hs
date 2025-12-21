@@ -5,6 +5,9 @@ module Editor
     deckFromModel,
     cardFromModel,
     editor,
+    deck,
+    (%),
+    def,
   )
 where
 

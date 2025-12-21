@@ -32,3 +32,4 @@ executable cardfinity-designer
         Editor.Update
         Editor.View
         Editor.Mapping
+        Shared

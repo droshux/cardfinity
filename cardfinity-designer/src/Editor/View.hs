@@ -11,32 +11,71 @@ import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
 import Miso.Lens (Lens, (^.))
 import Miso.String qualified as M
+import Shared qualified
 import Types (Trigger)
 
 view :: DeckModel -> M.View parent DeckAction
 view m =
-  let item i (copies, m) =
-        H.li_
-          []
-          [ M.text (if m ^. cardName /= "" then m ^. cardName else "[NO NAME]"),
-            H.button_ [H.onClick (ViewCard i)] [M.text "view"],
-            H.button_ [H.onClick (DeleteCard i)] [M.text "delete"],
-            H.input_
-              [ P.type_ "number",
-                P.min_ "0",
-                H.onChange (SetCopies i . M.fromMisoString),
-                P.value_ (M.toMisoString $ show copies)
-              ]
-          ]
+  let item i (copies, m') =
+        [ H.span_
+            [ CSS.style_
+                [ CSS.fontStyle $ if m' ^. cardName /= "" then "normal" else "italic"
+                ]
+            ]
+            [M.text (if m' ^. cardName /= "" then m' ^. cardName else "no name")],
+          H.button_ [H.onClick (ViewCard i)] [eyecon $ i == m ^. currentCardIndex],
+          H.button_ [H.onClick (DeleteCard i)] [H.img_ [P.src_ "assets/icons/trash-2.svg"]],
+          H.input_
+            [ P.type_ "number",
+              P.min_ "0",
+              H.onChange (SetCopies i . M.fromMisoString),
+              P.placeholder_ "0",
+              CSS.style_
+                [ CSS.minWidth $ CSS.em 1.5,
+                  ("field-sizing", "content")
+                ]
+            ]
+        ]
       currentCardView =
         cardView
           (DCardAction (m ^. currentCardIndex))
           (snd $ (m ^. deck) !! (m ^. currentCardIndex))
+      eyecon b =
+        H.img_
+          [ P.src_ ("assets/icons/" <> (if b then "view" else "eye") <> ".svg")
+          ]
+      hideIcon b =
+        H.img_
+          [ P.src_ ("assets/icons/panel-left-" <> (if b then "close" else "open") <> ".svg")
+          ]
    in H.div_
-        []
-        [ H.button_ [H.onClick NewCard] [M.text "New Card"],
-          H.ol_ [] $ zipWith item [0 ..] (m ^. deck),
-          if m ^. currentCardIndex == -1 then M.text "No card selected" else currentCardView
+        [ CSS.style_
+            [ CSS.display $ if m ^. showDecklist then "grid" else "block",
+              CSS.gridTemplateColumns "auto auto 1fr",
+              CSS.gap $ CSS.em 0.2
+            ]
+        ]
+        [ H.button_ [H.onClick ToggleDecklist] [hideIcon $ m ^. showDecklist],
+          H.button_ [H.onClick NewCard] [H.img_ [P.src_ "assets/icons/square-plus.svg"]],
+          H.div_
+            [ CSS.style_
+                [ CSS.display $ if m ^. showDecklist then "grid" else "none",
+                  CSS.rowGap $ CSS.em 0.4,
+                  CSS.columnGap $ CSS.em 0.2,
+                  CSS.width "fit-content",
+                  CSS.gridTemplateColumns "1fr auto auto auto",
+                  CSS.alignContent "start",
+                  CSS.gridRowStart "2",
+                  ("grid-column", "1 / span 2")
+                ]
+            ]
+            $ concat
+            $ zipWith item [0 ..] (m ^. deck),
+          H.div_
+            [ CSS.style_ [CSS.gridRowStart "2", CSS.gridColumnStart "3"]
+            ]
+            [ if m ^. currentCardIndex == -1 then M.text "No card selected" else currentCardView
+            ]
         ]
 
 type SubView a m parent = (a -> DeckAction) -> m -> M.View parent DeckAction
@@ -44,9 +83,23 @@ type SubView a m parent = (a -> DeckAction) -> m -> M.View parent DeckAction
 cardView :: SubView CardAction CardModel parent
 cardView act m =
   let familyInput act f = H.input_ [H.onChange act, P.value_ f]
+      snailIcon =
+        H.img_
+          [ P.src_ ("assets/icons/" <> (if m ^. editingSpell then "shell" else "snail") <> ".svg")
+          ]
    in H.div_
-        []
-        [ H.button_ [H.onClick (act ToggleCardStats)] [M.text "Toggle Spell/Monster"],
+        [ CSS.style_
+            [ CSS.display "flex",
+              CSS.flexDirection "column",
+              CSS.gap $ CSS.em 0.1,
+              CSS.width "fit-content"
+            ]
+        ]
+        [ H.button_
+            [ H.onClick (act ToggleCardStats),
+              CSS.style_ [CSS.width "fit-content"]
+            ]
+            [snailIcon],
           H.div_
             [CSS.style_ [CSS.display $ if m ^. editingSpell then "block" else "none"]]
             [spellView (act . SAction) (m ^. spellStats)],
@@ -54,7 +107,7 @@ cardView act m =
             [CSS.style_ [CSS.display $ if m ^. editingSpell then "none" else "block"]]
             [monsterView (act . MAction) (m ^. monsterStats)],
           listView def {addButtonText = "+ Family"} (act . Families) familyInput (m ^. families),
-          H.input_ [H.onChange (act . SetImage), P.value_ (m ^. imageUrl)],
+          H.input_ [H.onChange (act . SetImage), CSS.style_ [CSS.width "fit-content"]],
           H.img_
             [ P.src_ (m ^. imageUrl),
               CSS.style_
@@ -71,11 +124,23 @@ spellView act m =
   H.div_
     [ CSS.style_
         [ CSS.backgroundColor (CSS.hex "7fffff"),
-          CSS.padding (CSS.em 0.5)
+          CSS.padding (CSS.em 0.5),
+          CSS.width "fit-content",
+          CSS.display "flex",
+          CSS.flexDirection "column",
+          CSS.gap (CSS.em 0.1)
         ]
     ]
-    [ H.input_ [H.onChange (act . SetSpellName), P.value_ (m ^. spellName)],
-      options (act . SetTrigger) (m ^. spellTrigger),
+    [ H.input_
+        [ H.onChange (act . SetSpellName),
+          P.value_ (m ^. spellName),
+          CSS.style_ [CSS.width "fit-content"]
+        ],
+      H.span_
+        []
+        [ options (act . SetTrigger) (m ^. spellTrigger),
+          Shared.triggerIcon (m ^. spellTrigger)
+        ],
       listView conditionsListSettings {addButtonText = "+ Casting Condition"} (act . CastingConditions) conditionView (m ^. castingConditions),
       listView
         def
@@ -93,19 +158,25 @@ monsterView act m =
     [ CSS.style_
         [ CSS.backgroundColor (CSS.hex "ffd07f"),
           CSS.width "fit-content",
-          CSS.padding (CSS.em 0.5)
+          CSS.padding (CSS.em 0.5),
+          CSS.display "flex",
+          CSS.flexDirection "column",
+          CSS.gap (CSS.em 0.1)
         ]
     ]
     [ H.input_ [H.onChange (act . SetMonsterName), P.value_ (m ^. monsterName)],
       listView conditionsListSettings {addButtonText = "+ Summoning Condition"} (act . SummoningConditions) conditionView (m ^. summoningConditions),
       listView def {addButtonText = "New Spell"} (act . MonsterSpells) spellView (m ^. monsterSpells),
-      H.input_
-        [ P.type_ "number",
-          P.min_ "0",
-          H.onChange (act . SetPower . M.fromMisoString),
-          P.value_ (M.toMisoString $ show $ m ^. combatPower)
-        ],
-      H.button_ [H.onClick (act ToggleTapped)] [M.text (if m ^. entersTapped then "Begins Tapped" else "Begins Untapped")]
+      H.span_
+        []
+        [ H.input_
+            [ P.type_ "number",
+              P.min_ "0",
+              H.onChange (act . SetPower . M.fromMisoString),
+              P.value_ (M.toMisoString $ show $ m ^. combatPower)
+            ],
+          H.button_ [H.onClick (act ToggleTapped)] [M.text (if m ^. entersTapped then "Begins Tapped" else "Begins Untapped")]
+        ]
     ]
 
 conditionView :: SubView ConditionAction ConditionModel parent
@@ -148,12 +219,14 @@ effectsView act m =
         H.input_
           [ P.type_ "number",
             P.min_ "0",
-            H.onChange (act . ESetCount . M.fromMisoString)
+            H.onChange (act . ESetCount . M.fromMisoString),
+            P.value_ (M.toMisoString $ show $ m ^. effectCount)
           ]
       countInt =
         H.input_
           [ P.type_ "number",
-            H.onChange (act . SetCountInt . M.fromMisoString)
+            H.onChange (act . SetCountInt . M.fromMisoString),
+            P.value_ (M.toMisoString $ show $ m ^. effectCountInt)
           ]
       toggle t s = H.button_ [H.onClick (act t)] [M.text s]
       toggle1Txt = case (m ^. currentEffect, m ^. effectToggle) of
@@ -252,7 +325,7 @@ class (Enum a, M.ToMisoString a, M.FromMisoString a, Show a) => Options a where
     let option :: Int -> a -> M.View model action
         option i a = H.option_ [P.value_ (M.toMisoString a), M.key_ i] [M.text $ M.toMisoString $ show a]
         opts = zipWith option [0 ..] $ enumFrom $ toEnum 0
-     in H.select_ [H.onChange (act . M.fromMisoString), P.value_ (M.toMisoString a)] opts
+     in H.select_ [H.onChange (act . M.fromMisoString), P.value_ $ M.toMisoString a] opts
 
 instance Options Trigger
 
