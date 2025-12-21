@@ -38,6 +38,7 @@ module Types
     cardID,
     cardFamilies,
     cardStats,
+    cardImageUrl,
     hand,
     field,
     deck,

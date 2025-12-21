@@ -58,7 +58,7 @@ library
     exposed-modules: Types, Atoms, Scale, ShowCard
 
     build-depends:    
-      base >=4.19.2.0,
+      base >=4.21.0.0,
       mtl,
       transformers,
       containers,
@@ -119,7 +119,7 @@ executable cardfinity
 
     -- Other library packages from which modules are imported.
     build-depends:    
-      base >=4.19.2.0,
+      base >=4.21.0.0,
       mtl,
       transformers,
       containers,

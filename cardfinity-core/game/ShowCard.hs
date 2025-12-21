@@ -3,7 +3,6 @@
 module ShowCard () where
 
 import Data.Foldable (Foldable (toList))
-import GHC.Stats (GCDetails (gcdetails_block_fragmentation_bytes))
 import Optics.Operators ((^.))
 import Types
 import Utils (collapse, showFold)

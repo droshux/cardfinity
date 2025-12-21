@@ -7,3 +7,9 @@ source-repository-package
     location: https://github.com/dmjio/miso
     branch: master
 flags: +template-haskell
+
+with-compiler:
+    javascript-unknown-ghcjs-ghc
+
+with-hc-pkg:
+    javascript-unknown-ghcjs-ghc-pkg

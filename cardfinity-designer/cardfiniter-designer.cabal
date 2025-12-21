@@ -19,7 +19,7 @@ executable cardfinity-designer
     main-is:
         Main.hs
     build-depends:
-      base >=4.19.2.0,
+      base >=4.21.0.0,
       cardfinity-core,
       ordered-containers,
       miso
