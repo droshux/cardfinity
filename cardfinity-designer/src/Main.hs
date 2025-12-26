@@ -28,7 +28,7 @@ initialState = Model {_editor = Editor.def}
 view m =
   H.div_
     []
-    [ H.div_ [] M.+> Editor.editor {M.bindings = [editor M.<--> _id]},
+    [ "editor" M.+> Editor.editor {M.bindings = [editor M.<--> _id]},
       case m ^. editor Editor.% Editor.currentCard of
         Nothing -> H.p_ [] [M.text "No Card Selected"]
         Just card ->

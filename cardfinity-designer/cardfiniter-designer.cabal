@@ -22,7 +22,8 @@ executable cardfinity-designer
       base >=4.19.2.0,
       cardfinity-core,
       ordered-containers,
-      miso
+      miso,
+      jsaddle
     default-language: GHC2021
     hs-source-dirs:   
         src
@@ -33,3 +34,5 @@ executable cardfinity-designer
         Editor.View
         Editor.Mapping
         Shared
+        Theme
+        Theme.CssEditor
