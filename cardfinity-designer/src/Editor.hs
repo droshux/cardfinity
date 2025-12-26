@@ -2,6 +2,7 @@ module Editor
   ( DeckModel,
     CardModel,
     currentCard,
+    currentCardIndex,
     deckFromModel,
     cardFromModel,
     editor,

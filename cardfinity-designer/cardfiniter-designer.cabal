@@ -23,7 +23,8 @@ executable cardfinity-designer
       cardfinity-core,
       ordered-containers,
       miso,
-      jsaddle
+      jsaddle,
+      optics
     default-language: GHC2021
     hs-source-dirs:   
         src
@@ -36,3 +37,4 @@ executable cardfinity-designer
         Shared
         Theme
         Theme.CssEditor
+        CardView

@@ -12,6 +12,7 @@ module Types
     cardElim,
     cardElim',
     cardName,
+    cardImageUrl,
     isMonster,
     Player (..),
     otherPlayer,
