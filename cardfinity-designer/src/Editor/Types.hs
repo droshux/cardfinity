@@ -110,30 +110,15 @@ data EffectID
 data DeckAction
   = NewCard
   | SetCopies Int Natural
-  | DCardAction Int CardAction
   | ViewCard Int
   | DeleteCard Int
   | ToggleDecklist
 
-data CardAction
-  = Families (ListAction M.MisoString)
-  | ToggleCardStats
-  | SetImage M.MisoString
-  | MAction MonsterAction
-  | SAction SpellAction
+data CardAction = ToggleCardStats | SetImage M.MisoString
 
-data SpellAction
-  = SetSpellName M.MisoString
-  | SetTrigger Trigger
-  | Effects (ListAction EffectAction)
-  | CastingConditions (ListAction ConditionAction)
+data SpellAction = SetSpellName M.MisoString | SetTrigger Trigger
 
-data MonsterAction
-  = SetMonsterName M.MisoString
-  | MonsterSpells (ListAction SpellAction)
-  | SummoningConditions (ListAction ConditionAction)
-  | SetPower Natural
-  | ToggleTapped
+data MonsterAction = SetMonsterName M.MisoString | SetPower Natural | ToggleTapped
 
 data EffectAction
   = SetEffect EffectID
@@ -141,23 +126,16 @@ data EffectAction
   | SetCountInt Integer
   | EToggle1
   | EToggle2
-  | SubEffectAction EffectAction
-  | SubEffectsAction (ListAction EffectAction)
-  | ESearchTypeAction SearchTypeAction
-  | EConditionAction ConditionAction
 
 data ConditionAction
   = SetCondition ConditionID
   | CSetCount Natural
   | CToggle1
   | CToggle2
-  | CSearchTypeAction SearchTypeAction
-  | SubConditionAction ConditionAction
-  | SubConditionsAction (ListAction ConditionAction)
 
 data SearchTypeAction = SetSearchType SearchTypeID | SetText M.MisoString
 
-data ListAction a = NewItem | Delete Int | ItemAction Int a
+data ListAction a = NewItem | Delete Int
 
 data SearchTypeModel = SearchTypeModel
   { _searchTypeID :: SearchTypeID,

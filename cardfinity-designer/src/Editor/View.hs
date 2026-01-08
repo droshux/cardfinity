@@ -4,17 +4,19 @@ module Editor.View (view) where
 
 import Data.Foldable (Foldable (toList))
 import Editor.Types
-import Editor.Update (cardName, wrapLens)
+import Editor.Update
+import GHC.Natural (Natural)
 import Miso qualified as M
 import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
 import Miso.Lens (Lens, (^.))
+import Miso.Lens qualified as M
 import Miso.String qualified as M
 import Shared qualified
 import Types (Trigger)
 
-view :: DeckModel -> M.View parent DeckAction
+view :: DeckModel -> M.View DeckModel DeckAction
 view m =
   let item i (copies, m') =
         [ H.span_
@@ -36,10 +38,6 @@ view m =
                 ]
             ]
         ]
-      currentCardView =
-        cardView
-          (DCardAction (m ^. currentCardIndex))
-          (snd $ (m ^. deck) !! (m ^. currentCardIndex))
       eyecon b =
         H.img_
           [ P.src_ ("assets/icons/" <> (if b then "view" else "eye") <> ".svg")
@@ -74,53 +72,52 @@ view m =
           H.div_
             [ CSS.style_ [CSS.gridRowStart "2", CSS.gridColumnStart "3"]
             ]
-            [ if m ^. currentCardIndex == -1 then M.text "No card selected" else currentCardView
+            [ if m ^. currentCardIndex == -1 then M.text "No card selected" else "card" M.+> cardView {M.bindings = [(focus deck (m ^. currentCardIndex) % M._2) M.<--> M._id]}
             ]
         ]
 
-type SubView a m parent = (a -> DeckAction) -> m -> M.View parent DeckAction
-
-cardView :: SubView CardAction CardModel parent
-cardView act m =
-  let familyInput act f = H.input_ [H.onChange act, P.value_ f]
-      snailIcon =
+cardView :: M.Component DeckModel CardModel CardAction
+cardView =
+  let familyInput = M.component "" M.put $ \f -> H.input_ [H.onChange id]
+      snailIcon m =
         H.img_
           [ P.src_ ("assets/icons/" <> (if m ^. editingSpell then "shell" else "snail") <> ".svg")
           ]
-   in H.div_
-        [ CSS.style_
-            [ CSS.display "flex",
-              CSS.flexDirection "column",
-              CSS.gap $ CSS.em 0.1,
-              CSS.width "fit-content"
-            ]
-        ]
-        [ H.button_
-            [ H.onClick (act ToggleCardStats),
-              CSS.style_ [CSS.width "fit-content"]
-            ]
-            [snailIcon],
-          H.div_
-            [CSS.style_ [CSS.display $ if m ^. editingSpell then "block" else "none"]]
-            [spellView (act . SAction) (m ^. spellStats)],
-          H.div_
-            [CSS.style_ [CSS.display $ if m ^. editingSpell then "none" else "block"]]
-            [monsterView (act . MAction) (m ^. monsterStats)],
-          listView def {addButtonText = "+ Family"} (act . Families) familyInput (m ^. families),
-          H.input_ [H.onChange (act . SetImage), CSS.style_ [CSS.width "fit-content"]],
-          H.img_
-            [ P.src_ (m ^. imageUrl),
-              CSS.style_
-                [ CSS.width "2.5in",
-                  CSS.height "2in",
-                  CSS.display (if m ^. imageUrl == "" then "none" else "block"),
-                  ("object-fit", "cover")
-                ]
-            ]
-        ]
+   in M.component def updateCard $ \m ->
+        H.div_
+          [ CSS.style_
+              [ CSS.display "flex",
+                CSS.flexDirection "column",
+                CSS.gap $ CSS.em 0.1,
+                CSS.width "fit-content"
+              ]
+          ]
+          [ H.button_
+              [ H.onClick ToggleCardStats,
+                CSS.style_ [CSS.width "fit-content"]
+              ]
+              [snailIcon m],
+            H.div_
+              [CSS.style_ [CSS.display $ if m ^. editingSpell then "block" else "none"]]
+              ["spellStats" M.+> spellView {M.bindings = [spellStats M.<--> M._id]}],
+            H.div_
+              [CSS.style_ [CSS.display $ if m ^. editingSpell then "none" else "block"]]
+              ["monsterStats" M.+> monsterView {M.bindings = [monsterStats M.<--> M._id]}],
+            "families" M.+> (listView (def {addButtonText = "+ Family"}) familyInput) {M.bindings = [families M.<--> lensOset M._id]},
+            H.input_ [H.onChange SetImage, CSS.style_ [CSS.width "fit-content"]],
+            H.img_
+              [ P.src_ (m ^. imageUrl),
+                CSS.style_
+                  [ CSS.width "2.5in",
+                    CSS.height "2in",
+                    CSS.display (if m ^. imageUrl == "" then "none" else "block"),
+                    ("object-fit", "cover")
+                  ]
+              ]
+          ]
 
-spellView :: SubView SpellAction SpellModel parent
-spellView act m =
+spellView :: M.Component parent SpellModel SpellAction
+spellView = M.component def updateSpell $ \m ->
   H.div_
     [ CSS.style_
         [ CSS.backgroundColor (CSS.hex "7fffff"),
@@ -132,28 +129,21 @@ spellView act m =
         ]
     ]
     [ H.input_
-        [ H.onChange (act . SetSpellName),
+        [ H.onChange SetSpellName,
           P.value_ (m ^. spellName),
           CSS.style_ [CSS.width "fit-content"]
         ],
       H.span_
         []
-        [ options (act . SetTrigger) (m ^. spellTrigger),
+        [ "trigger" M.+> options {M.bindings = [spellTrigger M.<--> M._id]},
           Shared.triggerIcon (m ^. spellTrigger)
         ],
-      listView conditionsListSettings {addButtonText = "+ Casting Condition"} (act . CastingConditions) conditionView (m ^. castingConditions),
-      listView
-        def
-          { backgroundColor = CSS.hex "7fff7f",
-            addButtonText = "+ Effect"
-          }
-        (act . Effects)
-        effectsView
-        (m ^. spellEffects)
+      "castingConditions" M.+> (listView (conditionsListSettings {addButtonText = "+ Casting Condition"}) conditionView) {M.bindings = [castingConditions M.<--> lensOset M._id]},
+      "effects" M.+> (listView (def {backgroundColor = CSS.hex "7fff7f", addButtonText = "+ Effect"}) effectsView) {M.bindings = [spellEffects M.<--> M._id]}
     ]
 
-monsterView :: SubView MonsterAction MonsterModel parent
-monsterView act m =
+monsterView :: M.Component parent MonsterModel MonsterAction
+monsterView = M.component def updateMonster $ \m ->
   H.div_
     [ CSS.style_
         [ CSS.backgroundColor (CSS.hex "ffd07f"),
@@ -164,72 +154,74 @@ monsterView act m =
           CSS.gap (CSS.em 0.1)
         ]
     ]
-    [ H.input_ [H.onChange (act . SetMonsterName), P.value_ (m ^. monsterName)],
-      listView conditionsListSettings {addButtonText = "+ Summoning Condition"} (act . SummoningConditions) conditionView (m ^. summoningConditions),
-      listView def {addButtonText = "New Spell"} (act . MonsterSpells) spellView (m ^. monsterSpells),
+    [ H.input_ [H.onChange SetMonsterName, P.value_ (m ^. monsterName)],
+      "summoningConditions " M.+> (listView (conditionsListSettings {addButtonText = "+ Summoning Condition"}) conditionView) {M.bindings = [summoningConditions M.<--> lensOset M._id]},
+      "spells" M.+> (listView (def {addButtonText = "New Spell"}) spellView) {M.bindings = [monsterSpells M.<--> M._id]},
       H.span_
         []
         [ H.input_
             [ P.type_ "number",
               P.min_ "0",
-              H.onChange (act . SetPower . M.fromMisoString),
+              H.onChange (SetPower . M.fromMisoString),
               P.value_ (M.toMisoString $ show $ m ^. combatPower)
             ],
-          H.button_ [H.onClick (act ToggleTapped)] [M.text (if m ^. entersTapped then "Begins Tapped" else "Begins Untapped")]
+          H.button_ [H.onClick ToggleTapped] [M.text (if m ^. entersTapped then "Begins Tapped" else "Begins Untapped")]
         ]
     ]
 
-conditionView :: SubView ConditionAction ConditionModel parent
-conditionView act m =
+conditionView :: M.Component parent ConditionModel ConditionAction
+conditionView =
   let count =
         H.input_
           [ P.type_ "number",
             P.min_ "0",
-            H.onChange (act . CSetCount . M.fromMisoString),
-            P.value_ (M.toMisoString $ show $ m ^. conditionCount)
+            H.onChange (CSetCount . M.fromMisoString)
+            -- P.value_ (M.toMisoString $ show $ m ^. conditionCount)
           ]
-      toggle t s = H.button_ [H.onClick (act t)] [M.text s]
-      toggle1Txt = case (m ^. currentCondition, m ^. conditionToggle) of
+      toggle t s = H.button_ [H.onClick t] [M.text s]
+      toggle1Txt m = case (m ^. currentCondition, m ^. conditionToggle) of
         (Destroy, True) -> "Banish"
         (Destroy, False) -> "Discard"
         (TakeDamage, True) -> "True Damage"
         (TakeDamage, False) -> "Damage"
         _ -> ""
-   in H.span_
-        []
-        $ concat
-          [ [options (act . SetCondition) (m ^. currentCondition)],
-            [count | m ^. currentCondition `elem` [Destroy, TakeDamage, HealOpponent, Pop]],
-            [toggle CToggle1 toggle1Txt | m ^. currentCondition `elem` [Destroy, TakeDamage]],
-            [toggle CToggle2 (if m ^. conditionToggle2 then "Field" else "Hand") | (m ^. currentCondition) == Destroy],
-            [ searchTypeView (act . CSearchTypeAction) (m ^. conditionSearchType)
-              | (m ^. currentCondition) == Destroy
-            ],
-            [ conditionView (act . SubConditionAction) (m ^. wrapLens subCondition)
-              | (m ^. currentCondition) == YouMay
-            ],
-            [ listView def {isNonempty = True} (act . SubConditionsAction) conditionView (m ^. wrapLens subConditions)
-              | (m ^. currentCondition) == Choose
+      view m =
+        H.span_
+          []
+          $ concat
+            [ ["conditionId" M.+> options {M.bindings = [currentCondition M.<--> M._id]}],
+              [count | m ^. currentCondition `elem` [Destroy, TakeDamage, HealOpponent, Pop]],
+              [toggle CToggle1 (toggle1Txt m) | m ^. currentCondition `elem` [Destroy, TakeDamage]],
+              [toggle CToggle2 (if m ^. conditionToggle2 then "Field" else "Hand") | (m ^. currentCondition) == Destroy],
+              [ "searchType" M.+> searchTypeView {M.bindings = [conditionSearchType M.<--> M._id]}
+                | (m ^. currentCondition) == Destroy
+              ],
+              [ "youMay" M.+> conditionView {M.bindings = [wrapLens subCondition M.<--> M._id]}
+                | (m ^. currentCondition) == YouMay
+              ],
+              [ "choose" M.+> (listView (def {isNonempty = True}) conditionView) {M.bindings = [wrapLens subConditions M.<--> lensNonEmpty M._id]}
+                | (m ^. currentCondition) == Choose
+              ]
             ]
-          ]
+   in M.component def updateCondition view
 
-effectsView :: SubView EffectAction EffectModel parent
-effectsView act m =
+effectsView :: M.Component parent EffectModel EffectAction
+effectsView =
   let count =
         H.input_
           [ P.type_ "number",
             P.min_ "0",
-            H.onChange (act . ESetCount . M.fromMisoString),
-            P.value_ (M.toMisoString $ show $ m ^. effectCount)
+            H.onChange (ESetCount . M.fromMisoString)
+            -- P.value_ (M.toMisoString $ show $ m ^. effectCount)
           ]
       countInt =
         H.input_
           [ P.type_ "number",
-            H.onChange (act . SetCountInt . M.fromMisoString),
-            P.value_ (M.toMisoString $ show $ m ^. effectCountInt)
+            H.onChange (SetCountInt . M.fromMisoString)
+            -- P.value_ (M.toMisoString $ show $ m ^. effectCountInt)
           ]
-      toggle t s = H.button_ [H.onClick (act t)] [M.text s]
-      toggle1Txt = case (m ^. currentEffect, m ^. effectToggle) of
+      toggle t s = H.button_ [H.onClick t] [M.text s]
+      toggle1Txt m = case (m ^. currentEffect, m ^. effectToggle) of
         (DestroyEnemy, True) -> "Banish"
         (DestroyEnemy, False) -> "Discard"
         (DealDamage, True) -> "True Damage"
@@ -241,39 +233,39 @@ effectsView act m =
         (Buff, True) -> "This"
         (Buff, False) -> "Other"
         _ -> ""
-   in H.span_
-        []
-        $ concat
-          [ [options (act . SetEffect) (m ^. currentEffect)],
-            [ count
-              | m ^. currentEffect `elem` [DestroyEnemy, DealDamage, Heal, Draw, Peek, Scry]
-            ],
-            [ countInt
-              | m ^. currentEffect == Buff
-            ],
-            [ toggle EToggle2 (if m ^. effectToggle2 then "Field" else "Hand")
-              | m ^. currentEffect == DestroyEnemy
-            ],
-            [ toggle EToggle1 toggle1Txt
-              | m ^. currentEffect `elem` [DestroyEnemy, DealDamage, Attack, Search, Buff]
-            ],
-            [ effectsView (act . SubEffectAction) (m ^. wrapLens subEffect)
-              | (m ^. currentEffect) == Optional
-            ],
-            [ listView def {isNonempty = True} (act . SubEffectsAction) effectsView (m ^. wrapLens subEffects)
-              | (m ^. currentEffect) == ChooseEffect
-            ],
-            [searchTypeView (act . ESearchTypeAction) (m ^. effectSearchType) | m ^. currentEffect `elem` [DestroyEnemy, Play, Attach, Search]],
-            [conditionView (act . EConditionAction) (m ^. effectCondition) | (m ^. currentEffect) == AsEffect]
-          ]
+      view m =
+        H.span_
+          []
+          $ concat
+            [ ["effectId" M.+> options {M.bindings = [currentEffect M.<--> M._id]}],
+              [ count
+                | m ^. currentEffect `elem` [DestroyEnemy, DealDamage, Heal, Draw, Peek, Scry]
+              ],
+              [ countInt
+                | m ^. currentEffect == Buff
+              ],
+              [ toggle EToggle2 (if m ^. effectToggle2 then "Field" else "Hand")
+                | m ^. currentEffect == DestroyEnemy
+              ],
+              [ toggle EToggle1 (toggle1Txt m)
+                | m ^. currentEffect `elem` [DestroyEnemy, DealDamage, Attack, Search, Buff]
+              ],
+              [ "optional" M.+> effectsView {M.bindings = [wrapLens subEffect M.<--> M._id]}
+                | (m ^. currentEffect) == Optional
+              ],
+              ["choose" M.+> (listView (def {isNonempty = True}) effectsView) {M.bindings = [wrapLens subEffects M.<--> lensNonEmpty M._id]} | m ^. currentEffect == ChooseEffect],
+              ["searchType" M.+> searchTypeView {M.bindings = [effectSearchType M.<--> M._id]} | m ^. currentEffect `elem` [DestroyEnemy, Play, Attach, Search]],
+              ["asEffect" M.+> conditionView {M.bindings = [effectCondition M.<--> M._id]} | (m ^. currentEffect) == AsEffect]
+            ]
+   in M.component def updateEffect view
 
-searchTypeView :: SubView SearchTypeAction SearchTypeModel parent
-searchTypeView act m =
+searchTypeView :: M.Component parent SearchTypeModel SearchTypeAction
+searchTypeView = M.component def updateSearchType $ \m ->
   H.span_
     []
-    [ options (act . SetSearchType) (m ^. searchTypeID),
+    [ "opt" M.+> options {M.bindings = [searchTypeID M.<--> M._id]}, -- options (act . SetSearchType) (m ^. searchTypeID),
       H.input_
-        [ H.onChange (act . SetText),
+        [ H.onChange SetText,
           P.value_ (m ^. searchTypeText),
           CSS.style_ [CSS.display $ if m ^. searchTypeID `elem` [ForName, ForFamily] then "inline" else "none"]
         ]
@@ -295,37 +287,46 @@ instance Default ListSettings where
 
 conditionsListSettings = def {backgroundColor = CSS.hex "ff7f7f"}
 
-listView :: (Foldable f) => ListSettings -> (ListAction a -> DeckAction) -> SubView a m parent -> f m -> M.View parent DeckAction
-listView settings act view items =
-  let add = H.button_ [H.onClick (act NewItem)] [M.text (addButtonText settings)]
-      wrap i item =
-        H.span_
-          [M.key_ i, CSS.style_ [CSS.display "block"]]
-          [ view (act . ItemAction i) item,
-            H.button_
-              [ H.onClick (act $ Delete i),
-                CSS.style_ [CSS.display "none" | isNonempty settings && i == 0]
+listView :: (Eq m, Default m) => ListSettings -> M.Component [m] m a -> M.Component parent [m] (ListAction a)
+listView settings child = M.component [] update view
+  where
+    update NewItem = do
+      M.io_ $ M.consoleLog "+"
+      M._id M.%= (def :)
+    update (Delete i) = do
+      xs <- M.get
+      M.put $ take i xs ++ drop (i + 1) xs
+    view xs =
+      let add = H.button_ [H.onClick NewItem] [M.text (addButtonText settings)]
+          wrap i item =
+            H.span_
+              [M.key_ i, CSS.style_ [CSS.display "block"]]
+              [ M.toMisoString i M.+> child {M.bindings = [focus M._id i M.<--> M._id]},
+                H.button_
+                  [ H.onClick (Delete i),
+                    CSS.style_ [CSS.display "none" | isNonempty settings && i == 0]
+                  ]
+                  [M.text "-"]
               ]
-              [M.text "-"]
-          ]
-      contents = add : zipWith wrap [0 ..] (toList items)
-   in H.div_
-        [ CSS.style_
-            [ CSS.border "thin black solid",
-              CSS.width "fit-content",
-              CSS.padding (CSS.em 0.3),
-              CSS.backgroundColor (backgroundColor settings)
+          contents = add : zipWith wrap [0 ..] xs
+       in H.div_
+            [ CSS.style_
+                [ CSS.border "thin black solid",
+                  CSS.width "fit-content",
+                  CSS.padding (CSS.em 0.3),
+                  CSS.backgroundColor (backgroundColor settings)
+                ]
             ]
-        ]
-        contents
+            contents
 
 class (Enum a, M.ToMisoString a, M.FromMisoString a, Show a) => Options a where
-  options :: (a -> DeckAction) -> a -> M.View parent DeckAction
-  options act a =
+  options :: M.Component parent a a
+  options =
     let option :: Int -> a -> M.View model action
         option i a = H.option_ [P.value_ (M.toMisoString a), M.key_ i] [M.text $ M.toMisoString $ show a]
         opts = zipWith option [0 ..] $ enumFrom $ toEnum 0
-     in H.select_ [H.onChange (act . M.fromMisoString), P.value_ $ M.toMisoString a] opts
+        view a = H.select_ [H.onChange M.fromMisoString, P.value_ $ M.toMisoString a] opts
+     in M.component (toEnum 0) M.put view
 
 instance Options Trigger
 
