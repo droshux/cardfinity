@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Editor.Update
   ( update,
     wrapLens,
@@ -12,11 +14,15 @@ module Editor.Update
     updateMonster,
     updateSpell,
     updateCard,
+    updateList,
+    softDelete,
   )
 where
 
 import Control.Monad (when)
+import Data.Bifunctor (first)
 import Data.Foldable (Foldable (toList))
+import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty ((:|)), appendList)
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Set.Ordered (OSet, fromList, (|>))
@@ -96,6 +102,23 @@ updateSearchType :: SearchTypeAction -> M.Effect parent SearchTypeModel SearchTy
 updateSearchType (SetSearchType id) = searchTypeID .= id
 updateSearchType (SetText t) = searchTypeText .= t
 
+updateList :: (Default m) => ListAction a -> M.Effect parent [(Bool, m)] (ListAction a)
+updateList (Delete _) =
+  -- Soft delete
+  M.gets (findIndex $ not . fst) >>= \case
+    Nothing -> return () -- If there's nothing to delete, don't
+    Just i -> M.modify $
+      flip zipWith [0 ..] $
+        -- Set pair with with index i to True
+        \j x@(_, m) -> if j /= i then x else (True, m)
+updateList NewItem =
+  M.gets (findIndex fst) >>= \case
+    Nothing -> M.modify $ (:) (False, def) -- If there's no deleted items: add a new one
+    Just i -> M.modify $
+      flip zipWith [0 ..] $
+        -- Set the item at index i to new item
+        \j x@(_, m) -> if j /= i then x else (False, def)
+
 replace i mx xs =
   let x' = case mx of Just x -> [x]; Nothing -> []
    in take i xs ++ x' ++ drop (i + 1) xs
@@ -109,6 +132,14 @@ replace i mx xs =
 focus l i =
   let get m = (m ^. l) !! i; set x = l %~ replace i (Just x)
    in lens get (flip set)
+
+softDelete =
+  let get = map snd . filter (not . fst)
+      set [] ys = map (False,) ys
+      set (x@(True, _) : xs) ys = x : set xs ys
+      set xs@((False, _) : _) [] = map ((,) True . snd) xs
+      set ((False, _) : xs) (y : ys) = (False, y) : set xs ys
+   in lens get set
 
 cardName :: Lens CardModel M.MisoString
 cardName =
