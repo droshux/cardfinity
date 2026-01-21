@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Editor.Types
   ( SearchTypeID (..),
@@ -59,12 +60,12 @@ module Editor.Types
   )
 where
 
-import Data.List.NonEmpty (NonEmpty ((:|)))
-import Data.Set.Ordered (OSet, empty)
+import Data.List ((!?))
 import GHC.Natural (Natural, naturalFromInteger)
 import GHC.Num (integerFromInt)
 import Miso qualified as M
 import Miso.Lens (Lens, lens, (^.))
+import Miso.Lens qualified as M
 import Miso.Lens.TH (makeLenses)
 import Miso.String (FromMisoString (fromMisoStringEither))
 import Miso.String qualified as M
@@ -152,7 +153,7 @@ data ConditionModel = ConditionModel
     _conditionToggle2 :: Bool,
     _conditionSearchType :: SearchTypeModel,
     _subCondition :: Maybe ConditionModel,
-    _subConditions :: Maybe (NonEmpty ConditionModel)
+    _subConditions :: [ConditionModel]
   }
   deriving (Eq, Ord)
 
@@ -165,7 +166,7 @@ data EffectModel = EffectModel
     _effectToggle :: Bool,
     _effectToggle2 :: Bool,
     _subEffect :: Maybe EffectModel,
-    _subEffects :: Maybe (NonEmpty EffectModel),
+    _subEffects :: [EffectModel],
     _effectSearchType :: SearchTypeModel,
     _effectCondition :: ConditionModel
   }
@@ -176,7 +177,7 @@ $(makeLenses ''EffectModel)
 data SpellModel = SpellModel
   { _spellName :: M.MisoString,
     _spellTrigger :: Trigger,
-    _castingConditions :: OSet ConditionModel,
+    _castingConditions :: [ConditionModel],
     _spellEffects :: [EffectModel]
   }
   deriving (Eq)
@@ -186,7 +187,7 @@ $(makeLenses ''SpellModel)
 data MonsterModel = MonsterModel
   { _monsterName :: M.MisoString,
     _monsterSpells :: [SpellModel],
-    _summoningConditions :: OSet ConditionModel,
+    _summoningConditions :: [ConditionModel],
     _combatPower :: Natural,
     _entersTapped :: Bool
   }
@@ -197,7 +198,7 @@ $(makeLenses ''MonsterModel)
 data CardModel = CardModel
   { _spellStats :: SpellModel,
     _monsterStats :: MonsterModel,
-    _families :: OSet M.MisoString,
+    _families :: [M.MisoString],
     _editingSpell :: Bool,
     _imageUrl :: M.MisoString
   }
@@ -230,17 +231,20 @@ instance Default CardModel where
     CardModel
       { _spellStats = def,
         _monsterStats = def,
-        _families = empty,
+        _families = [],
         _editingSpell = True,
         _imageUrl = ""
       }
+
+instance Default (Int, CardModel) where
+  def = (0, def)
 
 instance Default MonsterModel where
   def =
     MonsterModel
       { _monsterName = "",
         _monsterSpells = [],
-        _summoningConditions = empty,
+        _summoningConditions = [],
         _combatPower = 0,
         _entersTapped = False
       }
@@ -250,7 +254,7 @@ instance Default SpellModel where
     SpellModel
       { _spellName = "",
         _spellTrigger = OnPlay,
-        _castingConditions = empty,
+        _castingConditions = [],
         _spellEffects = []
       }
 
@@ -270,7 +274,7 @@ instance Default ConditionModel where
         _conditionToggle2 = False,
         _conditionSearchType = def,
         _subCondition = Nothing,
-        _subConditions = Nothing
+        _subConditions = []
       }
 
 instance Default EffectModel where
@@ -282,16 +286,13 @@ instance Default EffectModel where
         _effectToggle = False,
         _effectToggle2 = False,
         _subEffect = Nothing,
-        _subEffects = Nothing,
+        _subEffects = [],
         _effectSearchType = def,
         _effectCondition = def
       }
 
 instance Default M.MisoString where
   def = ""
-
-instance (Default a) => Default (NonEmpty a) where
-  def = def :| []
 
 instance M.ToMisoString Trigger where
   toMisoString OnPlay = "play"
@@ -426,3 +427,14 @@ instance Show EffectID where
   show Attach = "Attach"
   show Buff = "Buff"
   show AsEffect = "As Effect"
+
+instance M.At [a] where
+  type Index [a] = Int
+  type IxValue [a] = a
+  at :: M.Index [a] -> Lens [a] (Maybe (M.IxValue [a]))
+  at i =
+    let set xs (Just a)
+          | length xs > i = xs
+          | otherwise = take i xs ++ [a] ++ drop (i + 1) xs
+        set xs Nothing = xs
+     in lens (!? i) set

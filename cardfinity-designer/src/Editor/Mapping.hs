@@ -1,9 +1,11 @@
 module Editor.Mapping (deckFromModel, cardFromModel) where
 
 import Atoms qualified as CF
+import Control.Monad (join, (<=<))
 import Data.Foldable (Foldable (toList))
 import Data.Function ((&))
 import Data.List.NonEmpty qualified as NE
+import Data.Maybe (fromMaybe)
 import Data.Set.Ordered qualified as OS
 import Editor.Types
 import GHC.Natural (Natural)
@@ -18,7 +20,7 @@ cardFromModel :: Natural -> CardModel -> CF.Card
 cardFromModel id =
   CF.Card
     <$> const id
-    <*> osetMap fromMisoString . (^. families)
+    <*> OS.fromList . map fromMisoString . (^. families)
     <*> ifelse (^. editingSpell) (CF.SpellStats . spellFromModel . (^. spellStats)) (CF.MonsterStats . monsterFromModel . (^. monsterStats))
     <*> ifelse (== "") (const Nothing) Just . fromMisoString . (^. imageUrl)
 
@@ -27,7 +29,7 @@ spellFromModel =
   CF.Spell
     <$> fromMisoString . (^. spellName)
     <*> (^. spellTrigger)
-    <*> osetMap conditionFromModel . (^. castingConditions)
+    <*> OS.fromList . map conditionFromModel . (^. castingConditions)
     <*> map effectFromModel . (^. spellEffects)
 
 monsterFromModel :: MonsterModel -> CF.Monster
@@ -35,7 +37,7 @@ monsterFromModel =
   CF.Monster
     <$> fromMisoString . (^. monsterName)
     <*> map spellFromModel . (^. monsterSpells)
-    <*> osetMap conditionFromModel . (^. summoningConditions)
+    <*> OS.fromList . map conditionFromModel . (^. summoningConditions)
     <*> (^. combatPower)
     <*> (^. entersTapped)
 
@@ -48,7 +50,7 @@ conditionFromModel m =
     HealOpponent -> CF.HealOpponent . (^. conditionCount)
     Pop -> CF.Pop . (^. conditionCount)
     YouMay -> CF.YouMay . maybe CF.DiscardSelf conditionFromModel . (^. subCondition)
-    Choose -> CF.Choose . maybe (CF.DiscardSelf NE.:| []) (fmap conditionFromModel) . (^. subConditions)
+    Choose -> CF.Choose . fromMaybe (CF.DiscardSelf NE.:| []) . toNE . map conditionFromModel . (^. subConditions)
 
 effectFromModel :: EffectModel -> CF.Effect
 effectFromModel m =
@@ -62,7 +64,7 @@ effectFromModel m =
     Peek -> CF.Peek . (^. effectCount)
     Scry -> CF.Scry . (^. effectCount)
     Optional -> CF.Optional . maybe CF.DiscardEnemy effectFromModel . (^. subEffect)
-    ChooseEffect -> CF.ChooseEffect . maybe (CF.DiscardEnemy NE.:| []) (fmap effectFromModel) . (^. subEffects)
+    ChooseEffect -> CF.ChooseEffect . fromMaybe (CF.DiscardEnemy NE.:| []) . toNE . map effectFromModel . (^. subEffects)
     Attack -> CF.Attack . (^. effectToggle)
     Play -> CF.Play . stFromModel . (^. effectSearchType)
     Search ->
@@ -86,7 +88,10 @@ stFromModel m =
     ForName -> CF.ForName $ fromMisoString $ m ^. searchTypeText
     ForFamily -> CF.ForFamily $ fromMisoString $ m ^. searchTypeText
 
-osetMap :: (Ord b) => (a -> b) -> OS.OSet a -> OS.OSet b
-osetMap f = OS.fromList . map f . toList
+toNE :: [a] -> Maybe (NE.NonEmpty a)
+toNE [] = Nothing
+toNE (x : xs) = Just $ x NE.:| xs
+
+z = (toNE =<<)
 
 ifelse b f g x = if b x then f x else g x

@@ -3,6 +3,7 @@
 module Editor.View (view) where
 
 import Data.Foldable (Foldable (toList))
+import Debug.Trace (trace)
 import Editor.Types
 import Editor.Update
 import GHC.Natural (Natural)
@@ -10,7 +11,7 @@ import Miso qualified as M
 import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
-import Miso.Lens (Lens, (^.))
+import Miso.Lens (Lens, at, (^.))
 import Miso.Lens qualified as M
 import Miso.String qualified as M
 import Shared qualified
@@ -46,6 +47,7 @@ view m =
         H.img_
           [ P.src_ ("assets/icons/panel-left-" <> (if b then "close" else "open") <> ".svg")
           ]
+      currentCard = deck % wrapLens (at (m ^. currentCardIndex)) % M._2
    in H.div_
         [ CSS.style_
             [ CSS.display $ if m ^. showDecklist then "grid" else "block",
@@ -72,7 +74,7 @@ view m =
           H.div_
             [ CSS.style_ [CSS.gridRowStart "2", CSS.gridColumnStart "3"]
             ]
-            [ if m ^. currentCardIndex == -1 then M.text "No card selected" else "card" M.+> cardView {M.bindings = [(focus deck (m ^. currentCardIndex) % M._2) M.<--> M._id]}
+            [ if m ^. currentCardIndex == -1 then M.text "No card selected" else "card" M.+> cardView {M.bindings = [currentCard M.<--> M._id]}
             ]
         ]
 
@@ -103,7 +105,7 @@ cardView =
             H.div_
               [CSS.style_ [CSS.display $ if m ^. editingSpell then "none" else "block"]]
               ["monsterStats" M.+> monsterView {M.bindings = [monsterStats M.<--> M._id]}],
-            "families" M.+> (listView (def {addButtonText = "+ Family"}) familyInput) {M.bindings = [families M.<--> lensOset softDelete]},
+            "families" M.+> (listView (def {addButtonText = "+ Family"}) familyInput) {M.bindings = [families M.<--> M._id]},
             H.input_ [H.onChange SetImage, CSS.style_ [CSS.width "fit-content"]],
             H.img_
               [ P.src_ (m ^. imageUrl),
@@ -138,8 +140,8 @@ spellView = M.component def updateSpell $ \m ->
         [ "trigger" M.+> options {M.bindings = [spellTrigger M.<--> M._id]},
           Shared.triggerIcon (m ^. spellTrigger)
         ],
-      "castingConditions" M.+> (listView (conditionsListSettings {addButtonText = "+ Casting Condition"}) conditionView) {M.bindings = [castingConditions M.<--> lensOset softDelete]},
-      "effects" M.+> (listView (def {backgroundColor = CSS.hex "7fff7f", addButtonText = "+ Effect"}) effectsView) {M.bindings = [spellEffects M.<--> softDelete]}
+      "castingConditions" M.+> (listView (conditionsListSettings {addButtonText = "+ Casting Condition"}) conditionView) {M.bindings = [castingConditions M.<--> M._id]},
+      "effects" M.+> (listView (def {backgroundColor = CSS.hex "7fff7f", addButtonText = "+ Effect"}) effectsView) {M.bindings = [spellEffects M.<--> M._id]}
     ]
 
 monsterView :: M.Component parent MonsterModel MonsterAction
@@ -155,8 +157,8 @@ monsterView = M.component def updateMonster $ \m ->
         ]
     ]
     [ H.input_ [H.onChange SetMonsterName, P.value_ (m ^. monsterName)],
-      "summoningConditions " M.+> (listView (conditionsListSettings {addButtonText = "+ Summoning Condition"}) conditionView) {M.bindings = [summoningConditions M.<--> lensOset softDelete]},
-      "spells" M.+> (listView (def {addButtonText = "New Spell"}) spellView) {M.bindings = [monsterSpells M.<--> softDelete]},
+      "summoningConditions " M.+> (listView (conditionsListSettings {addButtonText = "+ Summoning Condition"}) conditionView) {M.bindings = [summoningConditions M.<--> M._id]},
+      "spells" M.+> (listView (def {addButtonText = "New Spell"}) spellView) {M.bindings = [monsterSpells M.<--> M._id]},
       H.span_
         []
         [ H.input_
@@ -199,7 +201,7 @@ conditionView =
               [ "youMay" M.+> conditionView {M.bindings = [wrapLens subCondition M.<--> M._id]}
                 | (m ^. currentCondition) == YouMay
               ],
-              [ "choose" M.+> (listView (def {isNonempty = True}) conditionView) {M.bindings = [wrapLens subConditions M.<--> lensNonEmpty softDelete]}
+              [ "choose" M.+> (listView (def {isNonempty = True}) conditionView) {M.bindings = [subConditions M.<--> M._id]}
                 | (m ^. currentCondition) == Choose
               ]
             ]
@@ -253,7 +255,7 @@ effectsView =
               [ "optional" M.+> effectsView {M.bindings = [wrapLens subEffect M.<--> M._id]}
                 | (m ^. currentEffect) == Optional
               ],
-              ["choose" M.+> (listView (def {isNonempty = True}) effectsView) {M.bindings = [wrapLens subEffects M.<--> lensNonEmpty softDelete]} | m ^. currentEffect == ChooseEffect],
+              ["choose" M.+> (listView (def {isNonempty = True}) effectsView) {M.bindings = [subEffects M.<--> M._id]} | m ^. currentEffect == ChooseEffect],
               ["searchType" M.+> searchTypeView {M.bindings = [effectSearchType M.<--> M._id]} | m ^. currentEffect `elem` [DestroyEnemy, Play, Attach, Search]],
               ["asEffect" M.+> conditionView {M.bindings = [effectCondition M.<--> M._id]} | (m ^. currentEffect) == AsEffect]
             ]
@@ -287,17 +289,21 @@ instance Default ListSettings where
 
 conditionsListSettings = def {backgroundColor = CSS.hex "ff7f7f"}
 
-listView :: (Eq m, Default m) => ListSettings -> M.Component [(Bool, m)] m a -> M.Component parent [(Bool, m)] (ListAction a)
-listView settings child = M.component [] updateList view
+listView :: (Eq m, Default m) => ListSettings -> M.Component [m] m a -> M.Component parent [m] (ListAction a)
+listView settings child = M.component [] update view
   where
+    update NewItem = M.modify (def :)
+    update (Delete i) = do
+      M.io_ $ M.consoleLog ("Deleting " <> M.toMisoString i)
+      M.modify $ \xs -> take i xs ++ drop (i + 1) xs
     view xs =
       let add = H.button_ [H.onClick NewItem] [M.text (addButtonText settings)]
-          wrap i (deleted, item) =
+          wrap i item =
             H.span_
-              [M.key_ i, CSS.style_ [CSS.display $ if deleted then "none" else "block"]]
-              [ M.toMisoString i M.+> child {M.bindings = [focus M._id i % M._2 M.<--> M._id]},
+              [M.key_ i, CSS.style_ [CSS.display "block"]]
+              [ M.toMisoString i M.+> child {M.bindings = [wrapLens (at i) M.<--> M._id]},
                 H.button_
-                  [ H.onClick (Delete i),
+                  [ H.onClick $ trace ("Deleting " ++ show i) (Delete i),
                     CSS.style_ [CSS.display "none" | isNonempty settings && i == 0]
                   ]
                   [M.text "-"]

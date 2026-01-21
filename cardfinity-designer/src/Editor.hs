@@ -14,9 +14,10 @@ where
 
 import Editor.Mapping (cardFromModel, deckFromModel)
 import Editor.Types (CardModel, DeckAction, DeckModel, Default (def), currentCardIndex, deck)
-import Editor.Update (focus, update, (%))
+import Editor.Update (update, wrapLens, (%))
 import Editor.View (view)
 import Miso qualified as M
+import Miso.Lens (at)
 import Miso.Lens qualified as M
 
 editor :: M.Component parent DeckModel DeckAction
@@ -29,5 +30,5 @@ currentCard =
         | otherwise = Just $ xs !! i
       get m = ix (m M.^. deck) (m M.^. currentCardIndex)
       set d Nothing = d
-      set d (Just m) = (focus deck (d M.^. currentCardIndex) % M._2 M..~ m) d
+      set d (Just m) = (deck % wrapLens (at (d M.^. currentCardIndex)) % M._2 M..~ m) d
    in M.lens (fmap snd . get) set

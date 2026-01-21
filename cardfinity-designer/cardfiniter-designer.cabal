@@ -22,8 +22,7 @@ executable cardfinity-designer
       base >=4.19.2.0,
       cardfinity-core,
       ordered-containers,
-      miso,
-      jsaddle,
+      miso >=1.9.0.0,
       optics
     default-language: GHC2021
     hs-source-dirs:   

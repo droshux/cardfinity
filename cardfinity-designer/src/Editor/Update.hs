@@ -5,17 +5,13 @@ module Editor.Update
     wrapLens,
     cardName,
     (%),
-    focus,
     updateSearchType,
-    lensNonEmpty,
-    lensOset,
     updateEffect,
     updateCondition,
     updateMonster,
     updateSpell,
     updateCard,
     updateList,
-    softDelete,
   )
 where
 
@@ -26,17 +22,18 @@ import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty ((:|)), appendList)
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Set.Ordered (OSet, fromList, (|>))
+import Debug.Trace (trace)
 import Editor.Types
 import GHC.Natural (naturalToInteger)
 import GHC.Num (integerToInt)
 import Miso qualified as M
-import Miso.Lens (Lens, lens, (%=), (%~), (+=), (.=), (.~), (^.), _1, _2)
+import Miso.Lens (Lens, at, lens, (%=), (%~), (+=), (.=), (.~), (^.), _1, _2)
 
 update :: DeckAction -> M.Effect parent DeckModel DeckAction
 update NewCard = do
   deck %= ((0, def) :)
   currentCardIndex .= 0
-update (SetCopies i n) = focus deck i % _1 .= integerToInt (naturalToInteger n)
+update (SetCopies i n) = deck % wrapLens (at i) % _1 .= integerToInt (naturalToInteger n)
 update (ViewCard i) = currentCardIndex .= i
 update (DeleteCard i) = do
   current <- M.gets (^. currentCardIndex)
@@ -66,34 +63,15 @@ wrapLens l =
       set = (l %~) . fmap . const
    in lens get (flip set)
 
-lensNonEmpty :: (Default b) => Lens a [b] -> Lens a (NonEmpty b)
-lensNonEmpty l = lens (h . flip (^.) l) (flip $ (l .~) . toList)
-  where
-    h [] = def :| []
-    h (x : xs) = x :| xs
-
-lensOset :: (Ord b) => Lens a [b] -> Lens a (OSet b)
-lensOset l = lens (fromList . flip (^.) l) (flip $ (l .~) . toList)
-
 updateEffect :: EffectAction -> M.Effect parent EffectModel EffectAction
-updateEffect (SetEffect id) = do
-  currentEffect .= id
-  noChild <- M.gets $ isNothing . (^. subEffect)
-  when (id == Optional && noChild) $ subEffect .= Just def
-  noChildren <- M.gets $ isNothing . (^. subEffects)
-  when (id == ChooseEffect && noChildren) $ subEffects .= Just def
+updateEffect (SetEffect id) = currentEffect .= id
 updateEffect (ESetCount n) = effectCount .= n
 updateEffect (SetCountInt i) = effectCountInt .= i
 updateEffect EToggle1 = effectToggle %= not
 updateEffect EToggle2 = effectToggle2 %= not
 
 updateCondition :: ConditionAction -> M.Effect parent ConditionModel ConditionAction
-updateCondition (SetCondition id) = do
-  currentCondition .= id
-  noChild <- M.gets $ isNothing . (^. subCondition)
-  when (id == YouMay && noChild) $ subCondition .= Just def
-  noChildren <- M.gets $ isNothing . (^. subConditions)
-  when (id == Choose) $ subConditions .= Just def
+updateCondition (SetCondition id) = currentCondition .= id
 updateCondition (CSetCount n) = conditionCount .= n
 updateCondition CToggle1 = conditionToggle %= not
 updateCondition CToggle2 = conditionToggle2 %= not
@@ -127,18 +105,6 @@ replace i mx xs =
 (%) f g =
   let get = (^. g) . (^. f)
       set a c = (f .~ (g .~ c) (a ^. f)) a
-   in lens get set
-
-focus l i =
-  let get m = (m ^. l) !! i; set x = l %~ replace i (Just x)
-   in lens get (flip set)
-
-softDelete =
-  let get = map snd . filter (not . fst)
-      set [] ys = map (False,) ys
-      set (x@(True, _) : xs) ys = x : set xs ys
-      set xs@((False, _) : _) [] = map ((,) True . snd) xs
-      set ((False, _) : xs) (y : ys) = (False, y) : set xs ys
    in lens get set
 
 cardName :: Lens CardModel M.MisoString

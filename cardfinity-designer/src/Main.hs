@@ -47,4 +47,4 @@ view m =
 currentCard m c = flip Editor.cardFromModel c $ fromIntegral $ m ^. editor Editor.% Editor.currentCardIndex
 
 main :: IO ()
-main = M.run (M.startApp app)
+main = M.run (M.startComponent M.defaultEvents app)

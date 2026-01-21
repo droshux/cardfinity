@@ -16,5 +16,6 @@
             --reload-glob "cardfinity-designer/*.cabal"
         '
     '';
+    # HEY IF YOU'RE READING THIS YOU NEED TO USE WASM FOR HOT RELOAD!
     # ghciwatch --watch 'cardfinity-designer' --after-startup-ghci 'main' --after-reload-ghci 'main' --command 'cabal v2-repl cardfinity-designer'
 }

@@ -3,7 +3,6 @@
 module Theme.CssEditor (cssEditor) where
 
 import Control.Monad (unless)
-import Language.Javascript.JSaddle (fromJSVal, jsg, (!))
 import Miso qualified as M
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
@@ -45,13 +44,13 @@ instance M.ToMisoString CMAction where
 update :: Action -> M.Effect parent M.MisoString Action
 update (CodeMirror SaveDoc) = do
   M.io_ $ cmAction SaveDoc
-  let getCSS = jsg ("window" :: String) ! (parentId <> "data")
-  M.io (getCSS >>= fmap (maybe Noop SetCSS) . fromJSVal)
+  let getCSS = M.jsg "window" M.! (parentId <> "data")
+  M.io (getCSS >>= fmap (maybe Noop SetCSS) . M.fromJSVal)
 update (CodeMirror cmd) = M.io_ $ cmAction cmd
 update (SetCSS css) = M.put css
 update Noop = return ()
 
-cmAction :: CMAction -> M.JSM ()
+-- cmAction :: CMAction -> M.IO ()
 cmAction cmd = do
   actionButton <- M.getElementById "cfCSS-command"
   M.setValue actionButton $ M.toMisoString cmd <> "-" <> parentId
