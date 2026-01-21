@@ -115,6 +115,40 @@ data DeckAction
   | DeleteCard Int
   | ToggleDecklist
 
+instance Show SearchTypeID where
+  show ForCard = "Card"
+  show ForMonster = "Monster"
+  show ForSpell = "Spell"
+  show ForName = "By Name"
+  show ForFamily = "By Family"
+
+instance Show ConditionID where
+  show Destroy = "Discard/Banish"
+  show DiscardSelf = "Discard Top"
+  show TakeDamage = "Take damage"
+  show HealOpponent = "Heal the opponent"
+  show Pop = "Pop"
+  show YouMay = "Optional"
+  show Choose = "Choose"
+
+instance Show EffectID where
+  show DestroyEnemy = "Discard/Banish Enemy"
+  show DiscardEnemy = "Discard Enemy Top"
+  show DealDamage = "Deal Damage"
+  show Heal = "Heal"
+  show DECKOUT = "DECKOUT"
+  show Draw = "Draw"
+  show Peek = "Peek"
+  show Scry = "Scry"
+  show Optional = "You May"
+  show ChooseEffect = "Choose"
+  show Attack = "Attack"
+  show Play = "Play"
+  show Search = "Search/Drill"
+  show Attach = "Attach"
+  show Buff = "Buff"
+  show AsEffect = "As Effect"
+
 data CardAction = ToggleCardStats | SetImage M.MisoString
 
 data SpellAction = SetSpellName M.MisoString | SetTrigger Trigger
@@ -142,7 +176,7 @@ data SearchTypeModel = SearchTypeModel
   { _searchTypeID :: SearchTypeID,
     _searchTypeText :: M.MisoString
   }
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 $(makeLenses ''SearchTypeModel)
 
@@ -155,7 +189,7 @@ data ConditionModel = ConditionModel
     _subCondition :: Maybe ConditionModel,
     _subConditions :: [ConditionModel]
   }
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 $(makeLenses ''ConditionModel)
 
@@ -170,7 +204,7 @@ data EffectModel = EffectModel
     _effectSearchType :: SearchTypeModel,
     _effectCondition :: ConditionModel
   }
-  deriving (Eq)
+  deriving (Eq, Show)
 
 $(makeLenses ''EffectModel)
 
@@ -180,7 +214,7 @@ data SpellModel = SpellModel
     _castingConditions :: [ConditionModel],
     _spellEffects :: [EffectModel]
   }
-  deriving (Eq)
+  deriving (Eq, Show)
 
 $(makeLenses ''SpellModel)
 
@@ -191,7 +225,7 @@ data MonsterModel = MonsterModel
     _combatPower :: Natural,
     _entersTapped :: Bool
   }
-  deriving (Eq)
+  deriving (Eq, Show)
 
 $(makeLenses ''MonsterModel)
 
@@ -202,7 +236,7 @@ data CardModel = CardModel
     _editingSpell :: Bool,
     _imageUrl :: M.MisoString
   }
-  deriving (Eq)
+  deriving (Eq, Show)
 
 $(makeLenses ''CardModel)
 
@@ -211,7 +245,7 @@ data DeckModel = DeckModel
     _currentCardIndex :: Int,
     _showDecklist :: Bool
   }
-  deriving (Eq)
+  deriving (Eq, Show)
 
 $(makeLenses ''DeckModel)
 
@@ -237,7 +271,7 @@ instance Default CardModel where
       }
 
 instance Default (Int, CardModel) where
-  def = (0, def)
+  def = (1, def)
 
 instance Default MonsterModel where
   def =
@@ -393,40 +427,6 @@ instance M.FromMisoString Natural where
 
 instance M.FromMisoString Integer where
   fromMisoStringEither = fmap integerFromInt . fromMisoStringEither
-
-instance Show SearchTypeID where
-  show ForCard = "Card"
-  show ForMonster = "Monster"
-  show ForSpell = "Spell"
-  show ForName = "By Name"
-  show ForFamily = "By Family"
-
-instance Show ConditionID where
-  show Destroy = "Discard/Banish"
-  show DiscardSelf = "Discard Top"
-  show TakeDamage = "Take damage"
-  show HealOpponent = "Heal the opponent"
-  show Pop = "Pop"
-  show YouMay = "Optional"
-  show Choose = "Choose"
-
-instance Show EffectID where
-  show DestroyEnemy = "Discard/Banish Enemy"
-  show DiscardEnemy = "Discard Enemy Top"
-  show DealDamage = "Deal Damage"
-  show Heal = "Heal"
-  show DECKOUT = "DECKOUT"
-  show Draw = "Draw"
-  show Peek = "Peek"
-  show Scry = "Scry"
-  show Optional = "You May"
-  show ChooseEffect = "Choose"
-  show Attack = "Attack"
-  show Play = "Play"
-  show Search = "Search/Drill"
-  show Attach = "Attach"
-  show Buff = "Buff"
-  show AsEffect = "As Effect"
 
 instance M.At [a] where
   type Index [a] = Int
