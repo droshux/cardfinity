@@ -36,7 +36,8 @@ view m =
               CSS.style_
                 [ CSS.minWidth $ CSS.em 1.5,
                   ("field-sizing", "content")
-                ]
+                ],
+              P.value_ $ M.toMisoString copies
             ]
         ]
       eyecon b =
@@ -47,7 +48,7 @@ view m =
         H.img_
           [ P.src_ ("assets/icons/panel-left-" <> (if b then "close" else "open") <> ".svg")
           ]
-      currentCard = deck % wrapLens (at (m ^. currentCardIndex)) % M._2
+      currentCard = deck % at (m ^. currentCardIndex) % wrapLens % M._2
    in H.div_
         [ CSS.style_
             [ CSS.display $ if m ^. showDecklist then "grid" else "block",
@@ -55,7 +56,7 @@ view m =
               CSS.gap $ CSS.em 0.2
             ]
         ]
-        [ H.button_ [H.onClick ToggleDecklist] [hideIcon $ m ^. showDecklist],
+        [ H.button_ [H.onClick ToggleDecklist, CSS.style_ [CSS.display $ if null (m ^. deck) then "none" else "inline-block"]] [hideIcon $ m ^. showDecklist],
           H.button_ [H.onClick NewCard] [H.img_ [P.src_ "assets/icons/square-plus.svg"]],
           H.div_
             [ CSS.style_
@@ -74,13 +75,13 @@ view m =
           H.div_
             [ CSS.style_ [CSS.gridRowStart "2", CSS.gridColumnStart "3"]
             ]
-            [ if m ^. currentCardIndex == -1 then M.text "No card selected" else "card" M.+> cardView {M.bindings = [currentCard M.<--> M._id]}
+            [ if null (m ^. deck) then M.text "" else "card" M.+> cardView {M.bindings = [currentCard M.<--> M._id]}
             ]
         ]
 
 cardView :: M.Component DeckModel CardModel CardAction
 cardView =
-  let familyInput = M.component "" M.put $ \f -> H.input_ [H.onChange id]
+  let familyInput = M.component "" M.put $ \f -> H.input_ [H.onChange id, P.value_ f]
       snailIcon m =
         H.img_
           [ P.src_ ("assets/icons/" <> (if m ^. editingSpell then "shell" else "snail") <> ".svg")
@@ -198,7 +199,7 @@ conditionView =
               [ "searchType" M.+> searchTypeView {M.bindings = [conditionSearchType M.<--> M._id]}
                 | (m ^. currentCondition) == Destroy
               ],
-              [ "youMay" M.+> conditionView {M.bindings = [wrapLens subCondition M.<--> M._id]}
+              [ "youMay" M.+> conditionView {M.bindings = [subCondition % wrapLens M.<--> M._id]}
                 | (m ^. currentCondition) == YouMay
               ],
               [ "choose" M.+> (listView (def {isNonempty = True}) conditionView) {M.bindings = [subConditions M.<--> M._id]}
@@ -252,7 +253,7 @@ effectsView =
               [ toggle EToggle1 (toggle1Txt m)
                 | m ^. currentEffect `elem` [DestroyEnemy, DealDamage, Attack, Search, Buff]
               ],
-              [ "optional" M.+> effectsView {M.bindings = [wrapLens subEffect M.<--> M._id]}
+              [ "optional" M.+> effectsView {M.bindings = [subEffect % wrapLens M.<--> M._id]}
                 | (m ^. currentEffect) == Optional
               ],
               ["choose" M.+> (listView (def {isNonempty = True}) effectsView) {M.bindings = [subEffects M.<--> M._id]} | m ^. currentEffect == ChooseEffect],
@@ -292,7 +293,7 @@ conditionsListSettings = def {backgroundColor = CSS.hex "ff7f7f"}
 listView :: (Eq m, Default m) => ListSettings -> M.Component [m] m a -> M.Component parent [m] (ListAction a)
 listView settings child = M.component [] update view
   where
-    update NewItem = M.modify (def :)
+    update NewItem = M.modify (++ [def])
     update (Delete i) = do
       M.io_ $ M.consoleLog ("Deleting " <> M.toMisoString i)
       M.modify $ \xs -> take i xs ++ drop (i + 1) xs
@@ -301,7 +302,7 @@ listView settings child = M.component [] update view
           wrap i item =
             H.span_
               [M.key_ i, CSS.style_ [CSS.display "block"]]
-              [ M.toMisoString i M.+> child {M.bindings = [wrapLens (at i) M.<--> M._id]},
+              [ M.toMisoString i M.+> child {M.bindings = [at i % wrapLens M.<--> M._id]},
                 H.button_
                   [ H.onClick $ trace ("Deleting " ++ show i) (Delete i),
                     CSS.style_ [CSS.display "none" | isNonempty settings && i == 0]

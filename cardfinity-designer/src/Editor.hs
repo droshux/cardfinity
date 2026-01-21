@@ -30,5 +30,5 @@ currentCard =
         | otherwise = Just $ xs !! i
       get m = ix (m M.^. deck) (m M.^. currentCardIndex)
       set d Nothing = d
-      set d (Just m) = (deck % wrapLens (at (d M.^. currentCardIndex)) % M._2 M..~ m) d
+      set d (Just m) = (deck % at (d M.^. currentCardIndex) % wrapLens % M._2 M..~ m) d
    in M.lens (fmap snd . get) set

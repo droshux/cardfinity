@@ -26,7 +26,7 @@ optim:
 	wasm-tools strip -o cardfinity-designer/public/cardfinity-designer.wasm cardfinity-designer/public/cardfinity-designer.wasm
 
 serve:
-	http-server public
+	http-server cardfinity-designer/public
 
 clean:
 	rm -rf dist-newstyle cardfinity-designer/public

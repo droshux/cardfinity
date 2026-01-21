@@ -427,14 +427,3 @@ instance M.FromMisoString Natural where
 
 instance M.FromMisoString Integer where
   fromMisoStringEither = fmap integerFromInt . fromMisoStringEither
-
-instance M.At [a] where
-  type Index [a] = Int
-  type IxValue [a] = a
-  at :: M.Index [a] -> Lens [a] (Maybe (M.IxValue [a]))
-  at i =
-    let set xs (Just a)
-          | length xs > i = xs
-          | otherwise = take i xs ++ [a] ++ drop (i + 1) xs
-        set xs Nothing = xs
-     in lens (!? i) set
