@@ -4,6 +4,12 @@ version: 0.1.0.0
 synopsis: UI for designing Cardfinity decks
 category: Game
 
+flag interactive
+    default:
+        False
+    manual:
+        True
+
 common wasm
     if arch(wasm32)
         ghc-options:
@@ -12,6 +18,9 @@ common wasm
             "-optl-Wl,--export=hs_start"
         cpp-options:
             -DWASM
+        if flag (interactive)
+            cpp-options:
+                -DINTERACTIVE
 
 executable cardfinity-designer
     import: 
