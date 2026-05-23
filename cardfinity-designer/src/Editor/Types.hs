@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
 
 module Editor.Types
   ( SearchTypeID (..),
@@ -19,19 +18,21 @@ module Editor.Types
     searchTypeText,
     ConditionModel,
     currentCondition,
+    currentCondition',
     conditionCount,
     conditionToggle,
     conditionToggle2,
     conditionSearchType,
-    subCondition,
+    conditionOptional,
     subConditions,
     currentEffect,
+    currentEffect',
     EffectModel,
     effectCount,
     effectCountInt,
     effectToggle,
     effectToggle2,
-    subEffect,
+    effectOptional,
     subEffects,
     effectSearchType,
     effectCondition,
@@ -57,6 +58,8 @@ module Editor.Types
     currentCardIndex,
     showDecklist,
     Default (..),
+    applyOptionalCond,
+    applyOptionalEff,
   )
 where
 
@@ -145,7 +148,7 @@ data EffectAction
   | EToggle1
   | EToggle2
   | EffSearchType SearchTypeAction
-  | SubEffAction EffectAction
+  | ESetOptional EffectID
   | SubEffsAction (ListAction EffectAction)
   | EffCondAction ConditionAction
 
@@ -155,7 +158,7 @@ data ConditionAction
   | CToggle1
   | CToggle2
   | CondSearchType SearchTypeAction
-  | SubCondAction ConditionAction
+  | CSetOptional ConditionID
   | SubCondsAction (ListAction ConditionAction)
 
 data SearchTypeAction = SetSearchType SearchTypeID | SetText M.MisoString
@@ -210,10 +213,25 @@ data ConditionModel = ConditionModel
     _conditionToggle :: Bool,
     _conditionToggle2 :: Bool,
     _conditionSearchType :: SearchTypeModel,
-    _subCondition :: Maybe ConditionModel,
+    _conditionOptional :: ConditionID,
     _subConditions :: [ConditionModel]
   }
   deriving (Eq, Ord, Show)
+
+applyOptionalCond :: ConditionModel -> ConditionModel
+applyOptionalCond m = m {_currentCondition = _conditionOptional m}
+
+currentCondition' :: Lens ConditionModel ConditionID
+currentCondition' =
+  let get m =
+        if _currentCondition m == YouMay
+          then _conditionOptional m
+          else _currentCondition m
+      set m id =
+        if _currentCondition m == YouMay
+          then m {_conditionOptional = id}
+          else m {_currentCondition = id}
+   in lens get set
 
 $(makeLenses ''ConditionModel)
 
@@ -223,12 +241,27 @@ data EffectModel = EffectModel
     _effectCountInt :: Integer,
     _effectToggle :: Bool,
     _effectToggle2 :: Bool,
-    _subEffect :: Maybe EffectModel,
+    _effectOptional :: EffectID,
     _subEffects :: [EffectModel],
     _effectSearchType :: SearchTypeModel,
     _effectCondition :: ConditionModel
   }
   deriving (Eq, Show)
+
+applyOptionalEff :: EffectModel -> EffectModel
+applyOptionalEff m = m {_currentEffect = _effectOptional m}
+
+currentEffect' :: Lens EffectModel EffectID
+currentEffect' =
+  let get m =
+        if _currentEffect m == Optional
+          then _effectOptional m
+          else _currentEffect m
+      set m id =
+        if _currentEffect m == Optional
+          then m {_effectOptional = id}
+          else m {_currentEffect = id}
+   in lens get set
 
 $(makeLenses ''EffectModel)
 
@@ -331,7 +364,7 @@ instance Default ConditionModel where
         _conditionToggle = False,
         _conditionToggle2 = False,
         _conditionSearchType = def,
-        _subCondition = Nothing,
+        _conditionOptional = DiscardSelf,
         _subConditions = []
       }
 
@@ -343,7 +376,7 @@ instance Default EffectModel where
         _effectCountInt = 0,
         _effectToggle = False,
         _effectToggle2 = False,
-        _subEffect = Nothing,
+        _effectOptional = DiscardEnemy,
         _subEffects = [],
         _effectSearchType = def,
         _effectCondition = def

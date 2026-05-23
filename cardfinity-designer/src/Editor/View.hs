@@ -133,7 +133,7 @@ spellView act m =
         ],
       H.span_
         []
-        [ options (act . SetTrigger) (m ^. spellTrigger),
+        [ options (const True) (act . SetTrigger) (m ^. spellTrigger),
           Shared.triggerIcon (m ^. spellTrigger),
           listView (conditionsListSettings {addButtonText = "+Casting Condition"}) (act . ActCond) conditionView (m ^. castingConditions),
           listView (def {backgroundColor = CSS.hex "7fff7f", addButtonText = "+ Effect"}) (act . ActEff) effectView (m ^. spellEffects)
@@ -172,25 +172,24 @@ conditionView act m =
   H.span_
     []
     $ concat
-      [ [options (act . SetCondition) (m ^. currentCondition)],
+      [ [options (const True) (act . SetCondition) (m ^. currentCondition)],
+        [ options (/= YouMay) (act . CSetOptional) (m ^. conditionOptional)
+        | m ^. currentCondition == YouMay
+        ],
         [ count
-        | m ^. currentCondition `elem` [Destroy, TakeDamage, HealOpponent, Pop]
+        | m ^. currentCondition' `elem` [Destroy, TakeDamage, HealOpponent, Pop]
         ],
         [ toggle (act CToggle1) (toggle1Txt m)
-        | m ^. currentCondition `elem` [Destroy, TakeDamage]
+        | m ^. currentCondition' `elem` [Destroy, TakeDamage]
         ],
         [ toggle (act CToggle2) (if m ^. conditionToggle2 then "Field" else "Hand")
-        | m ^. currentCondition == Destroy
+        | m ^. currentCondition' == Destroy
         ],
         [ searchTypeView (act . CondSearchType) (m ^. conditionSearchType)
-        | m ^. currentCondition == Destroy
-        ],
-        [ conditionView (act . SubCondAction) m'
-        | m ^. currentCondition == YouMay,
-          m' <- maybeToList (m ^. subCondition)
+        | m ^. currentCondition' == Destroy
         ],
         [ listView (def {isNonempty = True}) (act . SubCondsAction) conditionView (m ^. subConditions)
-        | m ^. currentCondition == Choose
+        | m ^. currentCondition' == Choose
         ]
       ]
   where
@@ -202,7 +201,7 @@ conditionView act m =
           P.value_ (M.toMisoString $ show $ m ^. conditionCount)
         ]
     toggle t s = H.button_ [H.onClick t] [M.text s]
-    toggle1Txt m = case (m ^. currentCondition, m ^. conditionToggle) of
+    toggle1Txt m = case (m ^. currentCondition', m ^. conditionToggle) of
       (Destroy, True) -> "Banish"
       (Destroy, False) -> "Discard"
       (TakeDamage, True) -> "True Damage"
@@ -214,31 +213,30 @@ effectView act m =
   H.span_
     []
     $ concat
-      [ [options (act . SetEffect) (m ^. currentEffect)],
+      [ [options (const True) (act . SetEffect) (m ^. currentEffect)],
+        [ options (/= Optional) (act . ESetOptional) (m ^. effectOptional)
+        | m ^. currentEffect == Optional
+        ],
         [ count
-        | m ^. currentEffect `elem` [DestroyEnemy, DealDamage, Heal, Draw, Peek, Scry]
+        | m ^. currentEffect' `elem` [DestroyEnemy, DealDamage, Heal, Draw, Peek, Scry]
         ],
         [ countInt
-        | m ^. currentEffect == Buff
+        | m ^. currentEffect' == Buff
         ],
         [ toggle (act EToggle2) (if m ^. effectToggle2 then "Field" else "Hand")
-        | m ^. currentEffect == DestroyEnemy
+        | m ^. currentEffect' == DestroyEnemy
         ],
         [ toggle (act EToggle1) (toggle1Txt m)
-        | m ^. currentEffect `elem` [DestroyEnemy, DealDamage, Attack, Search, Buff]
-        ],
-        [ effectView (act . SubEffAction) m'
-        | m ^. currentEffect == Optional,
-          m' <- maybeToList (m ^. subEffect)
+        | m ^. currentEffect' `elem` [DestroyEnemy, DealDamage, Attack, Search, Buff]
         ],
         [ listView (def {isNonempty = True}) (act . SubEffsAction) effectView (m ^. subEffects)
-        | m ^. currentEffect == ChooseEffect
+        | m ^. currentEffect' == ChooseEffect
         ],
         [ searchTypeView (act . EffSearchType) (m ^. effectSearchType)
-        | m ^. currentEffect `elem` [DestroyEnemy, Play, Attach, Search]
+        | m ^. currentEffect' `elem` [DestroyEnemy, Play, Attach, Search]
         ],
         [ conditionView (act . EffCondAction) (m ^. effectCondition)
-        | m ^. currentEffect == AsEffect
+        | m ^. currentEffect' == AsEffect
         ]
       ]
   where
@@ -256,7 +254,7 @@ effectView act m =
           -- P.value_ (M.toMisoString $ show $ m ^. effectCountInt)
         ]
     toggle t s = H.button_ [H.onClick t] [M.text s]
-    toggle1Txt m = case (m ^. currentEffect, m ^. effectToggle) of
+    toggle1Txt m = case (m ^. currentEffect', m ^. effectToggle) of
       (DestroyEnemy, True) -> "Banish"
       (DestroyEnemy, False) -> "Discard"
       (DealDamage, True) -> "True Damage"
@@ -273,7 +271,7 @@ searchTypeView :: (SearchTypeAction -> DeckAction) -> SearchTypeModel -> M.View 
 searchTypeView act m =
   H.span_
     []
-    [ options (act . SetSearchType) (m ^. searchTypeID),
+    [ options (const True) (act . SetSearchType) (m ^. searchTypeID),
       H.input_
         [ H.onChange (act . SetText),
           P.value_ (m ^. searchTypeText),
@@ -323,11 +321,11 @@ listView settings promote view xs =
         ]
 
 class (Enum a, M.ToMisoString a, M.FromMisoString a, Show a) => Options a where
-  options :: (a -> DeckAction) -> a -> M.View DeckModel DeckAction
-  options act a =
+  options :: (a -> Bool) -> (a -> DeckAction) -> a -> M.View DeckModel DeckAction
+  options f act a =
     let option :: Int -> a -> M.View model action
         option i a = H.option_ [P.value_ (M.toMisoString a), M.key_ i] [M.text $ M.toMisoString $ show a]
-        opts = zipWith option [0 ..] $ enumFrom $ toEnum 0
+        opts = zipWith option [0 ..] $ filter f $ enumFrom $ toEnum 0
      in H.select_ [H.onChange (act . M.fromMisoString), P.value_ $ M.toMisoString a] opts
 
 instance Options Trigger

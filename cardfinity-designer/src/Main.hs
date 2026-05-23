@@ -46,15 +46,14 @@ view m =
 
 currentCard m c = flip Editor.cardFromModel c $ fromIntegral $ m ^. editor Editor.% Editor.currentCardIndex
 
-#ifdef WASM
-#ifndef INTERACTIVE
-foreign export javascript "hs_start" main :: IO ()
-#endif
-#endif
-
 main :: IO ()
 #ifdef INTERACTIVE
 main = M.reload M.defaultEvents app
 #else
 main = M.startApp M.defaultEvents app
+#endif
+#ifdef WASM
+#ifndef INTERACTIVE
+foreign export javascript "hs_start" main :: IO ()
+#endif
 #endif

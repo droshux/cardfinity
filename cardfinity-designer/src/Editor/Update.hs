@@ -46,7 +46,7 @@ updateEffect (ESetCountInt i) = effectCountInt .~ i
 updateEffect EToggle1 = effectToggle %~ not
 updateEffect EToggle2 = effectToggle2 %~ not
 updateEffect (EffSearchType a) = effectSearchType %~ updateSearchType a
-updateEffect (SubEffAction a) = subEffect %~ fmap (updateEffect a)
+updateEffect (ESetOptional id) = effectOptional .~ id
 updateEffect (SubEffsAction a) = subEffects %~ updateList updateEffect a
 updateEffect (EffCondAction a) = effectCondition %~ updateCondition a
 
@@ -56,7 +56,7 @@ updateCondition (CSetCount n) = conditionCount .~ n
 updateCondition CToggle1 = conditionToggle %~ not
 updateCondition CToggle2 = conditionToggle2 %~ not
 updateCondition (CondSearchType a) = conditionSearchType %~ updateSearchType a
-updateCondition (SubCondAction a) = subCondition %~ fmap (updateCondition a)
+updateCondition (CSetOptional id) = conditionOptional .~ id
 updateCondition (SubCondsAction a) = subConditions %~ updateList updateCondition a
 
 updateSearchType :: SearchTypeAction -> SearchTypeModel -> SearchTypeModel

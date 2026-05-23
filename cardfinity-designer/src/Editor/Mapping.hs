@@ -49,7 +49,7 @@ conditionFromModel m =
     TakeDamage -> CF.TakeDamage <$> (^. conditionCount) <*> (^. conditionToggle)
     HealOpponent -> CF.HealOpponent . (^. conditionCount)
     Pop -> CF.Pop . (^. conditionCount)
-    YouMay -> CF.YouMay . maybe CF.DiscardSelf conditionFromModel . (^. subCondition)
+    YouMay -> CF.YouMay . conditionFromModel . applyOptionalCond
     Choose -> CF.Choose . fromMaybe (CF.DiscardSelf NE.:| []) . toNE . map conditionFromModel . (^. subConditions)
 
 effectFromModel :: EffectModel -> CF.Effect
@@ -63,7 +63,7 @@ effectFromModel m =
     Draw -> CF.Draw . (^. effectCount)
     Peek -> CF.Peek . (^. effectCount)
     Scry -> CF.Scry . (^. effectCount)
-    Optional -> CF.Optional . maybe CF.DiscardEnemy effectFromModel . (^. subEffect)
+    Optional -> CF.Optional . effectFromModel . applyOptionalEff
     ChooseEffect -> CF.ChooseEffect . fromMaybe (CF.DiscardEnemy NE.:| []) . toNE . map effectFromModel . (^. subEffects)
     Attack -> CF.Attack . (^. effectToggle)
     Play -> CF.Play . stFromModel . (^. effectSearchType)
