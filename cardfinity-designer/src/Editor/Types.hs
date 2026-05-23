@@ -61,8 +61,10 @@ module Editor.Types
 where
 
 import Data.List ((!?))
+import GHC.InfoProv (whereFrom)
 import GHC.Natural (Natural, naturalFromInteger)
 import GHC.Num (integerFromInt)
+import Miso (DOMRef)
 import Miso qualified as M
 import Miso.Lens (Lens, lens, (^.))
 import Miso.Lens qualified as M
@@ -110,10 +112,55 @@ data EffectID
 
 data DeckAction
   = NewCard
-  | SetCopies Int Natural
+  | SetCopies Int Int
   | ViewCard Int
   | DeleteCard Int
   | ToggleDecklist
+  | ActCard Int CardAction
+
+data CardAction
+  = ToggleCardStats
+  | SetImage M.MisoString
+  | ActSpell SpellAction
+  | ActMonster MonsterAction
+  | ActFamilies (ListAction M.MisoString)
+
+data SpellAction
+  = SetSpellName M.MisoString
+  | SetTrigger Trigger
+  | ActCond (ListAction ConditionAction)
+  | ActEff (ListAction EffectAction)
+
+data MonsterAction
+  = SetMonsterName M.MisoString
+  | SetPower Natural
+  | ToggleTapped
+  | ActSummonCond (ListAction ConditionAction)
+  | ActSpells (ListAction SpellAction)
+
+data EffectAction
+  = SetEffect EffectID
+  | ESetCount Natural
+  | ESetCountInt Integer
+  | EToggle1
+  | EToggle2
+  | EffSearchType SearchTypeAction
+  | SubEffAction EffectAction
+  | SubEffsAction (ListAction EffectAction)
+  | EffCondAction ConditionAction
+
+data ConditionAction
+  = SetCondition ConditionID
+  | CSetCount Natural
+  | CToggle1
+  | CToggle2
+  | CondSearchType SearchTypeAction
+  | SubCondAction ConditionAction
+  | SubCondsAction (ListAction ConditionAction)
+
+data SearchTypeAction = SetSearchType SearchTypeID | SetText M.MisoString
+
+data ListAction a = NewItem | Delete Int | Act Int a
 
 instance Show SearchTypeID where
   show ForCard = "Card"
@@ -148,29 +195,6 @@ instance Show EffectID where
   show Attach = "Attach"
   show Buff = "Buff"
   show AsEffect = "As Effect"
-
-data CardAction = ToggleCardStats | SetImage M.MisoString
-
-data SpellAction = SetSpellName M.MisoString | SetTrigger Trigger
-
-data MonsterAction = SetMonsterName M.MisoString | SetPower Natural | ToggleTapped
-
-data EffectAction
-  = SetEffect EffectID
-  | ESetCount Natural
-  | SetCountInt Integer
-  | EToggle1
-  | EToggle2
-
-data ConditionAction
-  = SetCondition ConditionID
-  | CSetCount Natural
-  | CToggle1
-  | CToggle2
-
-data SearchTypeAction = SetSearchType SearchTypeID | SetText M.MisoString
-
-data ListAction a = NewItem | Delete Int
 
 data SearchTypeModel = SearchTypeModel
   { _searchTypeID :: SearchTypeID,
@@ -255,7 +279,7 @@ class Default a where
 instance Default DeckModel where
   def =
     DeckModel
-      { _deck = [(0, def)],
+      { _deck = [(1, def)],
         _currentCardIndex = 0,
         _showDecklist = True
       }
@@ -267,7 +291,7 @@ instance Default CardModel where
         _monsterStats = def,
         _families = [],
         _editingSpell = True,
-        _imageUrl = ""
+        _imageUrl = def
       }
 
 instance Default (Int, CardModel) where
@@ -276,7 +300,7 @@ instance Default (Int, CardModel) where
 instance Default MonsterModel where
   def =
     MonsterModel
-      { _monsterName = "",
+      { _monsterName = def,
         _monsterSpells = [],
         _summoningConditions = [],
         _combatPower = 0,
@@ -286,7 +310,7 @@ instance Default MonsterModel where
 instance Default SpellModel where
   def =
     SpellModel
-      { _spellName = "",
+      { _spellName = def,
         _spellTrigger = OnPlay,
         _castingConditions = [],
         _spellEffects = []
@@ -296,7 +320,7 @@ instance Default SearchTypeModel where
   def =
     SearchTypeModel
       { _searchTypeID = ForCard,
-        _searchTypeText = ""
+        _searchTypeText = def
       }
 
 instance Default ConditionModel where
