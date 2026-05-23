@@ -26,6 +26,7 @@ view _ _ m =
         [ CSS.style_
             [ CSS.display $ if m ^. showDecklist then "grid" else "block",
               CSS.gridTemplateColumns "auto auto 1fr",
+              CSS.gridTemplateRows "min-content",
               CSS.gap $ CSS.em 0.2
             ]
         ]
@@ -55,7 +56,7 @@ view _ _ m =
                   CSS.width "fit-content"
                 ]
             ]
-            [cardView (ActCard index) (snd $ (m ^. deck) !! index)]
+            (maybe [] ((: []) . cardView (ActCard index) . snd) (m ^. deck % at index))
         ]
   where
     item i (copies, m') =

@@ -8,6 +8,7 @@ import CardView qualified
 import Editor qualified
 import GHC.Num (integerToNatural)
 import Miso qualified as M
+import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
 import Miso.Lens (Lens, at, lens, _id)
 import Miso.Lens qualified as M
@@ -44,20 +45,30 @@ update (SetEditorState state) = do
 
 view _ _ m =
   H.div_
-    []
+    [ CSS.style_
+        [ CSS.display "grid",
+          CSS.gridTemplateColumns "auto auto",
+          CSS.gridTemplateRows "min-content max-content"
+        ]
+    ]
     [ M.text (m M.^. errMsg), -- TODO: Make error stand out
       case m M.^. currentCard of
         Nothing -> H.p_ [] [M.text "No Card Selected"]
         Just card ->
-          H.div_
-            []
-            [ H.pre_
-                []
-                [ M.text $ M.toMisoString $ show card
-                ],
-              CardView.card False (m M.^. deck) card
-            ],
-      "editor" M.+> Editor.editor
+          H.pre_
+            [ CSS.style_
+                [ CSS.whiteSpace "pre-wrap",
+                  CSS.maxWidth "100%"
+                ]
+            ]
+            [M.text $ M.toMisoString $ show card],
+      case m M.^. currentCard of
+        Nothing -> H.div_ [] []
+        Just card -> CardView.card False (m M.^. deck) card,
+      H.div_
+        [ CSS.style_ [("grid-row", "1 / span2")]
+        ]
+        ["editor" M.+> Editor.editor]
     ]
 
 main :: IO ()
