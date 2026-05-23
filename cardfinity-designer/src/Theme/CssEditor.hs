@@ -16,9 +16,9 @@ cssEditor =
   (M.component "" update view)
     { M.scripts =
         -- https://github.com/A99US/CM6-Browser-Wrapper
-        [ M.Src "https://code.jquery.com/jquery-3.4.1.min.js",
-          M.Src "src/Theme/cssEditor.js",
-          M.Src "https://a99us.github.io/CM6-Browser-Wrapper/cm6-browser-wrapper.min.js"
+        [ M.Src "https://code.jquery.com/jquery-3.4.1.min.js" False,
+          M.Src "src/Theme/cssEditor.js" False,
+          M.Src "https://a99us.github.io/CM6-Browser-Wrapper/cm6-browser-wrapper.min.js" False
         ]
     }
 

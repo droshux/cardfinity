@@ -54,7 +54,7 @@ foreign export javascript "hs_start" main :: IO ()
 
 main :: IO ()
 #ifdef INTERACTIVE
-main = M.reload (M.startComponent M.defaultEvents app)
+main = M.reload M.defaultEvents app
 #else
-main = M.run (M.startComponent M.defaultEvents app)
+main = M.startApp M.defaultEvents app
 #endif
