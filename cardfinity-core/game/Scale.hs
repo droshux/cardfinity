@@ -1,5 +1,6 @@
 module Scale where
 
+import AtomDisplay ()
 import Atoms
 import Control.Monad (unless, when)
 import Control.Monad.Except (ExceptT, runExceptT, throwError)

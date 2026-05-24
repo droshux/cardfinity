@@ -2,46 +2,79 @@
 
 module ShowCard () where
 
+import AtomDisplay ()
 import Data.Foldable (Foldable (toList))
 import Optics.Operators ((^.))
 import Types
-import Utils (collapse, showFold)
+import Utils (collapse, delimFoldMap, show'Fold)
 
-instance Show Spell where
-  show spell = concat [show (spell ^. spellName), " ", show (spell ^. spellTrigger), if null (spell ^. castingConditions) then ": " else scs, ses]
-    where
-      scs = " " ++ showFold ", " (toList $ spell ^. castingConditions) ++ ": "
-      ses = showFold ", " $ spell ^. effects
+instance Display Spell where
+  unparse c s =
+    concat
+      [ show (s ^. spellName),
+        " ",
+        unparse c (s ^. spellTrigger),
+        " ",
+        delimFoldMap (unparse c) ", " $ s ^. castingConditions,
+        ": ",
+        delimFoldMap (unparse c) ", " $ s ^. effects
+      ]
+  show' s =
+    mconcat
+      [ CardName (s ^. spellName),
+        txt " ",
+        Trigger (s ^. spellTrigger),
+        if null (s ^. castingConditions)
+          then mempty
+          else show'Fold (txt ", ") (s ^. castingConditions),
+        txt ": ",
+        show'Fold (txt ", ") (s ^. effects)
+      ]
 
-instance Show Monster where
-  show monster =
-    concat $
-      show (monster ^. monsterName)
-        : ( if null (monster ^. summoningConditions)
-              then []
-              else
-                [ "\n",
-                  showFold ", " $ toList $ monster ^. summoningConditions,
-                  ":"
-                ]
-          )
-        ++ map (\(s, c) -> "\n\t" ++ (if c > 1 then show c ++ "x " else "") ++ show s) (collapse $ monster ^. monsterSpells)
-        ++ [ "\n\tPower ",
-             show $ monster ^. combatPower,
-             if monster ^. isTapped then "\t[Tapped]" else ""
-           ]
+instance Show Spell where show = show . show'
 
-instance Show CardStats where
-  show = cardStatsElim show show
+instance Display Monster where
+  unparse c m =
+    concat
+      [ show (m ^. monsterName),
+        ":\n",
+        delimFoldMap id (if c then "," else ", ") $ map (unparse c) $ toList $ m ^. summoningConditions,
+        "\n",
+        delimFoldMap id "\n" $ map (unparse c) $ toList $ m ^. monsterSpells,
+        "\npower",
+        if c then " " else ": ",
+        show (m ^. combatPower),
+        "\n",
+        if m ^. isTapped then "tapped" else ""
+      ]
+  show' m =
+    mconcat
+      [ CardName (m ^. monsterName),
+        if null (m ^. summoningConditions)
+          then mempty
+          else NewLine <> show'Fold (txt ", ") (m ^. summoningConditions) <> txt ":",
+        mconcat $ map (\(c, n) -> NewLine <> Indent <> Copies (show' c) n) $ collapse $ m ^. monsterSpells,
+        NewLine <> Indent <> Keyword "Power" <> txt " " <> num (m ^. combatPower),
+        if m ^. isTapped then txt " " <> Keyword "Tapped" else mempty
+      ]
 
-instance Show Card where
-  show card =
-    concat $
-      show (card ^. cardStats)
-        : if null (card ^. cardFamilies)
-          then []
-          else
-            [ "\n\t(",
-              showFold ", " $ toList $ card ^. cardFamilies,
-              ")"
-            ]
+instance Show Monster where show = show . show'
+
+instance Display CardStats where
+  unparse c = cardStatsElim (unparse c) (unparse c)
+  show' = cardStatsElim show' show'
+
+instance Show CardStats where show = show . show'
+
+instance Display Card where
+  unparse c card =
+    unparse c (card ^. cardStats)
+      ++ "\n("
+      ++ delimFoldMap show ", " (card ^. cardFamilies)
+      ++ ")"
+  show' c =
+    show' (c ^. cardStats)
+      <> NewLine
+      <> delimFoldMap CardFamily (txt ", ") (c ^. cardFamilies)
+
+instance Show Card where show = show . show'

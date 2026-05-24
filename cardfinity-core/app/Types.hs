@@ -48,8 +48,12 @@ module Types
     player2State,
     playerLens,
     Display (..),
+    CardText (..),
+    txt,
+    num,
     isMonsterOnly,
     isReaction,
+    firstText,
   )
 where
 
@@ -57,6 +61,7 @@ import Atoms (Condition, Effect)
 import Control.Monad.Except
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.State
+import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Maybe (isJust)
 import Data.Set.Ordered qualified as OS (OSet)
 import GHC.Natural (Natural)
@@ -230,6 +235,75 @@ type GameOpWithCardContext = ReaderT Card GameOperation
 cardElim' :: (Spell -> GameOpWithCardContext a) -> (Monster -> GameOpWithCardContext a) -> Card -> GameOperation a
 cardElim' fs fm c = cardElim (flip runReaderT c . fs) (flip runReaderT c . fm) c
 
-class (Show a) => Display a where
+class Display a where
   -- Concise or not
   unparse :: Bool -> a -> String
+  show' :: a -> CardText
+
+-- A really simple markup AST that can be used for HTML, PDF etc
+data CardText
+  = Text String
+  | Number Integer
+  | Trigger Trigger
+  | CardName String
+  | CardFamily String
+  | Keyword String
+  | Branch CardText CardText
+  | List (NonEmpty CardText)
+  | NewLine
+  | Indent
+  | Copies CardText Natural
+
+-- Shorthand for Text
+txt :: String -> CardText
+txt = Text
+
+num :: (Integral a) => a -> CardText
+num = Number . toInteger
+
+firstText :: CardText -> String
+firstText (Text s) = s
+firstText (Number n) = show n
+firstText (Trigger t) = show t
+firstText (CardName s) = s
+firstText (CardFamily f) = f
+firstText (Keyword w) = w
+firstText (Branch t _) = firstText t
+firstText (List (x :| _)) = firstText x
+firstText NewLine = show NewLine
+firstText Indent = show Indent
+firstText (Copies c _) = firstText c
+
+instance Show CardText where
+  show (Text str) = str
+  show (Number n) = show n
+  show (Trigger t) = show t
+  show (CardName str) = str
+  show (CardFamily str) = str
+  show (Keyword str) = str
+  show (Branch a b) = show a <> show b
+  show (List xs) = concatMap show xs
+  show NewLine = "\n"
+  show Indent = "\t"
+  show (Copies c n) = (if n > 1 then show n ++ "x " else "") ++ show c
+
+instance Semigroup CardText where
+  (<>) = Branch
+
+instance Monoid CardText where
+  mempty = Text ""
+
+instance Display Trigger where
+  unparse c t =
+    let hasOn = c && notElem t [Infinity, Counter]
+     in (if hasOn then "on " else "") ++ case t of
+          OnPlay -> "play"
+          OnDraw -> "draw"
+          OnDiscard -> "discard"
+          OnDefeat -> "defeat"
+          OnVictory -> "victory"
+          OnTap -> "tap"
+          OnAttach -> "attach"
+          Infinity -> "infinity"
+          Counter -> "counterspell"
+  show' = Trigger

@@ -9,6 +9,7 @@ import Data.Functor ((<&>))
 import Data.Map (assocs, fromListWith)
 import GHC.Natural (Natural, naturalToInteger)
 import GHC.Num (integerToInt)
+import Types (CardText, Display (..))
 
 natToInt :: Natural -> Int
 natToInt = integerToInt . naturalToInteger
@@ -25,6 +26,9 @@ delimFoldMap fun delim = helper fun delim . Data.Foldable.toList
 
 showFold :: (Show a, Foldable t) => String -> t a -> String
 showFold = delimFoldMap show
+
+show'Fold :: (Display a, Foldable t) => CardText -> t a -> CardText
+show'Fold = delimFoldMap show'
 
 whenJust :: (Monad m) => (a -> m ()) -> Maybe a -> m ()
 whenJust _ Nothing = return ()
@@ -51,5 +55,5 @@ addInteger y x
   | y < 0 = x - fromIntegral y
   | otherwise = x + fromIntegral y
 
-collapse :: (Ord a) => [a] -> [(a, Int)]
+collapse :: (Ord a) => [a] -> [(a, Natural)]
 collapse = assocs . fromListWith (+) . map (,1)
