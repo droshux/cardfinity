@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module ShowCard () where
+module ShowCard (show'Spell) where
 
 import AtomDisplay ()
 import Data.Foldable (Foldable (toList))
@@ -19,17 +19,20 @@ instance Display Spell where
         ": ",
         delimFoldMap (unparse c) ", " $ s ^. effects
       ]
-  show' s =
-    mconcat
-      [ CardName (s ^. spellName),
-        txt " ",
-        Trigger (s ^. spellTrigger),
-        if null (s ^. castingConditions)
-          then mempty
-          else show'Fold (txt ", ") (s ^. castingConditions),
-        txt ": ",
-        show'Fold (txt ", ") (s ^. effects)
-      ]
+  show' = show'Spell True
+
+show'Spell :: Bool -> Spell -> CardText
+show'Spell showName s =
+  mconcat
+    [ if showName then CardName (s ^. spellName) <> txt " " else mempty,
+      txt " ",
+      Trigger (s ^. spellTrigger),
+      if null (s ^. castingConditions)
+        then mempty
+        else txt " " <> show'Fold (txt ", ") (s ^. castingConditions),
+      txt ": ",
+      show'Fold (txt ", ") (s ^. effects)
+    ]
 
 instance Show Spell where show = show . show'
 

@@ -55,7 +55,7 @@ common warnings
     ghc-options: -Wall
 
 library
-    exposed-modules: Types, Atoms, Scale, ShowCard
+    exposed-modules: Types, Atoms, Scale, ShowCard, AtomDisplay, Utils
 
     build-depends:    
       base >=4.19.2.0,
@@ -82,9 +82,7 @@ library
 
 
     other-modules:
-      Utils
       GameUtils
-      AtomDisplay
 
     -- Base language which the package is written in.
     default-language: GHC2021
