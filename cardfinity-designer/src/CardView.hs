@@ -16,7 +16,7 @@ import Scale (runScale)
 import Shared qualified
 import Types qualified as CF
 
-card :: Bool -> [CF.Card] -> CF.Card -> M.View parent action
+card :: Bool -> [CF.Card] -> CF.Card -> M.View model action
 card printMode deck c =
   H.div_
     [ CSS.style_

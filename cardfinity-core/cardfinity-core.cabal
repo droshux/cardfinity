@@ -84,6 +84,7 @@ library
     other-modules:
       Utils
       GameUtils
+      AtomDisplay
 
     -- Base language which the package is written in.
     default-language: GHC2021
