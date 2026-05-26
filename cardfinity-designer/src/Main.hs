@@ -53,6 +53,9 @@ view _ _ m =
     ]
     [ M.text (m M.^. errMsg), -- TODO: Make error stand out
       case m M.^. currentCard of
+        Nothing -> H.div_ [] []
+        Just card -> M.mountWithProps (cvProps card) CardView.cardView,
+      case m M.^. currentCard of
         Nothing -> H.p_ [] [M.text "No Card Selected"]
         Just card ->
           H.pre_
@@ -62,14 +65,13 @@ view _ _ m =
                 ]
             ]
             [M.text $ M.toMisoString $ show card],
-      case m M.^. currentCard of
-        Nothing -> H.div_ [] []
-        Just card -> CardView.card False (m M.^. deck) card,
       H.div_
         [ CSS.style_ [("grid-row", "1 / span2")]
         ]
         ["editor" M.+> Editor.editor]
     ]
+  where
+    cvProps = flip CardView.CardViewProps (m M.^. deck)
 
 main :: IO ()
 #ifdef INTERACTIVE
