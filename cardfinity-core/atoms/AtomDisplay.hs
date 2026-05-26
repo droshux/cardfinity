@@ -65,7 +65,7 @@ instance Display Condition where
   unparse c (Choose cs) = "(" ++ unparseChoiceHelper c cs ++ ")"
   show' (Destroy d f) = show' d <> txt " " <> show' f
   show' DiscardSelf = Keyword "Discard" <> txt " the top card of the deck"
-  show' (TakeDamage n isTrue) = mconcat [txt "Take ", num n, if isTrue then txt " " <> Keyword "True" else mempty, txt " damage"]
+  show' (TakeDamage n isTrue) = mconcat [Keyword "Take ", num n, if isTrue then txt " " <> Keyword "True" else mempty, txt " damage"]
   show' (HealOpponent n) = Keyword "Heal" <> txt " the opponent for " <> num n <> txt " damage"
   show' (Pop n) =
     mconcat

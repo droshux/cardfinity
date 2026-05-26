@@ -278,8 +278,8 @@ instance Show CardText where
   show (Text str) = str
   show (Number n) = show n
   show (Trigger t) = show t
-  show (CardName str) = str
-  show (CardFamily str) = str
+  show (CardName str) = show str
+  show (CardFamily str) = show str
   show (Keyword str) = str
   show (Branch a b) = show a <> show b
   show (List xs) = concatMap show xs
@@ -295,7 +295,7 @@ instance Monoid CardText where
 
 instance Display Trigger where
   unparse c t =
-    let hasOn = c && notElem t [Infinity, Counter]
+    let hasOn = not c && notElem t [Infinity, Counter]
      in (if hasOn then "on " else "") ++ case t of
           OnPlay -> "play"
           OnDraw -> "draw"

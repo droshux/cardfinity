@@ -14,7 +14,7 @@ instance Display Spell where
       [ show (s ^. spellName),
         " ",
         unparse c (s ^. spellTrigger),
-        " ",
+        if null (s ^. castingConditions) then "" else " ",
         delimFoldMap (unparse c) ", " $ s ^. castingConditions,
         ": ",
         delimFoldMap (unparse c) ", " $ s ^. effects
@@ -40,10 +40,9 @@ instance Display Monster where
   unparse c m =
     concat
       [ show (m ^. monsterName),
-        ":\n",
-        delimFoldMap id (if c then "," else ", ") $ map (unparse c) $ toList $ m ^. summoningConditions,
-        "\n",
-        delimFoldMap id "\n" $ map (unparse c) $ toList $ m ^. monsterSpells,
+        ":",
+        if null (m ^. summoningConditions) then "" else '\n' : delimFoldMap id (if c then "," else ", ") (map (unparse c) $ toList $ m ^. summoningConditions),
+        if null (m ^. monsterSpells) then "" else '\n' : delimFoldMap id "\n" (map (unparse c) $ toList $ m ^. monsterSpells),
         "\npower",
         if c then " " else ": ",
         show (m ^. combatPower),
@@ -72,9 +71,13 @@ instance Show CardStats where show = show . show'
 instance Display Card where
   unparse c card =
     unparse c (card ^. cardStats)
-      ++ "\n("
-      ++ delimFoldMap show ", " (card ^. cardFamilies)
-      ++ ")"
+      ++ if null (card ^. cardFamilies)
+        then ""
+        else
+          "\n("
+            ++ delimFoldMap show ", " (card ^. cardFamilies)
+            ++ ")"
+    -- TODO: Image URL
   show' c =
     show' (c ^. cardStats)
       <> NewLine
