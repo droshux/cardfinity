@@ -19,12 +19,14 @@ import Optics.Operators ((^.))
 import Scale (runScale)
 import Shared qualified
 import ShowCard (show'Spell)
+import Theme.Selector (Theme, themeClass)
 import Types qualified as CF
 import Utils qualified as CF
 
 data CardViewProps = CardViewProps
   { _card :: CF.Card,
-    _deck :: [CF.Card]
+    _deck :: [CF.Card],
+    _theme :: Theme
   }
   deriving (Eq)
 
@@ -75,19 +77,29 @@ viewCard props m =
           CSS.paddingLeft $ CSS.pct 2.5,
           CSS.paddingRight $ CSS.pct 2.5,
           CSS.gap $ CSS.pct 0.5
-        ]
+        ],
+      P.className $ themeClass $ props M.^. theme
     ]
     [ -- Top Row
       H.span_
-        []
-        [ H.span_ [CSS.style_ [CSS.marginBottom $ CSS.pct 0.5]] [showScale (props M.^. deck) (props M.^. card)],
+        [P.classes_ ["title-bar"]]
+        [ H.span_
+            [ CSS.style_ [CSS.marginBottom $ CSS.pct 0.5],
+              P.classes_ ["scale"]
+            ]
+            [showScale (props M.^. deck) (props M.^. card)],
           H.span_
-            [ CSS.style_ [CSS.marginLeft $ CSS.em 1]
+            [ CSS.style_ [CSS.marginLeft $ CSS.em 1],
+              P.classes_ ["card-name"]
             ]
             [showName (props M.^. card)]
         ],
       showImage $ props M.^. card ^. CF.cardImageUrl,
-      H.div_ [CSS.style_ [CSS.display "flex", CSS.justifyContent "space-evenly"]] (map (H.em_ [] . (: []) . M.text . M.toMisoString) $ toList $ props M.^. card ^. CF.cardFamilies),
+      H.div_
+        [ CSS.style_ [CSS.display "flex", CSS.justifyContent "space-evenly"],
+          P.classes_ ["families-bar"]
+        ]
+        (map (H.em_ [] . (: []) . M.text . M.toMisoString) $ toList $ props M.^. card ^. CF.cardFamilies),
       CF.cardStatsElim (showSpell False $ m M.^. conciseView) (showMonster $ m M.^. conciseView) (props M.^. card ^. CF.cardStats)
     ]
 
@@ -103,7 +115,8 @@ showImage :: Maybe String -> M.View model action
 showImage mbUrl =
   H.img_
     [ P.src_ $ maybe "assets/icons/snail.svg" M.toMisoString mbUrl, -- TODO: Replace snail with proper placeholder
-      CSS.style_ $ CSS.aspectRatio "2.5 / 2" : [CSS.width "100%" | isNothing mbUrl]
+      CSS.style_ $ CSS.aspectRatio "2.5 / 2" : [CSS.width "100%" | isNothing mbUrl],
+      P.classes_ ["card-image"]
     ]
 
 showText :: Bool -> CF.CardText -> [M.View model action]
@@ -130,7 +143,7 @@ showText c (CF.Copies t n) =
   ]
 
 showSpell :: Bool -> Bool -> CF.Spell -> M.View model action
-showSpell name c = H.span_ [] . showText c . show'Spell name
+showSpell name c = H.span_ [P.classes_ ["spell-text"]] . showText c . show'Spell name
 
 showMonster :: Bool -> CF.Monster -> M.View model action
 showMonster c m =
@@ -140,12 +153,17 @@ showMonster c m =
           CSS.flexDirection "column",
           CSS.justifyContent "space-between",
           CSS.height "100%"
-        ]
+        ],
+      P.classes_ ["monster-text"]
     ]
-    [ H.span_ [] (showText c $ mconcat $ intersperse (CF.txt ", ") $ map CF.show' $ toList $ m ^. CF.summoningConditions),
+    [ H.span_
+        [ P.classes_ ["monster-summoning-conditions"]
+        ]
+        $ showText c conditionsText,
       M.vfrag $ flip map (CF.collapse $ m ^. CF.monsterSpells) $ \(s, n) ->
         H.div_
-          [ CSS.style_ [CSS.display "flex"]
+          [ CSS.style_ [CSS.display "flex"],
+            P.classes_ ["monster-spell"]
           ]
           [ showSpell True c s,
             if n < 2 then M.vfrag [] else H.div_ [] [M.text $ M.toMisoString $ 'x' : show n]
@@ -154,11 +172,14 @@ showMonster c m =
         [ CSS.style_
             [ CSS.display "flex",
               CSS.justifyContent "space-between"
-            ]
+            ],
+          P.classes_ ["monster-bar"]
         ]
         [ if m ^. CF.isTapped then M.text "TODO-ICON" else H.div_ [] [],
           H.div_
-            []
+            [P.classes_ ["monster-power"]]
             [M.text $ M.toMisoString $ show $ m ^. CF.combatPower]
         ]
     ]
+  where
+    conditionsText = mconcat $ intersperse (CF.txt ", ") $ map CF.show' $ toList $ m ^. CF.summoningConditions

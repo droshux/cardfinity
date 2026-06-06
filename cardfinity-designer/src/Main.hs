@@ -20,7 +20,8 @@ import Types qualified as CF (Card)
 data Model = Model
   { _deck :: [CF.Card],
     _currentCard :: Maybe CF.Card,
-    _errMsg :: M.MisoString
+    _errMsg :: M.MisoString,
+    _theme :: Theme.Theme
   }
   deriving (Eq)
 
@@ -33,7 +34,7 @@ app =
     { M.mailbox = M.checkMail SetEditorState Error
     }
 
-initialState = Model {_deck = [], _currentCard = Nothing, _errMsg = ""}
+initialState = Model {_deck = [], _currentCard = Nothing, _errMsg = "", _theme = Theme.defaultTheme}
 
 update :: Action -> M.Effect () props Model Action
 update (Error msg) = errMsg M..= msg
@@ -68,10 +69,12 @@ view _ _ m =
       H.div_
         [ CSS.style_ [("grid-row", "1 / span2")]
         ]
-        ["editor" M.+> Editor.editor]
+        ["editor" M.+> Editor.editor],
+      "themeSelector" M.+> Theme.selector {M.bindings = [theme M.<-- Theme.currentTheme]},
+      M.text $ Theme.themeClass $ m ^. theme
     ]
   where
-    cvProps = flip CardView.CardViewProps (m M.^. deck)
+    cvProps c = CardView.CardViewProps c (m M.^. deck) (m M.^. theme)
 
 main :: IO ()
 #ifdef INTERACTIVE

@@ -45,4 +45,5 @@ executable cardfinity-designer
         Shared
         Theme
         Theme.CssEditor
+        Theme.Selector
         CardView
