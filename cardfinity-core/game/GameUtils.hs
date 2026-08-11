@@ -29,14 +29,16 @@ module GameUtils
     opponent's,
     player's',
     toPredicate,
-    getLocation,
+    findCards,
+    findCardsShuffled,
     sandbox,
   )
 where
 
-import Atoms (FindCards (..), SearchType (..))
+import AtomDisplay
+import Atoms (FindCards (..), SearchType (..), getSearchType)
 import Control.Monad (mfilter, (<=<))
-import Control.Monad.Except (runExceptT, throwError)
+import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.Reader (MonadIO (liftIO), MonadReader (ask, local), MonadTrans (lift), ReaderT (runReaderT), asks)
 import Control.Monad.State (MonadState (get), StateT (runStateT), gets, modify)
 import Data.Bifunctor (second)
@@ -44,12 +46,12 @@ import Data.Foldable (Foldable (toList))
 import Data.Functor ((<&>))
 import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty ((:|)))
-import Data.Maybe (mapMaybe)
-import Optics (AffineTraversal', Ixed (ix), Lens', atraversal, over, preview, set, view, (%), (^.))
+import Data.Maybe (fromMaybe, mapMaybe)
+import Optics (AffineTraversal', Ixed (ix), Lens', atraversal, over, preview, set, view, (%), (^.), (^?))
 import System.Random.Shuffle (shuffleM)
 import Text.Read (readMaybe)
 import Types
-import Utils (collapse, showFold, without)
+import Utils (collapse, ifEmpty, showFold, without)
 
 toPredicate :: SearchType -> Card -> Bool
 toPredicate (ForName n) = (n ==) . cardName
@@ -57,8 +59,26 @@ toPredicate (ForFamily f) = elem f . (^. cardFamilies)
 toPredicate ForCard = const True
 toPredicate t = cardElim (const $ t == ForSpell) (const $ t == ForMonster)
 
-getLocation (FindCardsField _ _) = field
+getLocation (FindCardsField {}) = field
 getLocation (FindCardsHand _ _) = hand
+
+findCardsHelper :: Bool -> FindCards -> ExceptT () GameOpWithCardContext (Card, [Card])
+findCardsHelper shouldShuffle f = do
+  let onlyUntapped = case f of FindCardsField _ ut _ -> ut; _ -> False
+  cid <- asks (^. cardID)
+  let validTap c = maybe True not (c ^? monsterStats % isTapped) || not onlyUntapped
+  let validTarget c = toPredicate (getSearchType f) c && c ^. cardID /= cid && validTap c
+  let shuffle = if shouldShuffle then shuffleM else return
+  let targets = player's' (getLocation f) <&> filter validTarget >>= shuffle
+  ifEmpty (lift targets) $ do
+    liftIO $ putStr ("Could not find " ++ show (show' f))
+    throwError ()
+
+findCards :: FindCards -> ExceptT () GameOpWithCardContext (Card, [Card])
+findCards = findCardsHelper False
+
+findCardsShuffled :: FindCards -> ExceptT () GameOpWithCardContext (Card, [Card])
+findCardsShuffled = findCardsHelper True
 
 sandbox :: GameOpWithCardContext a -> GameOpWithCardContext (Either Player a, GameState)
 sandbox op = do

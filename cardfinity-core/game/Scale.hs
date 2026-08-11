@@ -19,12 +19,19 @@ import Utils (natToInt)
 punishment :: Int
 punishment = 5
 
+-- The inherent value of something being an (untapped) monster
+inherent :: Int 
+inherent = 5
+
 instance HasScale Condition where
   scale (Destroy d f) = do
-    let multiplier = (if isField f then 15 else 10) + (if d == Banish then 2 else 0)
+    let multiplier = fieldMult f + (if d == Banish then 2 else 0)
     let n = natToInt (getCount f)
     st <- scale (getSearchType f)
     return $ -(n * multiplier + st)
+    where
+        fieldMult (FindCardsField _ True _) = 10 + inherent 
+        fieldMult _ = 10
   scale DiscardSelf = return $ -4
   scale (TakeDamage n False) = let i = natToInt n in return $ -(i * coreFn i)
   scale (TakeDamage n True) = let i = natToInt n in return $ -(i * (coreFn i + 2))
@@ -98,8 +105,8 @@ instance HasScale Monster where
     -- Double punishment for additional monster spells
     spells <- local (\c -> c {inMonster = True}) (sumWithPunishment 2 $ monster ^. monsterSpells)
     let power = fromIntegral (monster ^. combatPower) * length (show $ monster ^. combatPower) -- Multiply by number of digits
-    let tap = if monster ^. entersTapped && anyTap (monster ^. monsterSpells) then -5 else 0 -- Enters the field tapped
-    let total = requirements + spells + power + tap
+    let tap = if monster ^. entersTapped && anyTap (monster ^. monsterSpells) then -inherent else 0 -- Enters the field tapped
+    let total = inherent + requirements + spells + power + tap
 
     -- Monsters must have scale of 10 or less
     unless (total <= 10) $ throwError $ ScaleTooHigh 10 total $ monster ^. monsterName
@@ -117,8 +124,8 @@ instance HasScale Trigger where
 destroyEnemyScale :: DestroyType -> FindCards -> Natural
 destroyEnemyScale Discard (FindCardsHand n _) = 10 * n + 2
 destroyEnemyScale Banish (FindCardsHand n _) = 12 * n + 2
-destroyEnemyScale Discard (FindCardsField n _) = n * 15 + 2
-destroyEnemyScale Banish (FindCardsField n _) = n * 17 + 2
+destroyEnemyScale Discard (FindCardsField n _ _) = n * 15 + 2 -- TODO: Update to handle untapped
+destroyEnemyScale Banish (FindCardsField n _ _) = n * 17 + 2 --TODO: Update to handle untapped
 
 data LegalityContext = LegalityContext
   { deckContext :: [Card],

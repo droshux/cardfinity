@@ -32,7 +32,6 @@ import Numeric.Natural (Natural)
 import Optics (Ixed (..), (%))
 import Optics.Operators ((^.), (^?), (.~))
 import ShowCard ()
-import System.Random.Shuffle (shuffleM)
 import Types
 import Utils (addInteger, ifEmpty, ifNone, natToInt, try)
 
@@ -158,17 +157,7 @@ chooseToDestroy :: DestroyType -> FindCards -> ExceptT () GameOpWithCardContext 
 chooseToDestroy d f
   | getCount f == 0 = return ()
   | otherwise = do
-      cid <- asks (^. cardID)
-      let validTarget c = toPredicate (getSearchType f) c && c ^. cardID /= cid
-      let targets = player's' (getLocation f) <&> filter validTarget
-      (cfst, crst) <- ifEmpty (lift targets) $ do
-        liftIO $ do
-          putStr "Could not find enough "
-          putStr $ show (getSearchType f)
-          putStrLn $ case f of
-            FindCardsField _ _ -> "s on the Field."
-            FindCardsHand _ _ -> "s in the Hand."
-        throwError ()
+      (cfst, crst) <- findCards f
       let prompt = "Select a card to " ++ show d ++ ":"
       (j, _) <- lift $ selectFromList' prompt $ NonE.map cardName (cfst :| crst)
       let c = (cfst : crst) !! j
@@ -178,37 +167,25 @@ chooseToDestroy d f
   where
     moveOn = chooseToDestroy d $ case f of
       FindCardsHand n t -> FindCardsHand (n - 1) t
-      FindCardsField n t -> FindCardsField (n - 1) t
+      FindCardsField n ut t -> FindCardsField (n - 1) ut t
 
 destroyForced :: DestroyType -> FindCards -> GameOpWithCardContext ()
-destroyForced d (FindCardsHand n st)
+destroyForced d f@(FindCardsHand n st)
   | n == 0 = return ()
   | otherwise = void $ try $ do
-      let shuffledOptions = player's' hand <&> filter (toPredicate st) >>= shuffleM
-      (c, _) <- ifEmpty (lift shuffledOptions) $ do
-        liftIO $ do
-          putStrLn "Couldn't find enough "
-          putStr $ show st
-          putStr "s in the hand."
-        throwError ()
+      (c, _) <- findCardsShuffled f
       lift $ do
         lift $ destroy d c
         destroyForced d $ FindCardsHand (n - 1) st
-destroyForced d (FindCardsField n st)
+destroyForced d f@(FindCardsField n ut st)
   | n == 0 = return ()
   | otherwise = void $ try $ do
-      let getTargets = player's' field <&> filter (toPredicate st)
-      (c, cs) <- ifEmpty (lift getTargets) $ do
-        liftIO $ do
-          putStrLn "Couldn't find enough "
-          putStr $ show st
-          putStr "s on the field."
-        throwError ()
+      (c, cs) <- findCards f
       lift $ do
         this <- lift ask
         (i, _) <- selectFromListNoPlayer' (prompt this) $ NonE.map cardName (c :| cs)
         lift $ destroy d $ (c : cs) !! i
-        destroyForced d $ FindCardsField (n - 1) st
+        destroyForced d $ FindCardsField (n - 1) ut st
   where
     prompt cp =
       concat

@@ -32,7 +32,12 @@ instance Show SearchType where
 
 instance Display FindCards where
   unparse c (FindCardsHand n t) = show n ++ " " ++ unparse c t ++ " hand"
-  unparse c (FindCardsField n t) = show n ++ " " ++ unparse c t ++ " field"
+  unparse c (FindCardsField n ut t) =
+    let utTxt = case (ut, c) of
+          (False, _) -> " "
+          (True, True) -> " ut "
+          (True, False) -> " untapped "
+     in show n ++ utTxt ++ unparse c t ++ " field"
   show' = findCardsShow' False
 
 instance Show FindCards where
@@ -40,12 +45,13 @@ instance Show FindCards where
 
 findCardsShow' :: Bool -> FindCards -> CardText
 findCardsShow' enemy f = case f of
-  FindCardsHand n t -> part1 n t <> Keyword "Hand"
-  FindCardsField n t -> part1 n t <> Keyword "Field"
+  FindCardsHand n t -> part1 n False t <> Keyword "Hand"
+  FindCardsField n ut t -> part1 n ut t <> Keyword "Field"
   where
-    part1 n t =
+    part1 n ut t =
       mconcat
         [ num n,
+          if ut then txt " " <> Keyword "untapped" else mempty,
           txt " ",
           show' t,
           if n == 1 then mempty else txt "s",
