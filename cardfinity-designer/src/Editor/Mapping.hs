@@ -39,6 +39,7 @@ monsterFromModel =
     <*> map spellFromModel . (^. monsterSpells)
     <*> OS.fromList . map conditionFromModel . (^. summoningConditions)
     <*> (^. combatPower)
+    <*> False
     <*> (^. entersTapped)
 
 conditionFromModel :: ConditionModel -> CF.Condition

@@ -98,7 +98,7 @@ instance HasScale Monster where
     -- Double punishment for additional monster spells
     spells <- local (\c -> c {inMonster = True}) (sumWithPunishment 2 $ monster ^. monsterSpells)
     let power = fromIntegral (monster ^. combatPower) * length (show $ monster ^. combatPower) -- Multiply by number of digits
-    let tap = if monster ^. isTapped && anyTap (monster ^. monsterSpells) then -5 else 0 -- Enters the field tapped
+    let tap = if monster ^. entersTapped && anyTap (monster ^. monsterSpells) then -5 else 0 -- Enters the field tapped
     let total = requirements + spells + power + tap
 
     -- Monsters must have scale of 10 or less

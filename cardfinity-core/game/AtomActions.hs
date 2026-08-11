@@ -30,7 +30,7 @@ import Data.Set.Ordered (OSet)
 import GameUtils
 import Numeric.Natural (Natural)
 import Optics (Ixed (..), (%))
-import Optics.Operators ((^.), (^?))
+import Optics.Operators ((^.), (^?), (.~))
 import ShowCard ()
 import System.Random.Shuffle (shuffleM)
 import Types
@@ -352,13 +352,14 @@ playCard t = void $ try $ do
       unless successfulCast $ liftIO $ putStrLn ("Cannot play " ++ s ^. spellName)
       lift $ graveyard =: c
 
-    -- Monster: Test summoning conditions, move to field, trigger OnPlay
+    -- Monster: Test summoning conditions, move to field (possibly tapped), trigger OnPlay
     playMonster m = void $ try $ do
       success <- lift $ checkAll $ m ^. summoningConditions
       unless success $ do
         liftIO $ putStrLn ("Failed to summon " ++ m ^. monsterName)
         throwError ()
-      c <- ask
+      let applyEntersTapped = monsterStats % isTapped .~ m ^. entersTapped 
+      c <- asks applyEntersTapped
       lift $ lift $ do
         field =: c
         fromHand c
