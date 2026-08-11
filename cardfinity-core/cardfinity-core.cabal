@@ -71,7 +71,6 @@ library
       data-default,
       megaparsec,
       optparse-simple,
-      HPDF,
       text
 
     -- Directories containing source files.
@@ -132,7 +131,6 @@ executable cardfinity
       data-default,
       megaparsec,
       optparse-simple,
-      HPDF,
       text
 
     -- Directories containing source files.

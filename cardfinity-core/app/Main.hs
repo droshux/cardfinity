@@ -17,13 +17,10 @@ import Data.Maybe (fromJust, mapMaybe)
 import Data.Text (pack)
 import Data.Version (showVersion)
 import Game (runGame)
-import Graphics.PDF (FontName (Helvetica, Helvetica_Bold, Helvetica_Oblique), mkStdFont, runPdf)
-import Graphics.PDF.Document (PDFDocumentInfo (..), standardDocInfo)
 import Optics.Operators ((^.))
 import Options.Applicative.Simple (addCommand, help, long, metavar, option, short, simpleOptions, str, strArgument, switch, value)
 import ParserCore (space)
 import Paths_cardfinity_core (version)
-import Pdf (Fonts (..), document, documentAlt, pageDimension, pageDimensionAlt)
 import Scale (isLegal, rarity, runScale)
 import System.Exit (exitFailure)
 import Text.Megaparsec (errorBundlePretty, manyTill, parse)
@@ -41,7 +38,6 @@ main = do
       $ do
         dev
         play
-        pdf
   action
 
 dev =
@@ -121,56 +117,3 @@ fst3 (x, _, _) = x
 
 playWithDecks :: (String, String) -> IO ()
 playWithDecks p = bothM (fmap fst3 . tryParseDeck) p >>= uncurry runGame
-
-data PDFArgs = PDFArgs
-  { path :: String,
-    landscape :: Bool,
-    patchName :: Maybe String
-  }
-
-pdf =
-  addCommand
-    "pdf"
-    "Generate a PDF of a deck for printing."
-    genPDF
-    (PDFArgs <$> deckFile <*> landSwitch <*> patch)
-  where
-    landSwitch = switch $ short 'l' <> long "landscape" <> help "Generate landscape cards."
-    deckFile = strArgument $ metavar "Deck" <> help "The file containing the deck to generate a PDF of."
-    patch = option (Just <$> str) $ short 'p' <> long "patch" <> help "Only print cards with the given name" <> value Nothing
-
-genPDF :: PDFArgs -> IO ()
-genPDF args = do
-  let (docFN, dims) = if landscape args then (documentAlt, pageDimensionAlt) else (document, pageDimension)
-  (cs, dName, dAuthor) <- tryParseDeck $ path args
-  let patched = flip filter cs $ case patchName args of
-        Nothing -> const True
-        Just name -> (==) name . cardName
-  when (null patched) $ do
-    putStrLn $ fromJust (patchName args) ++ " not found in the deck."
-    exitFailure
-  fnts <-
-    runExceptT getFonts >>= \case
-      Left err -> do
-        putStrLn err
-        exitFailure
-      Right f -> return f
-  let info = standardDocInfo {author = pack dAuthor, compressed = False}
-  runPdf (dName ++ ".pdf") info dims $ docFN fnts patched
-
-getFonts :: ExceptT String IO Fonts
-getFonts = do
-  n <- getFont Helvetica
-  bold <- getFont Helvetica_Bold
-  italic <- getFont Helvetica_Oblique
-  return $
-    Fonts
-      { n,
-        bold,
-        italic
-      }
-  where
-    getFont f = ExceptT $ mapLeft show <$> mkStdFont f
-    mapLeft :: (a -> b) -> Either a c -> Either b c
-    mapLeft f (Left x) = Left $ f x
-    mapLeft _ (Right x) = Right x
