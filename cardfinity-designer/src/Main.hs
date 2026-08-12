@@ -56,22 +56,15 @@ view _ _ m =
       case m M.^. currentCard of
         Nothing -> H.div_ [] []
         Just card -> M.mountWithProps (cvProps card) CardView.cardView,
-      case m M.^. currentCard of
-        Nothing -> H.p_ [] [M.text "No Card Selected"]
-        Just card ->
-          H.pre_
-            [ CSS.style_
-                [ CSS.whiteSpace "pre-wrap",
-                  CSS.maxWidth "100%"
-                ]
-            ]
-            [M.text $ M.toMisoString $ show card],
       H.div_
-        [ CSS.style_ [("grid-row", "1 / span2")]
+        [ CSS.style_ []
         ]
-        ["editor" M.+> Editor.editor],
-      "themeSelector" M.+> Theme.selector {M.bindings = [theme M.<-- Theme.currentTheme]},
-      M.text $ Theme.themeClass $ m ^. theme
+        ["editor" M.+> Editor.editor], -- M.bindings = [editor M.<--> _id]
+      H.div_
+        []
+        [ "themeSelector" M.+> Theme.selector,
+          M.text $ Theme.themeClass $ ctx ^. theme
+        ]
     ]
   where
     cvProps c = CardView.CardViewProps c (m M.^. deck) (m M.^. theme)

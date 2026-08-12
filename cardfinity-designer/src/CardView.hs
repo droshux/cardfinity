@@ -69,13 +69,13 @@ viewCard props m =
   H.div_
     [ CSS.style_
         [ CSS.aspectRatio "2.5 / 3.5",
-          CSS.border "solid 1px black",
-          CSS.maxWidth $ if m M.^. printView then "2.5in" else CSS.vw 40,
-          CSS.maxHeight $ if m M.^. printView then "3.5in" else CSS.vh 56,
+          CSS.boxSizing "border-box",
+          CSS.border "solid 2mm black",
+          CSS.maxWidth "2.5in",
+          CSS.maxHeight "3.5in",
           CSS.display "flex",
           CSS.flexDirection "column",
-          CSS.paddingLeft $ CSS.pct 2.5,
-          CSS.paddingRight $ CSS.pct 2.5,
+          CSS.padding "0.57% 1%",
           CSS.gap $ CSS.pct 0.5
         ],
       P.className $ themeClass $ props M.^. theme
@@ -94,7 +94,7 @@ viewCard props m =
             ]
             [showName (props M.^. card)]
         ],
-      showImage $ props M.^. card ^. CF.cardImageUrl,
+      showImage (CF.isMonster $ props M.^. card) $ props M.^. card ^. CF.cardImageUrl,
       H.div_
         [ CSS.style_ [CSS.display "flex", CSS.justifyContent "space-evenly"],
           P.classes_ ["families-bar"]
@@ -111,13 +111,15 @@ showName c =
 showScale :: [CF.Card] -> CF.Card -> M.View model action
 showScale deck = M.text . either (const "?") M.toMisoString . runScale deck
 
-showImage :: Maybe String -> M.View model action
-showImage mbUrl =
+showImage :: Bool -> Maybe String -> M.View model action
+showImage isMonster mbUrl =
   H.img_
-    [ P.src_ $ maybe "assets/icons/snail.svg" M.toMisoString mbUrl, -- TODO: Replace snail with proper placeholder
+    [ P.src_ $ maybe fallback M.toMisoString mbUrl,
       CSS.style_ $ CSS.aspectRatio "2.5 / 2" : [CSS.width "100%" | isNothing mbUrl],
       P.classes_ ["card-image"]
     ]
+  where
+    fallback = if isMonster then "assets/icons/snail.svg" else "assets/icons/shell.svg"
 
 showText :: Bool -> CF.CardText -> [M.View model action]
 showText False (CF.Text t) = [M.text $ M.toMisoString t]
@@ -171,11 +173,12 @@ showMonster c m =
       H.div_
         [ CSS.style_
             [ CSS.display "flex",
-              CSS.justifyContent "space-between"
+              CSS.justifyContent "space-between",
+              CSS.alignItems "center"
             ],
           P.classes_ ["monster-bar"]
         ]
-        [ if m ^. CF.isTapped then M.text "TODO-ICON" else H.div_ [] [],
+        [ H.img_ [P.src_ "assets/icons/turtle.svg", CSS.style_ [CSS.visibility $ if m ^. CF.isTapped then "visible" else "hidden"]],
           H.div_
             [P.classes_ ["monster-power"]]
             [M.text $ M.toMisoString $ show $ m ^. CF.combatPower]
