@@ -11,7 +11,7 @@ import Editor.Types
 import Miso qualified as M
 import Miso.Lens
 
-update :: DeckAction -> M.Effect parent DeckModel DeckAction
+update :: DeckAction -> M.Effect ctx props DeckModel DeckAction
 update NewCard = deck %= (++ [def])
 update (SetCopies i n) = deck % at i %= fmap (first (+ 1))
 update (ViewCard i) = currentCardIndex .= i

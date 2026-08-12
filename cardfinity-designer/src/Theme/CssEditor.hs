@@ -11,7 +11,7 @@ import Miso.String qualified as M
 parentId :: M.MisoString
 parentId = "cssEditorDiv"
 
-cssEditor :: M.Component parent M.MisoString Action
+cssEditor :: M.Component ctx props M.MisoString Action
 cssEditor =
   (M.component "" update view)
     { M.scripts =
@@ -22,8 +22,8 @@ cssEditor =
         ]
     }
 
-view :: M.MisoString -> M.View parent Action
-view css =
+view :: ctx -> props -> M.MisoString -> M.View ctx Action
+view _ _ css =
   H.div_
     []
     [ H.button_ [H.onClick (CodeMirror NewEditor)] [M.text "Init"],
@@ -41,7 +41,7 @@ instance M.ToMisoString CMAction where
   toMisoString UpdateDoc = "updatedoc"
   toMisoString SaveDoc = "savedoc"
 
-update :: Action -> M.Effect parent M.MisoString Action
+update :: Action -> M.Effect ctx props M.MisoString Action
 update (CodeMirror SaveDoc) = do
   M.io_ $ cmAction SaveDoc
   let getCSS = M.jsg "window" M.! (parentId <> "data")

@@ -20,7 +20,7 @@ import Miso qualified as M
 import Miso.Lens (at)
 import Miso.Lens qualified as M
 
-editor :: M.Component parent DeckModel DeckAction
+editor :: M.Component ctx props DeckModel DeckAction
 editor = M.component def update view
 
 currentCard :: M.Lens DeckModel (Maybe CardModel)
