@@ -5,6 +5,7 @@
 module Main where
 
 import CardView qualified
+import Context (Context, initialCtx, theme)
 import Editor qualified
 import GHC.Num (integerToNatural)
 import Miso qualified as M
@@ -15,13 +16,13 @@ import Miso.Lens qualified as M
 import Miso.Lens.TH (makeLenses)
 import Scale (runScale)
 import ShowCard
+import Theme qualified
 import Types qualified as CF (Card)
 
 data Model = Model
   { _deck :: [CF.Card],
     _currentCard :: Maybe CF.Card,
-    _errMsg :: M.MisoString,
-    _theme :: Theme.Theme
+    _errMsg :: M.MisoString
   }
   deriving (Eq)
 
@@ -34,9 +35,9 @@ app =
     { M.mailbox = M.checkMail SetEditorState Error
     }
 
-initialState = Model {_deck = [], _currentCard = Nothing, _errMsg = "", _theme = Theme.defaultTheme}
+initialState = Model {_deck = [], _currentCard = Nothing, _errMsg = ""}
 
-update :: Action -> M.Effect () props Model Action
+update :: Action -> M.Effect Context props Model Action
 update (Error msg) = errMsg M..= msg
 update (SetEditorState state) = do
   deck M..= Editor.deckFromModel state
@@ -44,7 +45,8 @@ update (SetEditorState state) = do
   let currentCardModel = state M.^. at i `M.compose` Editor.deck
   currentCard M..= fmap (Editor.cardFromModel (fromIntegral i) . snd) currentCardModel
 
-view _ _ m =
+view :: Context -> props -> Model -> M.View Context Action
+view ctx _ m =
   H.div_
     [ CSS.style_
         [ CSS.display "grid",
@@ -59,21 +61,21 @@ view _ _ m =
       H.div_
         [ CSS.style_ []
         ]
-        ["editor" M.+> Editor.editor], -- M.bindings = [editor M.<--> _id]
+        ["editor" M.+> Editor.editor],
       H.div_
         []
         [ "themeSelector" M.+> Theme.selector,
-          M.text $ Theme.themeClass $ ctx ^. theme
+          M.text $ Theme.themeClass $ ctx M.^. theme
         ]
     ]
   where
-    cvProps c = CardView.CardViewProps c (m M.^. deck) (m M.^. theme)
+    cvProps = flip CardView.CardViewProps (m M.^. deck)
 
 main :: IO ()
 #ifdef INTERACTIVE
-main = M.liveWithContext M.defaultEvents () app
+main = M.liveWithContext M.defaultEvents initialCtx app
 #else
-main = M.startAppWithContext M.defaultEvents () app
+main = M.startAppWithContext M.defaultEvents initialCtx app
 #endif
 
 #ifdef WASM

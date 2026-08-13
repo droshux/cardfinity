@@ -4,6 +4,7 @@
 module CardView (cardView, CardViewProps (CardViewProps)) where
 
 import Atoms qualified as CF
+import Context (Context, theme)
 import Data.Foldable (Foldable (toList))
 import Data.List (intersperse)
 import Data.Maybe (fromMaybe, isNothing)
@@ -19,14 +20,13 @@ import Optics.Operators ((^.))
 import Scale (runScale)
 import Shared qualified
 import ShowCard (show'Spell)
-import Theme.Selector (Theme, themeClass)
+import Theme.Types (Theme, themeClass)
 import Types qualified as CF
 import Utils qualified as CF
 
 data CardViewProps = CardViewProps
   { _card :: CF.Card,
-    _deck :: [CF.Card],
-    _theme :: Theme
+    _deck :: [CF.Card]
   }
   deriving (Eq)
 
@@ -42,15 +42,15 @@ $(makeLenses ''CardViewModel)
 
 data CardViewAction = ToggleCode | ToggleConcise | TogglePrint
 
-cardView :: M.Component ctx CardViewProps CardViewModel CardViewAction
-cardView = M.component modelDefault update view
+cardView :: M.Component Context CardViewProps CardViewModel CardViewAction
+cardView = (M.component modelDefault update view) {M.useContext = True}
   where
     modelDefault = CardViewModel False False
     update ToggleConcise = conciseView M.%= not
     update TogglePrint = printView M.%= not
 
-view :: ctx -> CardViewProps -> CardViewModel -> M.View ctx CardViewAction
-view _ props m =
+view :: Context -> CardViewProps -> CardViewModel -> M.View Context CardViewAction
+view ctx props m =
   H.div_
     []
     [ H.span_
@@ -60,12 +60,12 @@ view _ props m =
       -- TODO: print view
       if m M.^. printView
         then M.text "TODO: display entire deck for printing"
-        else viewCard props m,
+        else viewCard ctx props m,
       H.pre_ [] [M.text $ M.toMisoString $ CF.unparse (m M.^. conciseView) (props M.^. card)]
     ]
 
-viewCard :: CardViewProps -> CardViewModel -> M.View ctx CardViewAction
-viewCard props m =
+viewCard :: Context -> CardViewProps -> CardViewModel -> M.View Context CardViewAction
+viewCard ctx props m =
   H.div_
     [ CSS.style_
         [ CSS.aspectRatio "2.5 / 3.5",
@@ -78,7 +78,7 @@ viewCard props m =
           CSS.padding "0.57% 1%",
           CSS.gap $ CSS.pct 0.5
         ],
-      P.className $ themeClass $ props M.^. theme
+      P.className $ themeClass $ ctx M.^. theme
     ]
     [ -- Top Row
       H.span_
