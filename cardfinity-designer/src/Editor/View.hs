@@ -19,8 +19,8 @@ import Miso.String qualified as M
 import Shared qualified
 import Types (Trigger)
 
-view :: DeckModel -> M.View DeckModel DeckAction
-view m =
+view :: ctx -> props -> DeckModel -> M.View ctx DeckAction
+view _ _ m =
   let index = m ^. currentCardIndex
    in H.div_
         [ CSS.style_
@@ -88,7 +88,7 @@ view m =
         [ P.src_ ("assets/icons/panel-left-" <> (if b then "close" else "open") <> ".svg")
         ]
 
-cardView :: (CardAction -> DeckAction) -> CardModel -> M.View DeckModel DeckAction
+cardView :: (CardAction -> DeckAction) -> CardModel -> M.View ctx DeckAction
 cardView act m =
   H.div_
     [ CSS.style_
@@ -114,7 +114,7 @@ cardView act m =
         ]
     familyInput set f = H.input_ [H.onChange set, P.value_ f]
 
-spellView :: (SpellAction -> DeckAction) -> SpellModel -> M.View DeckModel DeckAction
+spellView :: (SpellAction -> DeckAction) -> SpellModel -> M.View ctx DeckAction
 spellView act m =
   H.div_
     [ CSS.style_
@@ -140,7 +140,7 @@ spellView act m =
         ]
     ]
 
-monsterView :: (MonsterAction -> DeckAction) -> MonsterModel -> M.View DeckModel DeckAction
+monsterView :: (MonsterAction -> DeckAction) -> MonsterModel -> M.View ctx DeckAction
 monsterView act m =
   H.div_
     [ CSS.style_
@@ -167,7 +167,7 @@ monsterView act m =
         ]
     ]
 
-conditionView :: (ConditionAction -> DeckAction) -> ConditionModel -> M.View DeckModel DeckAction
+conditionView :: (ConditionAction -> DeckAction) -> ConditionModel -> M.View ctx DeckAction
 conditionView act m =
   H.span_
     []
@@ -208,7 +208,7 @@ conditionView act m =
       (TakeDamage, False) -> "Damage"
       _ -> ""
 
-effectView :: (EffectAction -> DeckAction) -> EffectModel -> M.View DeckModel DeckAction
+effectView :: (EffectAction -> DeckAction) -> EffectModel -> M.View ctx DeckAction
 effectView act m =
   H.span_
     []
@@ -267,7 +267,7 @@ effectView act m =
       (Buff, False) -> "This"
       _ -> ""
 
-searchTypeView :: (SearchTypeAction -> DeckAction) -> SearchTypeModel -> M.View DeckModel DeckAction
+searchTypeView :: (SearchTypeAction -> DeckAction) -> SearchTypeModel -> M.View ctx DeckAction
 searchTypeView act m =
   H.span_
     []
@@ -295,7 +295,7 @@ instance Default ListSettings where
 
 conditionsListSettings = def {backgroundColor = CSS.hex "ff7f7f"}
 
-listView :: (Eq m, Default m) => ListSettings -> (ListAction a -> DeckAction) -> ((a -> DeckAction) -> m -> M.View DeckModel DeckAction) -> [m] -> M.View DeckModel DeckAction
+listView :: (Eq m, Default m) => ListSettings -> (ListAction a -> DeckAction) -> ((a -> DeckAction) -> m -> M.View ctx DeckAction) -> [m] -> M.View ctx DeckAction
 listView settings promote view xs =
   H.div_
     [ CSS.style_
@@ -321,14 +321,14 @@ listView settings promote view xs =
         ]
 
 class (Enum a, M.ToMisoString a, M.FromMisoString a, Show a) => Options a where
-  options :: (a -> Bool) -> (a -> DeckAction) -> a -> M.View DeckModel DeckAction
+  options :: (a -> Bool) -> (a -> DeckAction) -> a -> M.View ctx DeckAction
   options f act a =
     let option :: Int -> a -> M.View model action
         option i a = H.option_ [P.value_ (M.toMisoString a), M.key_ i] [M.text $ M.toMisoString $ show a]
         opts = zipWith option [0 ..] $ filter f $ enumFrom $ toEnum 0
      in H.select_ [H.onChange (act . M.fromMisoString), P.value_ $ M.toMisoString a] opts
 
-instance Options Trigger
+instance Options TriggerID
 
 instance Options ConditionID
 

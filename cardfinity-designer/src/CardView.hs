@@ -65,7 +65,7 @@ showImage mbUrl =
 
 showSpell :: CF.Spell -> M.View parent action
 showSpell s =
-  H.div_ [CSS.style_ [CSS.flexGrow "1"]] $
+  H.div_ [CSS.style_ [CSS.flexGrow 1]] $
     concat
       [ [Shared.triggerIcon (s ^. CF.spellTrigger)],
         spread showCondition (s ^. CF.castingConditions),

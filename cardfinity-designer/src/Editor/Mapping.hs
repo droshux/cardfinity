@@ -28,7 +28,7 @@ spellFromModel :: SpellModel -> CF.Spell
 spellFromModel =
   CF.Spell
     <$> fromMisoString . (^. spellName)
-    <*> (^. spellTrigger)
+    <*> (toTrigger . (^. spellTrigger))
     <*> OS.fromList . map conditionFromModel . (^. castingConditions)
     <*> map effectFromModel . (^. spellEffects)
 

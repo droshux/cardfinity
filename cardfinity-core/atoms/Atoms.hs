@@ -58,19 +58,11 @@ monsterOnlyRequirement _ = False
 
 data DestroyType = Discard | Banish deriving (Eq, Ord, Show)
 
-data SearchType = ForName String | ForFamily String | ForSpell | ForMonster | ForCard deriving (Ord)
+data SearchType = ForName String | ForFamily String | ForSpell | ForMonster | ForCard deriving (Ord, Eq)
 
 data FindCards = FindCardsField Natural SearchType | FindCardsHand Natural SearchType deriving (Eq, Ord)
 
 data SearchMethod = SearchFor SearchType | DrillFor SearchType deriving (Eq, Ord)
-
-instance Eq SearchType where
-  (==) (ForName _) (ForName _) = True
-  (==) (ForFamily _) (ForFamily _) = True
-  (==) ForSpell ForSpell = True
-  (==) ForMonster ForMonster = True
-  (==) ForCard ForCard = True
-  (==) _ _ = False
 
 getCount :: FindCards -> Natural
 getCount (FindCardsField n _) = n
