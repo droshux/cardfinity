@@ -12,12 +12,18 @@ import Miso qualified as M
 import Miso.Lens
 
 update :: DeckAction -> M.Effect ctx props DeckModel DeckAction
-update NewCard = deck %= (++ [def])
-update (SetCopies i n) = deck % at i %= fmap (first (+ 1))
-update (ViewCard i) = currentCardIndex .= i
-update (DeleteCard i) = deck % at i .= Nothing
-update ToggleDecklist = showDecklist %= not
-update (ActCard i a) = deck % at i %?= second (updateCard a)
+update a = do
+  performUpdate a
+  M.get >>= M.mailParent -- After updating, send current state to parent
+
+performUpdate :: DeckAction -> M.Effect ctx props DeckModel DeckAction
+performUpdate UpdateParent = return () -- Noop, just mail current state to parent
+performUpdate NewCard = deck %= (++ [def])
+performUpdate (SetCopies i n) = deck % at i %= fmap (first (+ 1))
+performUpdate (ViewCard i) = currentCardIndex .= i
+performUpdate (DeleteCard i) = deck % at i .= Nothing
+performUpdate ToggleDecklist = showDecklist %= not
+performUpdate (ActCard i a) = deck % at i %?= second (updateCard a)
 
 updateCard :: CardAction -> CardModel -> CardModel
 updateCard ToggleCardStats = editingSpell %~ not

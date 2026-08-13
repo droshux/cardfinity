@@ -1,8 +1,10 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Editor.Types
-  ( SearchTypeID (..),
+  ( TriggerID (..),
+    SearchTypeID (..),
     ConditionID (..),
     EffectID (..),
     DeckAction (..),
@@ -60,21 +62,48 @@ module Editor.Types
     Default (..),
     applyOptionalCond,
     applyOptionalEff,
+    IsTrigger (..),
   )
 where
 
 import Data.List ((!?))
+import GHC.Generics (Generic)
 import GHC.InfoProv (whereFrom)
 import GHC.Natural (Natural, naturalFromInteger)
 import GHC.Num (integerFromInt)
 import Miso (DOMRef)
 import Miso qualified as M
+import Miso.JSON (FromJSON, ToJSON)
 import Miso.Lens (Lens, lens, (^.))
 import Miso.Lens qualified as M
 import Miso.Lens.TH (makeLenses)
 import Miso.String (FromMisoString (fromMisoStringEither))
 import Miso.String qualified as M
-import Types (Trigger (..))
+import Types qualified as CF
+
+data TriggerID
+  = OnPlay
+  | OnDiscard
+  | OnDraw
+  | OnTap
+  | OnVictory
+  | OnDefeat
+  | OnAttach
+  | Infinity
+  | Counter
+  deriving (Eq, Enum, Show, Generic, ToJSON, FromJSON)
+
+class IsTrigger a where
+  toTrigger :: a -> CF.Trigger
+  fromTrigger :: CF.Trigger -> a
+
+instance IsTrigger TriggerID where
+  toTrigger = toEnum . fromEnum
+  fromTrigger = toEnum . fromEnum
+
+instance IsTrigger CF.Trigger where
+  toTrigger = id
+  fromTrigger = id
 
 data SearchTypeID
   = ForCard
@@ -82,7 +111,7 @@ data SearchTypeID
   | ForSpell
   | ForName
   | ForFamily
-  deriving (Enum, Eq, Ord)
+  deriving (Enum, Eq, Ord, Generic, FromJSON, ToJSON)
 
 data ConditionID
   = DiscardSelf -- This is first because it needs no other inputs
@@ -92,7 +121,7 @@ data ConditionID
   | Pop
   | YouMay
   | Choose
-  deriving (Enum, Eq, Ord)
+  deriving (Enum, Eq, Ord, Generic, FromJSON, ToJSON)
 
 data EffectID
   = DiscardEnemy
@@ -111,7 +140,7 @@ data EffectID
   | Attach
   | Buff
   | AsEffect
-  deriving (Enum, Eq)
+  deriving (Enum, Eq, Generic, FromJSON, ToJSON)
 
 data DeckAction
   = NewCard
@@ -120,6 +149,7 @@ data DeckAction
   | DeleteCard Int
   | ToggleDecklist
   | ActCard Int CardAction
+  | UpdateParent
 
 data CardAction
   = ToggleCardStats
@@ -130,7 +160,7 @@ data CardAction
 
 data SpellAction
   = SetSpellName M.MisoString
-  | SetTrigger Trigger
+  | SetTrigger TriggerID
   | ActCond (ListAction ConditionAction)
   | ActEff (ListAction EffectAction)
 
@@ -203,7 +233,7 @@ data SearchTypeModel = SearchTypeModel
   { _searchTypeID :: SearchTypeID,
     _searchTypeText :: M.MisoString
   }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Generic, FromJSON, ToJSON)
 
 $(makeLenses ''SearchTypeModel)
 
@@ -216,7 +246,7 @@ data ConditionModel = ConditionModel
     _conditionOptional :: ConditionID,
     _subConditions :: [ConditionModel]
   }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Generic, FromJSON, ToJSON)
 
 applyOptionalCond :: ConditionModel -> ConditionModel
 applyOptionalCond m = m {_currentCondition = _conditionOptional m}
@@ -246,7 +276,7 @@ data EffectModel = EffectModel
     _effectSearchType :: SearchTypeModel,
     _effectCondition :: ConditionModel
   }
-  deriving (Eq, Show)
+  deriving (Eq, Generic, FromJSON, ToJSON)
 
 applyOptionalEff :: EffectModel -> EffectModel
 applyOptionalEff m = m {_currentEffect = _effectOptional m}
@@ -267,11 +297,11 @@ $(makeLenses ''EffectModel)
 
 data SpellModel = SpellModel
   { _spellName :: M.MisoString,
-    _spellTrigger :: Trigger,
+    _spellTrigger :: TriggerID,
     _castingConditions :: [ConditionModel],
     _spellEffects :: [EffectModel]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Generic, FromJSON, ToJSON)
 
 $(makeLenses ''SpellModel)
 
@@ -282,7 +312,7 @@ data MonsterModel = MonsterModel
     _combatPower :: Natural,
     _entersTapped :: Bool
   }
-  deriving (Eq, Show)
+  deriving (Eq, Generic, FromJSON, ToJSON)
 
 $(makeLenses ''MonsterModel)
 
@@ -293,7 +323,7 @@ data CardModel = CardModel
     _editingSpell :: Bool,
     _imageUrl :: M.MisoString
   }
-  deriving (Eq, Show)
+  deriving (Eq, Generic, FromJSON, ToJSON)
 
 $(makeLenses ''CardModel)
 
@@ -302,7 +332,7 @@ data DeckModel = DeckModel
     _currentCardIndex :: Int,
     _showDecklist :: Bool
   }
-  deriving (Eq, Show)
+  deriving (Eq, Generic, FromJSON, ToJSON)
 
 $(makeLenses ''DeckModel)
 
@@ -385,7 +415,7 @@ instance Default EffectModel where
 instance Default M.MisoString where
   def = ""
 
-instance M.ToMisoString Trigger where
+instance M.ToMisoString TriggerID where
   toMisoString OnPlay = "play"
   toMisoString OnDiscard = "discard"
   toMisoString OnDraw = "draw"
@@ -396,7 +426,7 @@ instance M.ToMisoString Trigger where
   toMisoString Infinity = "infinity"
   toMisoString Counter = "counter"
 
-instance M.FromMisoString Trigger where
+instance M.FromMisoString TriggerID where
   fromMisoStringEither "play" = Right OnPlay
   fromMisoStringEither "discard" = Right OnDiscard
   fromMisoStringEither "draw" = Right OnDraw

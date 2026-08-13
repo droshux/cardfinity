@@ -9,7 +9,7 @@ import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
 import Types qualified as CF
 
-triggerIcon :: CF.Trigger -> M.View parent action
+triggerIcon :: (IsTrigger a) => a -> M.View ctx action
 triggerIcon =
   H.img_
     . ( :
@@ -18,5 +18,8 @@ triggerIcon =
       )
     . P.src_
     . iconSrc
+    . fromTrigger
+    . toTrigger
   where
+    iconSrc :: TriggerID -> M.MisoString
     iconSrc t = "assets/icons/trigger/" <> M.toMisoString t <> ".svg"

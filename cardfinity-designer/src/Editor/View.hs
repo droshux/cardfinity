@@ -328,7 +328,7 @@ class (Enum a, M.ToMisoString a, M.FromMisoString a, Show a) => Options a where
         opts = zipWith option [0 ..] $ filter f $ enumFrom $ toEnum 0
      in H.select_ [H.onChange (act . M.fromMisoString), P.value_ $ M.toMisoString a] opts
 
-instance Options Trigger
+instance Options TriggerID
 
 instance Options ConditionID
 

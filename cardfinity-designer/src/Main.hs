@@ -9,49 +9,64 @@ import Editor qualified
 import GHC.Num (integerToNatural)
 import Miso qualified as M
 import Miso.Html qualified as H
-import Miso.Lens (Lens, lens, (^.), _id)
+import Miso.Lens (Lens, at, lens, _id)
+import Miso.Lens qualified as M
 import Miso.Lens.TH (makeLenses)
 import Scale (runScale)
 import ShowCard
+import Types qualified as CF (Card)
 
-newtype Model = Model
-  { _editor :: Editor.DeckModel
+data Model = Model
+  { _deck :: [CF.Card],
+    _currentCard :: Maybe CF.Card,
+    _errMsg :: M.MisoString
   }
   deriving (Eq)
 
 $(makeLenses ''Model)
 
-data Action
+data Action = SetEditorState Editor.DeckModel | Error M.MisoString
 
-app = M.component initialState M.noop view
+app =
+  (M.component initialState update view)
+    { M.mailbox = M.checkMail SetEditorState Error
+    }
 
-initialState = Model {_editor = Editor.def}
+initialState = Model {_deck = [], _currentCard = Nothing, _errMsg = ""}
 
-view m =
+update :: Action -> M.Effect () props Model Action
+update (Error msg) = errMsg M..= msg
+update (SetEditorState state) = do
+  deck M..= Editor.deckFromModel state
+  let i = state M.^. Editor.currentCardIndex
+  let currentCardModel = state M.^. at i `M.compose` Editor.deck
+  currentCard M..= fmap (Editor.cardFromModel (fromIntegral i) . snd) currentCardModel
+
+view _ _ m =
   H.div_
     []
-    [ case m ^. editor Editor.% Editor.currentCard of
+    [ M.text (m M.^. errMsg), -- TODO: Make error stand out
+      case m M.^. currentCard of
         Nothing -> H.p_ [] [M.text "No Card Selected"]
         Just card ->
           H.div_
             []
             [ H.pre_
                 []
-                [ M.text $ M.toMisoString $ show $ currentCard m card
+                [ M.text $ M.toMisoString $ show card
                 ],
-              CardView.card False (Editor.deckFromModel $ m ^. editor) $ currentCard m card
+              CardView.card False (m M.^. deck) card
             ],
-      "editor" M.+> Editor.editor {M.bindings = [editor M.<--> _id]}
+      "editor" M.+> Editor.editor
     ]
-
-currentCard m c = flip Editor.cardFromModel c $ fromIntegral $ m ^. editor Editor.% Editor.currentCardIndex
 
 main :: IO ()
 #ifdef INTERACTIVE
-main = M.reload M.defaultEvents app
+main = M.liveWithContext M.defaultEvents () app
 #else
-main = M.startApp M.defaultEvents app
+main = M.startAppWithContext M.defaultEvents () app
 #endif
+
 #ifdef WASM
 #ifndef INTERACTIVE
 foreign export javascript "hs_start" main :: IO ()
