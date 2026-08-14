@@ -10,6 +10,9 @@ flag interactive
     manual:
         True
 
+common warnings
+    ghc-options: -Wall
+
 common wasm
     if arch(wasm32)
         ghc-options:
@@ -24,14 +27,15 @@ common wasm
 
 executable cardfinity-designer
     import: 
-        wasm
+        wasm,
+        warnings
     main-is:
         Main.hs
     build-depends:
       base >=4.19.2.0,
       cardfinity-core,
       ordered-containers,
-      miso >=1.9.0.0,
+      miso >=1.12.0.0,
       optics
     default-language: GHC2021
     hs-source-dirs:   

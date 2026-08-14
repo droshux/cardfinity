@@ -7,7 +7,6 @@ import Miso qualified as M
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
 import Miso.Lens qualified as M
-import Miso.String qualified as M
 import Theme.Types
 
 styleSheets :: [M.CSS]
@@ -29,7 +28,7 @@ selector =
 
 -- TODO: Make a nicer selector?
 view :: Context -> props -> () -> M.View Context Action
-view _ _ m =
+view _ _ _ =
   let options = map opt $ enumFrom $ toEnum 0
    in H.select_
         [H.onChange (SetTheme . toEnum . M.fromMisoString)]
@@ -37,11 +36,4 @@ view _ _ m =
   where
     opt :: Theme -> M.View ctx Action
     opt t =
-      H.option_
-        [ P.value_ (M.toMisoString $ fromEnum t)
-        ]
-        [ M.text $ case t of
-            BasicLight -> "Clean (Light)"
-            BasicDark -> "Clean (Dark)"
-            Custom -> "Custom theme"
-        ]
+      H.option_ [P.value_ (M.toMisoString $ fromEnum t)] [M.text (themeName t)]

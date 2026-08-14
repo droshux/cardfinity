@@ -7,15 +7,12 @@ module Main where
 import CardView qualified
 import Context (Context, initialCtx, theme)
 import Editor qualified
-import GHC.Num (integerToNatural)
 import Miso qualified as M
 import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
-import Miso.Lens (Lens, at, lens, _id)
+import Miso.Lens (at)
 import Miso.Lens qualified as M
 import Miso.Lens.TH (makeLenses)
-import Scale (runScale)
-import ShowCard
 import Theme qualified
 import Types qualified as CF (Card)
 
@@ -30,11 +27,13 @@ $(makeLenses ''Model)
 
 data Action = SetEditorState Editor.DeckModel | Error M.MisoString
 
+app :: M.Component Context () Model Action
 app =
   (M.component initialState update view)
     { M.mailbox = M.checkMail SetEditorState Error
     }
 
+initialState :: Model
 initialState = Model {_deck = [], _currentCard = Nothing, _errMsg = ""}
 
 update :: Action -> M.Effect Context props Model Action

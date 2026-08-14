@@ -1,0 +1,14 @@
+/*
+ * Trivial empty theme to save on printer ink when printing cards for playtesting.
+ * */
+
+.playtest img.card-image {
+    visibility: hidden;
+}
+
+/* Make the borders dashed and light to save ink while still maintaining size
+ * and keeping cutting easy. */
+.playtest {
+    border-style: dashed !important;
+    border-color: lightgray !important;
+}
