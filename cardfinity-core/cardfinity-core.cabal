@@ -103,7 +103,6 @@ executable cardfinity
       CardParser
       Game
       ParserCore
-      Pdf
       Round
       Scale
       Types
