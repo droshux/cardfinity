@@ -56,7 +56,7 @@ findCardsShow' enemy f = case f of
           show' t,
           if n == 1 then mempty else txt "s",
           txt " from the ",
-          if enemy then Keyword "enemy" <> txt " enemy" else mempty
+          if enemy then Keyword "enemy" <> txt " " else mempty
         ]
 
 instance Display Condition where
@@ -88,7 +88,7 @@ instance Show Condition where
   show = show . show'
 
 instance Display Effect where
-  unparse c (DestroyEnemy d _) = unparse c d ++ " enemy " ++ unparse c d
+  unparse c (DestroyEnemy d f) = unparse c d ++ " enemy " ++ unparse c f
   unparse _ DiscardEnemy = "discard enemy"
   unparse True (DealDamage n True) = "deal " ++ show n ++ "t"
   unparse False (DealDamage n True) = "deal " ++ show n ++ " true"
