@@ -2,22 +2,16 @@
 
 module Editor.View (view) where
 
-import Data.Bifunctor (second)
-import Data.Foldable (Foldable (toList))
-import Data.Maybe (maybeToList)
 import Debug.Trace (trace)
 import Editor.Types
 import Editor.Update
-import GHC.Natural (Natural)
 import Miso qualified as M
 import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
-import Miso.Lens (Lens, at, (^.))
-import Miso.Lens qualified as M
+import Miso.Lens (at, (^.))
 import Miso.String qualified as M
 import Shared qualified
-import Types (Trigger)
 
 view :: ctx -> props -> DeckModel -> M.View ctx DeckModel DeckAction
 view _ _ m =
@@ -101,7 +95,7 @@ cardView act m =
           CSS.width "fit-content"
         ]
     ]
-    [ H.button_ [H.onClick (act ToggleCardStats), CSS.style_ [CSS.width "fit-content"]] [snailIcon m],
+    [ H.button_ [H.onClick (act ToggleCardStats), CSS.style_ [CSS.width "fit-content"]] [snailIcon],
       H.div_ [CSS.style_ [CSS.display $ if m ^. editingSpell then "block" else "none"]] [spellView (act . ActSpell) (m ^. spellStats)],
       H.div_ [CSS.style_ [CSS.display $ if m ^. editingSpell then "none" else "block"]] [monsterView (act . ActMonster) (m ^. monsterStats)],
       listView (def {addButtonText = "+ Family"}) (act . ActFamilies) familyInput (m ^. families),
@@ -109,7 +103,7 @@ cardView act m =
       H.img_ [P.src_ (m ^. imageUrl), CSS.style_ [CSS.width "2.5in", CSS.height "2in", CSS.display (if m ^. imageUrl == def then "none" else "block"), ("object-fit", "cover")]]
     ]
   where
-    snailIcon m =
+    snailIcon =
       H.img_
         [ P.src_ ("assets/icons/" <> (if m ^. editingSpell then "shell" else "snail") <> ".svg")
         ]
@@ -180,11 +174,14 @@ conditionView act m =
         [ count
         | m ^. currentCondition' `elem` [Destroy, TakeDamage, HealOpponent, Pop]
         ],
-        [ toggle (act CToggle1) (toggle1Txt m)
+        [ toggle (act CToggle1) toggle1Txt
         | m ^. currentCondition' `elem` [Destroy, TakeDamage]
         ],
         [ toggle (act CToggle2) (if m ^. conditionToggle2 then "Field" else "Hand")
         | m ^. currentCondition' == Destroy
+        ],
+        [ toggle (act CToggle3) (if m ^. conditionToggle3 then "Untapped" else "Any")
+        | m ^. currentCondition' == Destroy && m ^. conditionToggle2
         ],
         [ searchTypeView (act . CondSearchType) (m ^. conditionSearchType)
         | m ^. currentCondition' == Destroy
@@ -202,7 +199,7 @@ conditionView act m =
           P.value_ (M.toMisoString $ show $ m ^. conditionCount)
         ]
     toggle t s = H.button_ [H.onClick t] [M.text s]
-    toggle1Txt m = case (m ^. currentCondition', m ^. conditionToggle) of
+    toggle1Txt = case (m ^. currentCondition', m ^. conditionToggle) of
       (Destroy, True) -> "Banish"
       (Destroy, False) -> "Discard"
       (TakeDamage, True) -> "True Damage"
@@ -224,11 +221,14 @@ effectView act m =
         [ countInt
         | m ^. currentEffect' == Buff
         ],
+        [ toggle (act EToggle1) toggle1Txt
+        | m ^. currentEffect' `elem` [DestroyEnemy, DealDamage, Attack, Search, Buff]
+        ],
         [ toggle (act EToggle2) (if m ^. effectToggle2 then "Field" else "Hand")
         | m ^. currentEffect' == DestroyEnemy
         ],
-        [ toggle (act EToggle1) (toggle1Txt m)
-        | m ^. currentEffect' `elem` [DestroyEnemy, DealDamage, Attack, Search, Buff]
+        [ toggle (act EToggle3) (if m ^. effectToggle3 then "Untapped" else "Any")
+        | m ^. currentEffect' == DestroyEnemy && m ^. effectToggle2
         ],
         [ listView (def {isNonempty = True}) (act . SubEffsAction) effectView (m ^. subEffects)
         | m ^. currentEffect' == ChooseEffect
@@ -255,7 +255,7 @@ effectView act m =
           -- P.value_ (M.toMisoString $ show $ m ^. effectCountInt)
         ]
     toggle t s = H.button_ [H.onClick t] [M.text s]
-    toggle1Txt m = case (m ^. currentEffect', m ^. effectToggle) of
+    toggle1Txt = case (m ^. currentEffect', m ^. effectToggle) of
       (DestroyEnemy, True) -> "Banish"
       (DestroyEnemy, False) -> "Discard"
       (DealDamage, True) -> "True Damage"
@@ -294,10 +294,11 @@ instance Default ListSettings where
         backgroundColor = CSS.transparent
       }
 
+conditionsListSettings :: ListSettings
 conditionsListSettings = def {backgroundColor = CSS.hex "ff7f7f"}
 
 listView :: (Eq m, Default m) => ListSettings -> (ListAction a -> DeckAction) -> ((a -> DeckAction) -> m -> M.View ctx DeckModel DeckAction) -> [m] -> M.View ctx DeckModel DeckAction
-listView settings promote view xs =
+listView settings promote viewItem xs =
   H.div_
     [ CSS.style_
         [ CSS.border "thin black solid",
@@ -313,7 +314,7 @@ listView settings promote view xs =
     wrap i item =
       H.span_
         [M.key_ i, CSS.style_ [CSS.display "block"]]
-        [ view (promote . Act i) item,
+        [ viewItem (promote . Act i) item,
           H.button_
             [ H.onClick $ trace ("Deleting " ++ show i) (promote $ Delete i),
               CSS.style_ [CSS.display "none" | isNonempty settings && i == 0]
@@ -323,11 +324,11 @@ listView settings promote view xs =
 
 class (Enum a, M.ToMisoString a, M.FromMisoString a, Show a) => Options a where
   options :: (a -> Bool) -> (a -> DeckAction) -> a -> M.View ctx DeckModel DeckAction
-  options f act a =
+  options f act current =
     let option :: Int -> a -> M.View ctx model action
-        option i a = H.option_ [P.value_ (M.toMisoString a), M.key_ i] [M.text $ M.toMisoString $ show a]
+        option i x = H.option_ [P.value_ (M.toMisoString x), M.key_ i] [M.text $ M.toMisoString $ show x]
         opts = zipWith option [0 ..] $ filter f $ enumFrom $ toEnum 0
-     in H.select_ [H.onChange (act . M.fromMisoString), P.value_ $ M.toMisoString a] opts
+     in H.select_ [H.onChange (act . M.fromMisoString), P.value_ $ M.toMisoString current] opts
 
 instance Options TriggerID
 

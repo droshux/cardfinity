@@ -3,24 +3,21 @@
 
 module CardView (cardView, CardViewProps (CardViewProps)) where
 
-import Atoms qualified as CF
 import Context (Context, theme)
 import Data.Foldable (Foldable (toList))
 import Data.List (intersperse)
-import Data.Maybe (fromMaybe, isNothing)
-import Data.Set.Ordered qualified as OS
+import Data.Maybe (isNothing)
 import Miso qualified as M
 import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
-import Miso.Lens (Lens, lens)
 import Miso.Lens qualified as M
 import Miso.Lens.TH (makeLenses)
 import Optics.Operators ((^.))
 import Scale (runScale)
 import Shared qualified
 import ShowCard (show'Spell)
-import Theme.Types (Theme, themeClass)
+import Theme.Types (themeClass)
 import Types qualified as CF
 import Utils qualified as CF
 
@@ -40,7 +37,7 @@ data CardViewModel = CardViewModel
 
 $(makeLenses ''CardViewModel)
 
-data CardViewAction = ToggleCode | ToggleConcise | TogglePrint
+data CardViewAction = ToggleConcise | TogglePrint
 
 cardView :: M.Component Context CardViewProps CardViewModel CardViewAction
 cardView = (M.component modelDefault update view) {M.useContext = True}
@@ -109,7 +106,7 @@ showName c =
    in if name == "" then H.em_ [] [M.text "No Name"] else M.text $ M.toMisoString name
 
 showScale :: [CF.Card] -> CF.Card -> M.View ctx model action
-showScale deck = M.text . either (const "?") M.toMisoString . runScale deck
+showScale deckList = M.text . either (const "?") M.toMisoString . runScale deckList
 
 showImage :: Bool -> Maybe String -> M.View ctx model action
 showImage isMonster mbUrl =

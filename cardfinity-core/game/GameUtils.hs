@@ -145,7 +145,7 @@ selectFromListCancelable' :: (Show a) => String -> [a] -> GameOpWithCardContext 
 selectFromListCancelable' prompt = lift . selectFromListCancelable prompt
 
 ifNotCancelled :: (MonadIO m) => Cancelable a -> (a -> m ()) -> m ()
-ifNotCancelled c f = cancelFallback c (liftIO $ putStrLn "Cancelled") f
+ifNotCancelled c = cancelFallback c (liftIO $ putStrLn "Cancelled")
 
 cancelFallback :: (MonadIO m) => Cancelable a -> m b -> (a -> m b) -> m b
 cancelFallback c fb f = case c of

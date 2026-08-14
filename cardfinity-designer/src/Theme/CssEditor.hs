@@ -2,7 +2,6 @@
 
 module Theme.CssEditor (cssEditor) where
 
-import Control.Monad (unless)
 import Miso qualified as M
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
@@ -26,7 +25,7 @@ cssEditor =
     }
 
 view :: ctx -> props -> M.MisoString -> M.View ctx M.MisoString Action
-view _ _ css =
+view _ _ _ =
   H.div_
     []
     [ H.button_ [H.onClick (CodeMirror NewEditor)] [M.text "Init"],
@@ -53,7 +52,7 @@ update (CodeMirror cmd) = M.io_ $ cmAction cmd
 update (SetCSS css) = M.put css
 update Noop = return ()
 
--- cmAction :: CMAction -> M.IO ()
+cmAction :: (M.ToMisoString str) => str -> IO ()
 cmAction cmd = do
   actionButton <- M.getElementById "cfCSS-command"
   M.setValue actionButton $ M.toMisoString cmd <> "-" <> parentId
