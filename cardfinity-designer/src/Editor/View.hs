@@ -264,8 +264,8 @@ effectView act m =
       (Attack, False) -> "Non-Piercing"
       (Search, True) -> "Search"
       (Search, False) -> "Drill"
-      (Buff, True) -> "Other"
-      (Buff, False) -> "This"
+      (Buff, True) -> "This"
+      (Buff, False) -> "Other"
       _ -> ""
 
 searchTypeView :: (SearchTypeAction -> DeckAction) -> SearchTypeModel -> M.View ctx DeckModel DeckAction

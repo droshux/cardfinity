@@ -14,7 +14,7 @@ import Miso.Html.Property qualified as P
 import Miso.Lens qualified as M
 import Miso.Lens.TH (makeLenses)
 import Optics.Operators ((^.))
-import Scale (runScale)
+import Scale (LegalityIssue (ScaleTooHigh), runScale)
 import Shared qualified
 import ShowCard (show'Spell)
 import Theme.Types (themeClass)
@@ -58,6 +58,14 @@ view ctx props m =
       if m M.^. printView
         then M.text "TODO: display entire deck for printing"
         else viewCard ctx props m,
+      let cardScale = runScale (props M.^. deck) (props M.^. card)
+       in H.p_
+            [ CSS.style_
+                [ CSS.display $ case cardScale of Left _ -> "block"; _ -> "none",
+                  CSS.color CSS.red
+                ]
+            ]
+            (case cardScale of Left issue -> [M.text $ M.toMisoString $ show issue]; Right _ -> []),
       H.pre_ [] [M.text $ M.toMisoString $ CF.unparse (m M.^. conciseView) (props M.^. card)]
     ]
 
@@ -106,7 +114,10 @@ showName c =
    in if name == "" then H.em_ [] [M.text "No Name"] else M.text $ M.toMisoString name
 
 showScale :: [CF.Card] -> CF.Card -> M.View ctx model action
-showScale deckList = M.text . either (const "?") M.toMisoString . runScale deckList
+showScale deckList = M.text . either showLegalityIssue M.toMisoString . runScale deckList
+  where
+    showLegalityIssue (ScaleTooHigh _ s _) = M.toMisoString s
+    showLegalityIssue _ = "?"
 
 showImage :: Bool -> Maybe String -> M.View ctx model action
 showImage isMonster mbUrl =
