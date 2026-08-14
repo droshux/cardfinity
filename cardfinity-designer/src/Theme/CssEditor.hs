@@ -11,11 +11,14 @@ import Miso.String qualified as M
 parentId :: M.MisoString
 parentId = "cssEditorDiv"
 
+-- TODO: Figure out how to make sure that all selectors are prefixed by .custom
+-- I think I'll need to parse the CSS. Possibly in haskell, possibly in JS.
+-- Look at: https://github.com/yaitskov/miso-css and https://hackage.haskell.org/package/css-parser
+
 cssEditor :: M.Component ctx props M.MisoString Action
 cssEditor =
   (M.component "" update view)
     { M.scripts =
-        -- https://github.com/A99US/CM6-Browser-Wrapper
         [ M.Src "https://code.jquery.com/jquery-3.4.1.min.js" False,
           M.Src "src/Theme/cssEditor.js" False,
           M.Src "https://a99us.github.io/CM6-Browser-Wrapper/cm6-browser-wrapper.min.js" False
