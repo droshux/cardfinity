@@ -27,7 +27,8 @@ instance HasScale Condition where
   scale (Destroy d f) = do
     let multiplier = fieldMult f + (if d == Banish then 2 else 0)
     let n = natToInt (getCount f)
-    st <- scale (getSearchType f)
+    -- Half scale from rarity when discarding.
+    st <- (`div` (if d == Banish then 1 else 2)) <$> scale (getSearchType f)
     return $ -(n * multiplier + st)
     where
       fieldMult (FindCardsField _ True _) = 8 + inherent
@@ -191,15 +192,8 @@ instance HasScale Card where
 instance HasScale CardStats where
   scale = cardStatsElim scale scale
 
--- Decreases from 5->1 as input doubles eg: f 1 = 5, f 2 = 4, f 4 = 3, f 8 = 2,
--- f 16 = 1,... (minimum 1)
 coreFn :: Int -> Int
-coreFn x
-  | x == 1 = 5
-  | x < 4 = 4
-  | x < 8 = 3
-  | x < 16 = 2
-  | otherwise = 1
+coreFn x = ([5, 4, 4, 3, 3, 3, 2, 2, 2, 2] ++ [1, 1 ..]) !! x
 
 countMatches :: SearchType -> [Card] -> Int
 countMatches st = length . filter (toPredicate st)
@@ -213,18 +207,18 @@ instance HasScale SearchType where
             ignore <- asks ignoreSTNotFound
             unless ignore $ throwError $ SearchTypeNotFound $ show t
             return 0
-        | otherwise = return $ 2 ^ (coreFn x - 1)
+        | x <= 4 = return ([0, 32, 16, 8, 4] !! x)
+        | otherwise = return 0
 
 rarity :: [Card] -> SearchType -> String
 rarity dck st = discLog2 $ countMatches st dck
   where
     discLog2 x
       | x == 1 = "Legendary"
-      | x == 2 = "Very Rare"
+      | x == 2 = "Extremely Rare"
+      | x == 3 = "Very Rare"
       | x <= 4 = "Rare"
-      | x <= 8 = "Uncommon"
-      | x <= 16 = "Common"
-      | otherwise = "Very Common"
+      | otherwise = "Common"
 
 instance Show LegalityIssue where
   show (ScaleTooHigh limit s name) =
