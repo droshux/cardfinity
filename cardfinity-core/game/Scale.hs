@@ -51,7 +51,7 @@ instance HasScale Effect where
   scale (Scry n) = scale (Peek n)
   scale (Optional e) = scale e
   scale (ChooseEffect es) = mapM scale (NonE.toList es) <&> (+ length es) . maximum
-  scale (Attack piercing) = return $ if piercing then 20 else 10
+  scale (Attack piercing) = return $ if piercing then 15 else 5
   scale (Play t) = case t of
     ForSpell -> return 0
     o -> scale o
@@ -120,6 +120,7 @@ instance HasScale Trigger where
   scale Counter = return 20
   scale OnPlay = return 0
   scale OnAttach = return 0
+  scale OnTap = return 10
   scale _ = return 5
 
 destroyEnemyScale :: DestroyType -> FindCards -> Natural
