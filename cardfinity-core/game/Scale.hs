@@ -20,7 +20,7 @@ punishment :: Int
 punishment = 5
 
 -- The inherent value of something being an (untapped) monster
-inherent :: Int 
+inherent :: Int
 inherent = 5
 
 instance HasScale Condition where
@@ -30,11 +30,11 @@ instance HasScale Condition where
     st <- scale (getSearchType f)
     return $ -(n * multiplier + st)
     where
-        fieldMult (FindCardsField _ True _) = 10 + inherent 
-        fieldMult _ = 10
-  scale DiscardSelf = return $ -4
-  scale (TakeDamage n False) = let i = natToInt n in return $ -(i * coreFn i)
-  scale (TakeDamage n True) = let i = natToInt n in return $ -(i * (coreFn i + 2))
+      fieldMult (FindCardsField _ True _) = 8 + inherent
+      fieldMult _ = 8
+  scale DiscardSelf = return $ -2
+  scale (TakeDamage n True) = let i = natToInt n in return $ -(i * coreFn i)
+  scale (TakeDamage n False) = let i = natToInt n in return $ 2 - i * coreFn i
   scale (HealOpponent n) = scale (Heal n) <&> (\x -> -x)
   scale (Pop n) = return $ -(2 * natToInt n)
   scale (YouMay cond) = scale cond <&> (+ 2)
@@ -124,8 +124,10 @@ instance HasScale Trigger where
 destroyEnemyScale :: DestroyType -> FindCards -> Natural
 destroyEnemyScale Discard (FindCardsHand n _) = 10 * n + 2
 destroyEnemyScale Banish (FindCardsHand n _) = 12 * n + 2
-destroyEnemyScale Discard (FindCardsField n _ _) = n * 15 + 2 -- TODO: Update to handle untapped
-destroyEnemyScale Banish (FindCardsField n _ _) = n * 17 + 2 --TODO: Update to handle untapped
+destroyEnemyScale Discard (FindCardsField n False _) = n * 15 + 2
+destroyEnemyScale Banish (FindCardsField n False _) = n * 17 + 1
+destroyEnemyScale Discard (FindCardsField n True _) = n * 10 + 2
+destroyEnemyScale Banish (FindCardsField n True _) = n * 12 + 2
 
 data LegalityContext = LegalityContext
   { deckContext :: [Card],
