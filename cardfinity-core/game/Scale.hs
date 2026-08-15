@@ -106,14 +106,12 @@ instance HasScale Monster where
     -- Double punishment for additional monster spells
     spells <- local (\c -> c {inMonster = True}) (sumWithPunishment 2 $ monster ^. monsterSpells)
     let power = fromIntegral (monster ^. combatPower) * length (show $ monster ^. combatPower) -- Multiply by number of digits
-    let tap = if monster ^. entersTapped && anyTap (monster ^. monsterSpells) then -inherent else 0 -- Enters the field tapped
+    let tap = if monster ^. entersTapped then -inherent else 0 -- Enters the field tapped
     let total = inherent + requirements + spells + power + tap
 
     -- Monsters must have scale of 10 or less
     unless (total <= 10) $ throwError $ ScaleTooHigh 10 total $ monster ^. monsterName
     return total
-    where
-      anyTap = any ((OnTap ==) . (^. spellTrigger))
 
 instance HasScale Trigger where
   scale Infinity = return 20

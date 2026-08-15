@@ -186,7 +186,7 @@ showMonster c m =
             ],
           P.classes_ ["monster-bar"]
         ]
-        [ H.img_ [P.src_ "assets/icons/turtle.svg", CSS.style_ [CSS.visibility $ if m ^. CF.isTapped then "visible" else "hidden"]],
+        [ H.img_ [P.src_ "assets/icons/turtle.svg", CSS.style_ [CSS.visibility $ if m ^. CF.entersTapped then "visible" else "hidden"]],
           H.div_
             [P.classes_ ["monster-power"]]
             [M.text $ M.toMisoString $ show $ m ^. CF.combatPower]
