@@ -91,10 +91,11 @@ instance HasScale Spell where
     es <- sumWithPunishment 1 $ spell ^. effects
     let total = ts + rs + es
 
-    -- Monster spells must be 15 scale or less but spell cards
-    -- must be 10 scale or less.
-    limit <- asks inMonster >>= \m -> return $ if m then 15 else 10
-    unless (total <= limit) $ throwError $ ScaleTooHigh limit total $ spell ^. spellName
+    -- Monster spells have no scale limit but spell cards
+    -- must be 10 scale or less. This only applies to monster spells that start
+    -- attached to monsters.
+    limit <- asks $ \ctx -> if isMonsterOnly (spell ^. spellTrigger) && inMonster ctx then -1 else 10
+    unless (limit < 0 || total <= limit) $ throwError $ ScaleTooHigh limit total $ spell ^. spellName
 
     return total
 
