@@ -39,7 +39,9 @@ instance HasScale Condition where
   scale (HealOpponent n) = scale (Heal n) <&> (\x -> -x)
   scale (Pop n) = return $ -(2 * natToInt n)
   scale (YouMay cond) = scale cond <&> (+ 2)
-  scale (Choose cs) = mapM scale (NonE.toList cs) <&> maximum
+  scale (Choose cs) =
+    let list = NonE.toList cs
+     in mapM scale list <&> (+ length list) . maximum
 
 instance HasScale Effect where
   scale (DestroyEnemy d f) = return $ natToInt $ destroyEnemyScale d f
