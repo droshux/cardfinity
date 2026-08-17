@@ -58,8 +58,9 @@ instance HasScale Effect where
   scale (Play t) = case t of
     ForSpell -> return 0
     o -> scale o
-  scale (Search (SearchFor ForSpell)) = return 10
-  scale (Search (SearchFor _)) = return 15
+  scale (Search (SearchFor t)) = do
+    s <- scale t
+    return $ 20 - (s `div` 2)
   scale (Search (DrillFor t)) = do
     notFound <- asks ((==) 0 . countMatches t . deckContext)
     when notFound $ throwError $ SearchTypeNotFound (show t)
