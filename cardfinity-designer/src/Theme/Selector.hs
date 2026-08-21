@@ -27,13 +27,13 @@ selector =
     update (SetTheme t) = M.modifyContext (theme M..~ t)
 
 -- TODO: Make a nicer selector?
-view :: Context -> props -> () -> M.View Context Action
+view :: Context -> props -> () -> M.View Context () Action
 view _ _ _ =
   let options = map opt $ enumFrom $ toEnum 0
    in H.select_
         [H.onChange (SetTheme . toEnum . M.fromMisoString)]
         options
   where
-    opt :: Theme -> M.View ctx Action
+    opt :: Theme -> M.View ctx () Action
     opt t =
       H.option_ [P.value_ (M.toMisoString $ fromEnum t)] [M.text (themeName t)]

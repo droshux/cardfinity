@@ -25,7 +25,7 @@ cssEditor =
         ]
     }
 
-view :: ctx -> props -> M.MisoString -> M.View ctx Action
+view :: ctx -> props -> M.MisoString -> M.View ctx M.MisoString Action
 view _ _ css =
   H.div_
     []
