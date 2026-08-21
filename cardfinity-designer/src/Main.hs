@@ -44,7 +44,7 @@ update (SetEditorState state) = do
   let currentCardModel = state M.^. at i `M.compose` Editor.deck
   currentCard M..= fmap (Editor.cardFromModel (fromIntegral i) . snd) currentCardModel
 
-view :: Context -> props -> Model -> M.View Context Action
+view :: Context -> props -> Model -> M.View Context Model Action
 view ctx _ m =
   H.div_
     [ CSS.style_

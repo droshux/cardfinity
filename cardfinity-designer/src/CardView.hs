@@ -49,7 +49,7 @@ cardView = (M.component modelDefault update view) {M.useContext = True}
     update ToggleConcise = conciseView M.%= not
     update TogglePrint = printView M.%= not
 
-view :: Context -> CardViewProps -> CardViewModel -> M.View Context CardViewAction
+view :: Context -> CardViewProps -> CardViewModel -> M.View Context CardViewModel CardViewAction
 view ctx props m =
   H.div_
     []
@@ -64,7 +64,7 @@ view ctx props m =
       H.pre_ [] [M.text $ M.toMisoString $ CF.unparse (m M.^. conciseView) (props M.^. card)]
     ]
 
-viewCard :: Context -> CardViewProps -> CardViewModel -> M.View Context CardViewAction
+viewCard :: Context -> CardViewProps -> CardViewModel -> M.View Context CardViewModel CardViewAction
 viewCard ctx props m =
   H.div_
     [ CSS.style_
@@ -103,15 +103,15 @@ viewCard ctx props m =
       CF.cardStatsElim (showSpell False $ m M.^. conciseView) (showMonster $ m M.^. conciseView) (props M.^. card ^. CF.cardStats)
     ]
 
-showName :: CF.Card -> M.View model action
+showName :: CF.Card -> M.View ctx model action
 showName c =
   let name = CF.cardName c
    in if name == "" then H.em_ [] [M.text "No Name"] else M.text $ M.toMisoString name
 
-showScale :: [CF.Card] -> CF.Card -> M.View model action
+showScale :: [CF.Card] -> CF.Card -> M.View ctx model action
 showScale deck = M.text . either (const "?") M.toMisoString . runScale deck
 
-showImage :: Bool -> Maybe String -> M.View model action
+showImage :: Bool -> Maybe String -> M.View ctx model action
 showImage isMonster mbUrl =
   H.img_
     [ P.src_ $ maybe fallback M.toMisoString mbUrl,
@@ -121,9 +121,9 @@ showImage isMonster mbUrl =
   where
     fallback = if isMonster then "assets/icons/snail.svg" else "assets/icons/shell.svg"
 
-showText :: Bool -> CF.CardText -> [M.View model action]
+showText :: Bool -> CF.CardText -> [M.View ctx model action]
 showText False (CF.Text t) = [M.text $ M.toMisoString t]
-showText True (CF.Text t) = [M.text $ M.toMisoString " "]
+showText True (CF.Text _) = [M.text " "]
 showText _ (CF.Number n) = [M.text $ M.toMisoString $ show n]
 showText _ (CF.Trigger t) = [Shared.triggerIcon t]
 showText _ (CF.CardName f) = [M.text $ M.toMisoString $ show f]
@@ -144,10 +144,10 @@ showText c (CF.Copies t n) =
       ]
   ]
 
-showSpell :: Bool -> Bool -> CF.Spell -> M.View model action
+showSpell :: Bool -> Bool -> CF.Spell -> M.View ctx model action
 showSpell name c = H.span_ [P.classes_ ["spell-text"]] . showText c . show'Spell name
 
-showMonster :: Bool -> CF.Monster -> M.View model action
+showMonster :: Bool -> CF.Monster -> M.View ctx model action
 showMonster c m =
   H.div_
     [ CSS.style_
