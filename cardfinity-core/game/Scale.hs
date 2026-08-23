@@ -40,7 +40,10 @@ instance HasScale Condition where
     true <- scale (TakeDamage n False)
     pop <- scale (Pop n)
     return $ true + pop
-  scale (HealOpponent n) = (* (-1)) <$> scale (Heal n)
+  scale (HealOpponent n) = do
+    heal <- scale (DealDamage n False)
+    info <- scale (Scry n)
+    return $ info - heal
   scale (Pop n) = return $ -natToInt n
   scale (YouMay cond) = scale cond <&> (+ 2)
   scale (Choose cs) =
