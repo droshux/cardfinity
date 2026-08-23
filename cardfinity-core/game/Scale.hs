@@ -1,4 +1,4 @@
-module Scale where
+module Scale (HasScale, isLegal, rarity, runScale,LegalityIssue(..)) where
 
 import AtomDisplay ()
 import Atoms
@@ -10,6 +10,7 @@ import Data.Functor ((<&>))
 import Data.List (find)
 import Data.List.NonEmpty qualified as NonE
 import GHC.Natural (Natural)
+import GHC.Num (integerFromWord, integerLogBase, integerToInt)
 import GameUtils (toPredicate)
 import Optics.Operators ((^.))
 import System.Exit (exitFailure)
@@ -33,11 +34,14 @@ instance HasScale Condition where
     where
       fieldMult (FindCardsField _ True _) = 8 + inherent
       fieldMult _ = 8
-  scale DiscardSelf = return $ -2
-  scale (TakeDamage n True) = let i = natToInt n in return $ -(i * coreFn i)
-  scale (TakeDamage n False) = let i = natToInt n in return $ 2 - i * coreFn i
-  scale (HealOpponent n) = scale (Heal n) <&> (\x -> -x)
-  scale (Pop n) = return $ -(2 * natToInt n)
+  scale DiscardSelf = (+ 1) <$> scale (TakeDamage 1 False)
+  scale (TakeDamage n False) = return $ -natToInt n 
+  scale (TakeDamage n True) = do
+    true <- scale (TakeDamage n False)
+    pop <- scale (Pop n)
+    return $ true + pop
+  scale (HealOpponent n) = (* (-1)) <$> scale (Heal n)
+  scale (Pop n) = return $ -natToInt n
   scale (YouMay cond) = scale cond <&> (+ 2)
   scale (Choose cs) =
     let list = NonE.toList cs
@@ -45,12 +49,15 @@ instance HasScale Condition where
 
 instance HasScale Effect where
   scale (DestroyEnemy d f) = return $ natToInt $ destroyEnemyScale d f
-  scale DiscardEnemy = scale DiscardSelf <&> (3 -)
-  scale (DealDamage n isTrue) = let mult = if isTrue then 7 else 5 in return $ mult * natToInt n
-  scale (Heal n) = return $ 7 * natToInt n
+  scale DiscardEnemy = (* (-1)) <$> scale DiscardSelf
+  scale (DealDamage n isTrue) = return $ (if isTrue then 4 else 3) * natToInt n 
+  scale (Heal n) = do
+    damage <- scale (TakeDamage n False)
+    info <- scale (Peek n)
+    return $ info - damage
   scale DECKOUT = return 0
   scale (Draw n) = return $ natToInt n * 10
-  scale (Peek n) = return $ 2 ^ n
+  scale (Peek n) = return $ 2 * natToInt n
   scale (Scry n) = scale (Peek n)
   scale (Optional e) = scale e
   scale (ChooseEffect es) = mapM scale (NonE.toList es) <&> (+ length es) . maximum
@@ -194,9 +201,6 @@ instance HasScale Card where
 
 instance HasScale CardStats where
   scale = cardStatsElim scale scale
-
-coreFn :: Int -> Int
-coreFn x = ([5, 4, 4, 3, 3, 3, 2, 2, 2, 2] ++ [1, 1 ..]) !! x
 
 countMatches :: SearchType -> [Card] -> Int
 countMatches st = length . filter (toPredicate st)
