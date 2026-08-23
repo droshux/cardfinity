@@ -1,4 +1,4 @@
-module Scale (HasScale, isLegal, rarity, runScale,LegalityIssue(..)) where
+module Scale (HasScale, isLegal, rarity, runScale, LegalityIssue (..)) where
 
 import AtomDisplay ()
 import Atoms
@@ -35,7 +35,7 @@ instance HasScale Condition where
       fieldMult (FindCardsField _ True _) = 8 + inherent
       fieldMult _ = 8
   scale DiscardSelf = (+ 1) <$> scale (TakeDamage 1 False)
-  scale (TakeDamage n False) = return $ -natToInt n 
+  scale (TakeDamage n False) = return $ -natToInt n
   scale (TakeDamage n True) = do
     true <- scale (TakeDamage n False)
     pop <- scale (Pop n)
@@ -53,7 +53,7 @@ instance HasScale Condition where
 instance HasScale Effect where
   scale (DestroyEnemy d f) = return $ natToInt $ destroyEnemyScale d f
   scale DiscardEnemy = (* (-1)) <$> scale DiscardSelf
-  scale (DealDamage n isTrue) = return $ (if isTrue then 4 else 3) * natToInt n 
+  scale (DealDamage n isTrue) = return $ (if isTrue then 4 else 3) * natToInt n
   scale (Heal n) = do
     damage <- scale (TakeDamage n False)
     info <- scale (Peek n)
@@ -65,9 +65,11 @@ instance HasScale Effect where
   scale (Optional e) = scale e
   scale (ChooseEffect es) = mapM scale (NonE.toList es) <&> (+ length es) . maximum
   scale (Attack piercing) = return $ if piercing then 15 else 5
-  scale (Play t) = case t of
-    ForSpell -> return 0
-    o -> scale o
+  scale (Play t) = do
+    playMonster <- asks (any isMonster . filter (toPredicate t) . deckContext)
+    -- Playing spells is free, but playing a monster should cost the same as
+    -- tutoring for it.
+    if playMonster then scale (Search $ SearchFor t) else return 0
   scale (Search (SearchFor t)) = do
     s <- scale t
     return $ 20 - (s `div` 2)
@@ -84,7 +86,7 @@ class (HasScale a) => Punishable a where
 
 instance Punishable Effect where
   incursPunishment DECKOUT = False
-  incursPunishment (Play ForSpell) = False
+  incursPunishment (Play _) = False
   incursPunishment (AsEffect _) = False
   incursPunishment _ = True
 
