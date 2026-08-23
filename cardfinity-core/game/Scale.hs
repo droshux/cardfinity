@@ -125,7 +125,11 @@ instance HasScale Monster where
     return total
 
 instance HasScale Trigger where
-  scale Infinity = return 20
+  scale Infinity = do
+    -- `infinity: deal 1` should cost enough to kill the opponent immediately
+    kill <- scale (DealDamage 55 False)
+    ping1 <- scale (DealDamage 1 True)
+    return $ kill - ping1
   scale Counter = return 20
   scale OnPlay = return 0
   scale OnAttach = return 0
