@@ -6,10 +6,9 @@ module Editor.Update
 where
 
 import Data.Bifunctor (first, second)
-import Data.Maybe (fromMaybe)
 import Editor.Types
 import Miso qualified as M
-import Miso.Lens
+import Miso.Lens hiding (set)
 
 update :: DeckAction -> M.Effect ctx props DeckModel DeckAction
 update a = do
@@ -19,7 +18,7 @@ update a = do
 performUpdate :: DeckAction -> M.Effect ctx props DeckModel DeckAction
 performUpdate UpdateParent = return () -- Noop, just mail current state to parent
 performUpdate NewCard = deck %= (++ [def])
-performUpdate (SetCopies i n) = deck % at i %= fmap (first (+ 1))
+performUpdate (SetCopies i n) = deck % at i %= fmap (first (const n))
 performUpdate (ViewCard i) = currentCardIndex .= i
 performUpdate (DeleteCard i) = deck % at i .= Nothing
 performUpdate ToggleDecklist = showDecklist %= not
@@ -46,33 +45,35 @@ updateSpell (ActCond a) = castingConditions %~ updateList updateCondition a
 updateSpell (ActEff a) = spellEffects %~ updateList updateEffect a
 
 updateEffect :: EffectAction -> EffectModel -> EffectModel
-updateEffect (SetEffect id) = currentEffect .~ id
+updateEffect (SetEffect effId) = currentEffect .~ effId
 updateEffect (ESetCount n) = effectCount .~ n
 updateEffect (ESetCountInt i) = effectCountInt .~ i
 updateEffect EToggle1 = effectToggle %~ not
 updateEffect EToggle2 = effectToggle2 %~ not
+updateEffect EToggle3 = effectToggle3 %~ not
 updateEffect (EffSearchType a) = effectSearchType %~ updateSearchType a
-updateEffect (ESetOptional id) = effectOptional .~ id
+updateEffect (ESetOptional effId) = effectOptional .~ effId
 updateEffect (SubEffsAction a) = subEffects %~ updateList updateEffect a
 updateEffect (EffCondAction a) = effectCondition %~ updateCondition a
 
 updateCondition :: ConditionAction -> ConditionModel -> ConditionModel
-updateCondition (SetCondition id) = currentCondition .~ id
+updateCondition (SetCondition condId) = currentCondition .~ condId
 updateCondition (CSetCount n) = conditionCount .~ n
 updateCondition CToggle1 = conditionToggle %~ not
 updateCondition CToggle2 = conditionToggle2 %~ not
+updateCondition CToggle3 = conditionToggle3 %~ not
 updateCondition (CondSearchType a) = conditionSearchType %~ updateSearchType a
-updateCondition (CSetOptional id) = conditionOptional .~ id
+updateCondition (CSetOptional condId) = conditionOptional .~ condId
 updateCondition (SubCondsAction a) = subConditions %~ updateList updateCondition a
 
 updateSearchType :: SearchTypeAction -> SearchTypeModel -> SearchTypeModel
-updateSearchType (SetSearchType id) = searchTypeID .~ id
+updateSearchType (SetSearchType stId) = searchTypeID .~ stId
 updateSearchType (SetText text) = searchTypeText .~ text
 
 updateList :: (Default am) => (aa -> am -> am) -> ListAction aa -> [am] -> [am]
-updateList update NewItem = (++ [def])
-updateList update (Delete i) = at i .~ Nothing
-updateList update (Act i a) = at i %~ fmap (update a)
+updateList _ NewItem = (++ [def])
+updateList _ (Delete i) = at i .~ Nothing
+updateList upd (Act i a) = at i %~ fmap (upd a)
 
 (%) :: Lens a b -> Lens b c -> Lens a c
 (%) f g = M.compose g f

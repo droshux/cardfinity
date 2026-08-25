@@ -98,7 +98,7 @@ monster = do
   startsTapped <- option False $ do
     _ <- string' "tapped"
     return True
-  return $ Monster monsterName spells conds power startsTapped
+  return $ Monster monsterName spells conds power False startsTapped
   where
     mspells :: CardParser [Spell]
     mspells = do

@@ -2,7 +2,6 @@
 
 module Context (Context, theme, initialCtx) where
 
-import Miso.Lens (Lens, lens)
 import Miso.Lens.TH (makeLenses)
 import Theme.Types qualified as Theme
 

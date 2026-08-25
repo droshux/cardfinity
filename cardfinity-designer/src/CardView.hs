@@ -3,24 +3,21 @@
 
 module CardView (cardView, CardViewProps (CardViewProps)) where
 
-import Atoms qualified as CF
 import Context (Context, theme)
 import Data.Foldable (Foldable (toList))
 import Data.List (intersperse)
-import Data.Maybe (fromMaybe, isNothing)
-import Data.Set.Ordered qualified as OS
+import Data.Maybe (isNothing)
 import Miso qualified as M
 import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
 import Miso.Html.Property qualified as P
-import Miso.Lens (Lens, lens)
 import Miso.Lens qualified as M
 import Miso.Lens.TH (makeLenses)
 import Optics.Operators ((^.))
-import Scale (runScale)
+import Scale (LegalityIssue (ScaleTooHigh), runScale)
 import Shared qualified
 import ShowCard (show'Spell)
-import Theme.Types (Theme, themeClass)
+import Theme.Types (themeClass)
 import Types qualified as CF
 import Utils qualified as CF
 
@@ -40,7 +37,7 @@ data CardViewModel = CardViewModel
 
 $(makeLenses ''CardViewModel)
 
-data CardViewAction = ToggleCode | ToggleConcise | TogglePrint
+data CardViewAction = ToggleConcise | TogglePrint
 
 cardView :: M.Component Context CardViewProps CardViewModel CardViewAction
 cardView = (M.component modelDefault update view) {M.useContext = True}
@@ -61,6 +58,14 @@ view ctx props m =
       if m M.^. printView
         then M.text "TODO: display entire deck for printing"
         else viewCard ctx props m,
+      let cardScale = runScale (props M.^. deck) (props M.^. card)
+       in H.p_
+            [ CSS.style_
+                [ CSS.display $ case cardScale of Left _ -> "block"; _ -> "none",
+                  CSS.color CSS.red
+                ]
+            ]
+            (case cardScale of Left issue -> [M.text $ M.toMisoString $ show issue]; Right _ -> []),
       H.pre_ [] [M.text $ M.toMisoString $ CF.unparse (m M.^. conciseView) (props M.^. card)]
     ]
 
@@ -109,7 +114,10 @@ showName c =
    in if name == "" then H.em_ [] [M.text "No Name"] else M.text $ M.toMisoString name
 
 showScale :: [CF.Card] -> CF.Card -> M.View ctx model action
-showScale deck = M.text . either (const "?") M.toMisoString . runScale deck
+showScale deckList = M.text . either showLegalityIssue M.toMisoString . runScale deckList
+  where
+    showLegalityIssue (ScaleTooHigh _ s _) = M.toMisoString s
+    showLegalityIssue _ = "?"
 
 showImage :: Bool -> Maybe String -> M.View ctx model action
 showImage isMonster mbUrl =
@@ -178,7 +186,7 @@ showMonster c m =
             ],
           P.classes_ ["monster-bar"]
         ]
-        [ H.img_ [P.src_ "assets/icons/turtle.svg", CSS.style_ [CSS.visibility $ if m ^. CF.isTapped then "visible" else "hidden"]],
+        [ H.img_ [P.src_ "assets/icons/turtle.svg", CSS.style_ [CSS.visibility $ if m ^. CF.entersTapped then "visible" else "hidden"]],
           H.div_
             [P.classes_ ["monster-power"]]
             [M.text $ M.toMisoString $ show $ m ^. CF.combatPower]

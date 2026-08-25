@@ -16,8 +16,6 @@ import Editor.Types (CardModel, DeckAction (UpdateParent), DeckModel, Default (d
 import Editor.Update (update, (%))
 import Editor.View (view)
 import Miso qualified as M
-import Miso.Lens (at)
-import Miso.Lens qualified as M
 
 editor :: M.Component ctx props DeckModel DeckAction
 editor =

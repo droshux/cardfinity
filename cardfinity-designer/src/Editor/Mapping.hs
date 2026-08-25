@@ -1,8 +1,6 @@
 module Editor.Mapping (deckFromModel, cardFromModel) where
 
 import Atoms qualified as CF
-import Control.Monad (join, (<=<))
-import Data.Foldable (Foldable (toList))
 import Data.Function ((&))
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe)
@@ -17,9 +15,9 @@ deckFromModel :: DeckModel -> [CF.Card]
 deckFromModel d = d ^. deck >>= zipWith cardFromModel [0 ..] . uncurry replicate
 
 cardFromModel :: Natural -> CardModel -> CF.Card
-cardFromModel id =
+cardFromModel cardId =
   CF.Card
-    <$> const id
+    <$> const cardId
     <*> OS.fromList . map fromMisoString . (^. families)
     <*> ifelse (^. editingSpell) (CF.SpellStats . spellFromModel . (^. spellStats)) (CF.MonsterStats . monsterFromModel . (^. monsterStats))
     <*> ifelse (== "") (const Nothing) Just . fromMisoString . (^. imageUrl)
@@ -39,13 +37,14 @@ monsterFromModel =
     <*> map spellFromModel . (^. monsterSpells)
     <*> OS.fromList . map conditionFromModel . (^. summoningConditions)
     <*> (^. combatPower)
+    <*> const False
     <*> (^. entersTapped)
 
 conditionFromModel :: ConditionModel -> CF.Condition
 conditionFromModel m =
   m & case m ^. currentCondition of
     DiscardSelf -> const CF.DiscardSelf
-    Destroy -> destroyFromModel CF.Destroy conditionSearchType conditionCount conditionToggle conditionToggle2
+    Destroy -> destroyFromModel CF.Destroy conditionSearchType conditionCount conditionToggle conditionToggle2 conditionToggle3
     TakeDamage -> CF.TakeDamage <$> (^. conditionCount) <*> (^. conditionToggle)
     HealOpponent -> CF.HealOpponent . (^. conditionCount)
     Pop -> CF.Pop . (^. conditionCount)
@@ -56,7 +55,7 @@ effectFromModel :: EffectModel -> CF.Effect
 effectFromModel m =
   m & case m ^. currentEffect of
     DiscardEnemy -> const CF.DiscardEnemy
-    DestroyEnemy -> destroyFromModel CF.DestroyEnemy effectSearchType effectCount effectToggle effectToggle2
+    DestroyEnemy -> destroyFromModel CF.DestroyEnemy effectSearchType effectCount effectToggle effectToggle2 effectToggle3
     DealDamage -> CF.DealDamage <$> (^. effectCount) <*> (^. effectToggle)
     Heal -> CF.Heal . (^. effectCount)
     DECKOUT -> const CF.DECKOUT
@@ -74,10 +73,11 @@ effectFromModel m =
     Buff -> CF.Buff <$> (^. effectCountInt) <*> (^. effectToggle)
     AsEffect -> CF.AsEffect . conditionFromModel . (^. effectCondition)
 
-destroyFromModel f st n b1 b2 =
+destroyFromModel :: (CF.DestroyType -> CF.FindCards -> b) -> Lens t SearchTypeModel -> Lens t Natural -> Lens t Bool -> Lens t Bool -> Lens t Bool -> t -> b
+destroyFromModel f st n b1 b2 b3 =
   f
     <$> ifelse (^. b1) (const CF.Banish) (const CF.Discard)
-    <*> ifelse (^. b2) (CF.FindCardsField <$> (^. n) <*> stFromModel . (^. st)) (CF.FindCardsHand <$> (^. n) <*> stFromModel . (^. st))
+    <*> ifelse (^. b2) (CF.FindCardsField <$> (^. n) <*> (^. b3) <*> stFromModel . (^. st)) (CF.FindCardsHand <$> (^. n) <*> stFromModel . (^. st))
 
 stFromModel :: SearchTypeModel -> CF.SearchType
 stFromModel m =
@@ -92,6 +92,5 @@ toNE :: [a] -> Maybe (NE.NonEmpty a)
 toNE [] = Nothing
 toNE (x : xs) = Just $ x NE.:| xs
 
-z = (toNE =<<)
-
+ifelse :: (t1 -> Bool) -> (t1 -> t2) -> (t1 -> t2) -> t1 -> t2
 ifelse b f g x = if b x then f x else g x

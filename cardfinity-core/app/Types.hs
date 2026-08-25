@@ -34,6 +34,7 @@ module Types
     summoningConditions,
     combatPower,
     isTapped,
+    entersTapped,
     spellStats,
     monsterStats,
     cardID,
@@ -118,7 +119,8 @@ data Monster = Monster
     _monsterSpells :: [Spell],
     _summoningConditions :: OS.OSet Condition,
     _combatPower :: Natural,
-    _isTapped :: Bool
+    _isTapped :: Bool,
+    _entersTapped :: Bool
   }
   deriving (Eq, Ord)
 

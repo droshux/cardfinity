@@ -58,18 +58,18 @@ data DestroyType = Discard | Banish deriving (Eq, Ord, Show)
 
 data SearchType = ForName String | ForFamily String | ForSpell | ForMonster | ForCard deriving (Ord, Eq)
 
-data FindCards = FindCardsField Natural SearchType | FindCardsHand Natural SearchType deriving (Eq, Ord)
+data FindCards = FindCardsField Natural Bool SearchType | FindCardsHand Natural SearchType deriving (Eq, Ord)
 
 data SearchMethod = SearchFor SearchType | DrillFor SearchType deriving (Eq, Ord)
 
 getCount :: FindCards -> Natural
-getCount (FindCardsField n _) = n
+getCount (FindCardsField n _ _) = n
 getCount (FindCardsHand n _) = n
 
 getSearchType :: FindCards -> SearchType
 getSearchType (FindCardsHand _ t) = t
-getSearchType (FindCardsField _ t) = t
+getSearchType (FindCardsField _ _ t) = t
 
 isField :: FindCards -> Bool
-isField (FindCardsField _ _) = True
+isField (FindCardsField {}) = True
 isField (FindCardsHand _ _) = False

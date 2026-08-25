@@ -60,10 +60,11 @@ findCards :: CardParser FindCards
 findCards = do
   n <- option 1 decimal
   hspace
+  tapped <- option False ((string' "untapped" <|> string' "ut") *> hspace $> True)
   typ <- searchType
   hspace
   anyOf
-    [ FindCardsField n typ <$ string' "field",
+    [ FindCardsField n tapped typ <$ string' "field",
       FindCardsHand n typ <$ string' "hand"
     ]
 

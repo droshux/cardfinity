@@ -1,4 +1,4 @@
-module Scale where
+module Scale (HasScale, isLegal, rarity, runScale, LegalityIssue (..)) where
 
 import AtomDisplay ()
 import Atoms
@@ -10,6 +10,7 @@ import Data.Functor ((<&>))
 import Data.List (find)
 import Data.List.NonEmpty qualified as NonE
 import GHC.Natural (Natural)
+import GHC.Num (integerFromWord, integerLogBase, integerToInt)
 import GameUtils (toPredicate)
 import Optics.Operators ((^.))
 import System.Exit (exitFailure)
@@ -19,37 +20,60 @@ import Utils (natToInt)
 punishment :: Int
 punishment = 5
 
+-- The inherent value of something being an (untapped) monster
+inherent :: Int
+inherent = 5
+
 instance HasScale Condition where
   scale (Destroy d f) = do
-    let multiplier = (if isField f then 15 else 10) + (if d == Banish then 2 else 0)
+    popScale <- scale (Pop 1)
+    let multiplier = fieldMult f + (if d == Banish then 0 else popScale)
     let n = natToInt (getCount f)
-    st <- scale (getSearchType f)
+    -- Half scale from rarity when discarding.
+    st <- (`div` (if d == Banish then 1 else 2)) <$> scale (getSearchType f)
     return $ -(n * multiplier + st)
-  scale DiscardSelf = return $ -4
-  scale (TakeDamage n False) = let i = natToInt n in return $ -(i * coreFn i)
-  scale (TakeDamage n True) = let i = natToInt n in return $ -(i * (coreFn i + 2))
-  scale (HealOpponent n) = scale (Heal n) <&> (\x -> -x)
-  scale (Pop n) = return $ -(2 * natToInt n)
+    where
+      fieldMult (FindCardsField _ True _) = 10 + inherent
+      fieldMult _ = 10
+  scale DiscardSelf = (+ 1) <$> scale (TakeDamage 1 False)
+  scale (TakeDamage n False) = return $ -natToInt n
+  scale (TakeDamage n True) = do
+    true <- scale (TakeDamage n False)
+    pop <- scale (Pop n)
+    return $ true + pop
+  scale (HealOpponent n) = do
+    heal <- scale (DealDamage n False)
+    info <- scale (Scry n)
+    return $ info - heal
+  scale (Pop n) = return $ -natToInt n
   scale (YouMay cond) = scale cond <&> (+ 2)
-  scale (Choose cs) = mapM scale (NonE.toList cs) <&> maximum
+  scale (Choose cs) =
+    let list = NonE.toList cs
+     in mapM scale list <&> (+ length list) . maximum
 
 instance HasScale Effect where
   scale (DestroyEnemy d f) = return $ natToInt $ destroyEnemyScale d f
-  scale DiscardEnemy = scale DiscardSelf <&> (3 -)
-  scale (DealDamage n isTrue) = let mult = if isTrue then 7 else 5 in return $ mult * natToInt n
-  scale (Heal n) = return $ 7 * natToInt n
+  scale DiscardEnemy = (* (-1)) <$> scale DiscardSelf
+  scale (DealDamage n isTrue) = return $ (if isTrue then 4 else 3) * natToInt n
+  scale (Heal n) = do
+    damage <- scale (TakeDamage n False)
+    info <- scale (Peek n)
+    return $ info - damage
   scale DECKOUT = return 0
   scale (Draw n) = return $ natToInt n * 10
-  scale (Peek n) = return $ 2 ^ n
+  scale (Peek n) = return $ 2 * natToInt n
   scale (Scry n) = scale (Peek n)
   scale (Optional e) = scale e
   scale (ChooseEffect es) = mapM scale (NonE.toList es) <&> (+ length es) . maximum
-  scale (Attack piercing) = return $ if piercing then 20 else 10
-  scale (Play t) = case t of
-    ForSpell -> return 0
-    o -> scale o
-  scale (Search (SearchFor ForSpell)) = return 10
-  scale (Search (SearchFor _)) = return 15
+  scale (Attack piercing) = return $ if piercing then 15 else 5
+  scale (Play t) = do
+    playMonster <- asks (any isMonster . filter (toPredicate t) . deckContext)
+    -- Playing spells is free, but playing a monster should cost the same as
+    -- tutoring for it.
+    if playMonster then scale (Search $ SearchFor t) else return 0
+  scale (Search (SearchFor t)) = do
+    s <- scale t
+    return $ 20 - (s `div` 2)
   scale (Search (DrillFor t)) = do
     notFound <- asks ((==) 0 . countMatches t . deckContext)
     when notFound $ throwError $ SearchTypeNotFound (show t)
@@ -63,7 +87,7 @@ class (HasScale a) => Punishable a where
 
 instance Punishable Effect where
   incursPunishment DECKOUT = False
-  incursPunishment (Play ForSpell) = False
+  incursPunishment (Play _) = False
   incursPunishment (AsEffect _) = False
   incursPunishment _ = True
 
@@ -84,10 +108,11 @@ instance HasScale Spell where
     es <- sumWithPunishment 1 $ spell ^. effects
     let total = ts + rs + es
 
-    -- Monster spells must be 15 scale or less but spell cards
-    -- must be 10 scale or less.
-    limit <- asks inMonster >>= \m -> return $ if m then 15 else 10
-    unless (total <= limit) $ throwError $ ScaleTooHigh limit total $ spell ^. spellName
+    -- Monster spells have no scale limit but spell cards
+    -- must be 10 scale or less. This only applies to monster spells that start
+    -- attached to monsters.
+    limit <- asks $ \ctx -> if isMonsterOnly (spell ^. spellTrigger) && inMonster ctx then -1 else 10
+    unless (limit < 0 || total <= limit) $ throwError $ ScaleTooHigh limit total $ spell ^. spellName
 
     return total
 
@@ -98,27 +123,32 @@ instance HasScale Monster where
     -- Double punishment for additional monster spells
     spells <- local (\c -> c {inMonster = True}) (sumWithPunishment 2 $ monster ^. monsterSpells)
     let power = fromIntegral (monster ^. combatPower) * length (show $ monster ^. combatPower) -- Multiply by number of digits
-    let tap = if monster ^. isTapped && anyTap (monster ^. monsterSpells) then -5 else 0 -- Enters the field tapped
-    let total = requirements + spells + power + tap
+    let tap = if monster ^. entersTapped then -inherent else 0 -- Enters the field tapped
+    let total = inherent + requirements + spells + power + tap
 
     -- Monsters must have scale of 10 or less
     unless (total <= 10) $ throwError $ ScaleTooHigh 10 total $ monster ^. monsterName
     return total
-    where
-      anyTap = any ((OnTap ==) . (^. spellTrigger))
 
 instance HasScale Trigger where
-  scale Infinity = return 20
+  scale Infinity = do
+    -- `infinity: deal 1` should cost enough to kill the opponent immediately
+    kill <- scale (DealDamage 55 False)
+    ping1 <- scale (DealDamage 1 True)
+    return $ kill - ping1
   scale Counter = return 20
   scale OnPlay = return 0
   scale OnAttach = return 0
+  scale OnTap = return 10
   scale _ = return 5
 
 destroyEnemyScale :: DestroyType -> FindCards -> Natural
 destroyEnemyScale Discard (FindCardsHand n _) = 10 * n + 2
 destroyEnemyScale Banish (FindCardsHand n _) = 12 * n + 2
-destroyEnemyScale Discard (FindCardsField n _) = n * 15 + 2
-destroyEnemyScale Banish (FindCardsField n _) = n * 17 + 2
+destroyEnemyScale Discard (FindCardsField n False _) = n * 15 + 2
+destroyEnemyScale Banish (FindCardsField n False _) = n * 17 + 2
+destroyEnemyScale Discard (FindCardsField n True _) = n * 10 + 2
+destroyEnemyScale Banish (FindCardsField n True _) = n * 12 + 2
 
 data LegalityContext = LegalityContext
   { deckContext :: [Card],
@@ -182,16 +212,6 @@ instance HasScale Card where
 instance HasScale CardStats where
   scale = cardStatsElim scale scale
 
--- Decreases from 5->1 as input doubles eg: f 1 = 5, f 2 = 4, f 4 = 3, f 8 = 2,
--- f 16 = 1,... (minimum 1)
-coreFn :: Int -> Int
-coreFn x
-  | x == 1 = 5
-  | x < 4 = 4
-  | x < 8 = 3
-  | x < 16 = 2
-  | otherwise = 1
-
 countMatches :: SearchType -> [Card] -> Int
 countMatches st = length . filter (toPredicate st)
 
@@ -204,18 +224,18 @@ instance HasScale SearchType where
             ignore <- asks ignoreSTNotFound
             unless ignore $ throwError $ SearchTypeNotFound $ show t
             return 0
-        | otherwise = return $ 2 ^ (coreFn x - 1)
+        | x <= 4 = return ([0, 32, 16, 8, 4] !! x)
+        | otherwise = return 0
 
 rarity :: [Card] -> SearchType -> String
 rarity dck st = discLog2 $ countMatches st dck
   where
     discLog2 x
       | x == 1 = "Legendary"
-      | x == 2 = "Very Rare"
+      | x == 2 = "Extremely Rare"
+      | x == 3 = "Very Rare"
       | x <= 4 = "Rare"
-      | x <= 8 = "Uncommon"
-      | x <= 16 = "Common"
-      | otherwise = "Very Common"
+      | otherwise = "Common"
 
 instance Show LegalityIssue where
   show (ScaleTooHigh limit s name) =
