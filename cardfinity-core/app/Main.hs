@@ -8,24 +8,22 @@ module Main (main) where
 
 import Atoms (SearchType (..))
 import CardParser (card, deck)
-import Control.Monad (forM_, void, when)
-import Control.Monad.Except (ExceptT (ExceptT), runExceptT)
+import Control.Monad (forM_, void)
 import Data.Foldable (toList)
 import Data.Functor ((<&>))
 import Data.List (nub)
-import Data.Maybe (fromJust, mapMaybe)
-import Data.Text (pack)
+import Data.Maybe (mapMaybe)
 import Data.Version (showVersion)
 import Game (runGame)
 import Optics.Operators ((^.))
-import Options.Applicative.Simple (addCommand, help, long, metavar, option, short, simpleOptions, str, strArgument, switch, value)
+import Options.Applicative.Simple (addCommand, help, metavar, simpleOptions, strArgument)
 import ParserCore (space)
 import Paths_cardfinity_core (version)
 import Scale (isLegal, rarity, runScale)
 import System.Exit (exitFailure)
 import Text.Megaparsec (errorBundlePretty, manyTill, parse)
 import Text.Megaparsec.Byte (string')
-import Types (Card, cardFamilies, cardName)
+import Types (DeckInfo, cardFamilies, cardName, deckCards)
 
 main :: IO ()
 main = do
@@ -52,7 +50,7 @@ dev =
 
 devMode path = do
   -- Read entire deck
-  dck <- fst3 <$> tryParseDeck path
+  dck <- deckCards <$> tryParseDeck path
 
   -- Read all unique cards and print
   let cardsParse = manyTill (card <* space) (string' "deck:")
@@ -99,7 +97,7 @@ play =
           repl o = o
        in strArgument $ metavar (map repl "Player X's Deck") <> help (map repl "The file containing Player X's deck.")
 
-tryParseDeck :: String -> IO ([Card], String, String)
+tryParseDeck :: String -> IO DeckInfo
 tryParseDeck path =
   readFile path <&> parse deck path >>= \case
     Left err -> do
@@ -113,7 +111,5 @@ bothM f (x, y) = do
   y' <- f y
   return (x', y')
 
-fst3 (x, _, _) = x
-
 playWithDecks :: (String, String) -> IO ()
-playWithDecks p = bothM (fmap fst3 . tryParseDeck) p >>= uncurry runGame
+playWithDecks p = bothM (fmap deckCards . tryParseDeck) p >>= uncurry runGame

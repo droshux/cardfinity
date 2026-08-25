@@ -14,6 +14,8 @@ module Types
     cardName,
     cardImageUrl,
     isMonster,
+    DeckInfo (..),
+    deckCards,
     Player (..),
     otherPlayer,
     autotapList,
@@ -59,6 +61,7 @@ module Types
 where
 
 import Atoms (Condition, Effect)
+import Control.Monad ((<=<))
 import Control.Monad.Except
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.State
@@ -166,6 +169,15 @@ cardName = cardElim _spellName _monsterName
 
 isMonster :: Card -> Bool
 isMonster = isJust . preview monsterStats
+
+data DeckInfo = DeckInfo
+  { deckName :: String,
+    author :: String,
+    deckList :: [(Int, Card)]
+  }
+
+deckCards :: DeckInfo -> [Card]
+deckCards = uncurry replicate <=< deckList
 
 data Player = Player1 | Player2 deriving (Eq, Show)
 

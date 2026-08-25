@@ -13,19 +13,25 @@ import Text.Megaparsec.Char.Lexer (decimal)
 import Types
   ( Card (..),
     CardStats (MonsterStats, SpellStats),
+    DeckInfo (..),
     Monster (..),
     Spell (..),
     Trigger (..),
     cardName,
   )
 
-deck :: CardParser ([Card], String, String)
+deck :: CardParser DeckInfo
 deck = do
   cardDefs <- manyTill (card <* space) (string' "deck:" *> space)
   (dName, author) <- deckInfo <* space
   cardIncls <- manyTill (cardInclude cardDefs <* space) eof
-  let cards = (>>= uncurry replicate) cardIncls
-  return (cards, dName, author)
+  --    let cards = (>>= uncurry replicate) cardIncls
+  return $
+    DeckInfo
+      { deckName = dName,
+        author = author,
+        deckList = cardIncls
+      }
 
 deckInfo :: CardParser (String, String)
 deckInfo = do
