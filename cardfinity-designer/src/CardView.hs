@@ -3,7 +3,6 @@
 
 module CardView (cardView, CardViewProps (CardViewProps)) where
 
-import CardParser qualified as CF
 import Context (Context, theme)
 import Data.Foldable (Foldable (toList))
 import Data.List (intersperse)
@@ -67,8 +66,7 @@ view ctx props m =
                 ]
             ]
             (case cardScale of Left issue -> [M.text $ M.toMisoString $ show issue]; Right _ -> []),
-      H.pre_ [] [M.text $ M.toMisoString $ CF.unparse (m M.^. conciseView) (props M.^. card)],
-      H.pre_ [] [M.text $ M.toMisoString $ CF.unparseDeck (m M.^. conciseView) (props M.^. deck)]
+      H.pre_ [] [M.text $ M.toMisoString $ CF.unparse (m M.^. conciseView) (props M.^. card)]
     ]
 
 viewCard :: Context -> CardViewProps -> CardViewModel -> M.View Context CardViewModel CardViewAction

@@ -7,6 +7,7 @@ module Main where
 import CardView qualified
 import Context (Context, initialCtx, theme)
 import Editor qualified
+import Export qualified
 import Miso qualified as M
 import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
@@ -75,7 +76,8 @@ view ctx _ m =
         []
         [ "themeSelector" M.+> Theme.selector,
           M.text $ Theme.themeClass $ ctx M.^. theme
-        ]
+        ],
+      M.mountWithProps (Export.ExportProps (m M.^. deck)) Export.export
     ]
   where
     cvProps = flip CardView.CardViewProps (m M.^. deck)
