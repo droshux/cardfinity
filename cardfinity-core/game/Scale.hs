@@ -10,7 +10,6 @@ import Data.Functor ((<&>))
 import Data.List (find)
 import Data.List.NonEmpty qualified as NonE
 import GHC.Natural (Natural)
-import GHC.Num (integerFromWord, integerLogBase, integerToInt)
 import GameUtils (toPredicate)
 import Optics.Operators ((^.))
 import System.Exit (exitFailure)

@@ -35,7 +35,7 @@ module GameUtils
   )
 where
 
-import AtomDisplay
+import AtomDisplay ()
 import Atoms (FindCards (..), SearchType (..), getSearchType)
 import Control.Monad (mfilter, (<=<))
 import Control.Monad.Except (ExceptT, runExceptT, throwError)
@@ -46,7 +46,7 @@ import Data.Foldable (Foldable (toList))
 import Data.Functor ((<&>))
 import Data.List (findIndex)
 import Data.List.NonEmpty (NonEmpty ((:|)))
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (mapMaybe)
 import Optics (AffineTraversal', Ixed (ix), Lens', atraversal, over, preview, set, view, (%), (^.), (^?))
 import System.Random.Shuffle (shuffleM)
 import Text.Read (readMaybe)

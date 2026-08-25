@@ -62,6 +62,8 @@ module Editor.Types
     deck,
     currentCardIndex,
     showDecklist,
+    author,
+    deckName,
     Default (..),
     applyOptionalCond,
     applyOptionalEff,
@@ -150,6 +152,8 @@ data DeckAction
   | ActCard Int CardAction
   | MoveUp
   | MoveDown
+  | SetDeckName M.MisoString
+  | SetAuthor M.MisoString
   | UpdateParent
 
 data CardAction
@@ -335,7 +339,9 @@ $(makeLenses ''CardModel)
 data DeckModel = DeckModel
   { _deck :: [(Int, CardModel)],
     _currentCardIndex :: Int,
-    _showDecklist :: Bool
+    _showDecklist :: Bool,
+    _author :: M.MisoString,
+    _deckName :: M.MisoString
   }
   deriving (Eq, Generic, FromJSON, ToJSON)
 
@@ -349,7 +355,9 @@ instance Default DeckModel where
     DeckModel
       { _deck = [(1, def)],
         _currentCardIndex = 0,
-        _showDecklist = True
+        _showDecklist = True,
+        _author = "",
+        _deckName = "New deck"
       }
 
 instance Default CardModel where

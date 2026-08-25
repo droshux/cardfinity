@@ -11,8 +11,13 @@ import Miso (fromMisoString)
 import Miso.Lens (Lens, (^.))
 import Types qualified as CF
 
-deckFromModel :: DeckModel -> [CF.Card]
-deckFromModel d = d ^. deck >>= zipWith cardFromModel [0 ..] . uncurry replicate
+deckFromModel :: DeckModel -> CF.DeckInfo
+deckFromModel d =
+  CF.DeckInfo
+    { CF.author = fromMisoString $ d ^. author,
+      CF.deckName = fromMisoString $ d ^. deckName,
+      CF.deckList = zipWith (\i (n, c) -> (n, cardFromModel i c)) [0 ..] $ d ^. deck
+    }
 
 cardFromModel :: Natural -> CardModel -> CF.Card
 cardFromModel cardId =

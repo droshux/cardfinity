@@ -1,4 +1,4 @@
-module CardParser (card, deck) where
+module CardParser (card, deck, unparseDeck) where
 
 import AtomParsers (condition, effect)
 import Atoms (Condition)
@@ -7,6 +7,7 @@ import Control.Monad (void)
 import Data.Foldable (find)
 import Data.Set.Ordered (OSet, empty, fromList)
 import ParserCore
+import ShowCard ()
 import Text.Megaparsec (MonadParsec (..), choice, manyTill, option, optional, sepBy, sepBy1)
 import Text.Megaparsec.Char (char, string')
 import Text.Megaparsec.Char.Lexer (decimal)
@@ -14,6 +15,7 @@ import Types
   ( Card (..),
     CardStats (MonsterStats, SpellStats),
     DeckInfo (..),
+    Display (unparse),
     Monster (..),
     Spell (..),
     Trigger (..),
@@ -25,7 +27,6 @@ deck = do
   cardDefs <- manyTill (card <* space) (string' "deck:" *> space)
   (dName, author) <- deckInfo <* space
   cardIncls <- manyTill (cardInclude cardDefs <* space) eof
-  --    let cards = (>>= uncurry replicate) cardIncls
   return $
     DeckInfo
       { deckName = dName,
@@ -48,6 +49,25 @@ cardInclude cs = do
     Just c -> do
       count <- hspace *> option 1 decimal
       return (count, c)
+
+unparseDeck :: Bool -> DeckInfo -> String
+unparseDeck concise (DeckInfo {deckName, author, deckList}) =
+  let cardDefinition = (\x a -> a ++ "\n\n" ++ x) . unparse concise . snd
+      cardInclusion (n, c) a =
+        concat
+          [ a,
+            "\n",
+            show (cardName c),
+            if n == 1 && concise then "" else " " ++ show n
+          ]
+   in concat
+        [ foldr cardDefinition "" deckList,
+          "\n\ndeck:\n",
+          show deckName,
+          " by ",
+          show author,
+          foldr cardInclusion "" deckList
+        ]
 
 card :: CardParser Card
 card = do

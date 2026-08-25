@@ -3,6 +3,7 @@
 
 module CardView (cardView, CardViewProps (CardViewProps)) where
 
+import CardParser qualified as CF
 import Context (Context, theme)
 import Data.Foldable (Foldable (toList))
 import Data.List (intersperse)
@@ -23,7 +24,7 @@ import Utils qualified as CF
 
 data CardViewProps = CardViewProps
   { _card :: CF.Card,
-    _deck :: [CF.Card]
+    _deck :: CF.DeckInfo
   }
   deriving (Eq)
 
@@ -58,7 +59,7 @@ view ctx props m =
       if m M.^. printView
         then M.text "TODO: display entire deck for printing"
         else viewCard ctx props m,
-      let cardScale = runScale (props M.^. deck) (props M.^. card)
+      let cardScale = runScale (CF.deckCards $ props M.^. deck) (props M.^. card)
        in H.p_
             [ CSS.style_
                 [ CSS.display $ case cardScale of Left _ -> "block"; _ -> "none",
@@ -66,7 +67,8 @@ view ctx props m =
                 ]
             ]
             (case cardScale of Left issue -> [M.text $ M.toMisoString $ show issue]; Right _ -> []),
-      H.pre_ [] [M.text $ M.toMisoString $ CF.unparse (m M.^. conciseView) (props M.^. card)]
+      H.pre_ [] [M.text $ M.toMisoString $ CF.unparse (m M.^. conciseView) (props M.^. card)],
+      H.pre_ [] [M.text $ M.toMisoString $ CF.unparseDeck (m M.^. conciseView) (props M.^. deck)]
     ]
 
 viewCard :: Context -> CardViewProps -> CardViewModel -> M.View Context CardViewModel CardViewAction
@@ -92,7 +94,7 @@ viewCard ctx props m =
             [ CSS.style_ [CSS.marginBottom $ CSS.pct 0.5],
               P.classes_ ["scale"]
             ]
-            [showScale (props M.^. deck) (props M.^. card)],
+            [showScale (CF.deckCards $ props M.^. deck) (props M.^. card)],
           H.span_
             [ CSS.style_ [CSS.marginLeft $ CSS.em 1],
               P.classes_ ["card-name"]

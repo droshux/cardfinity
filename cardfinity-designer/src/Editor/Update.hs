@@ -40,6 +40,8 @@ performUpdate MoveDown = do
     let after = deckList !! (current + 1) : deckList !! current : drop (current + 2) deckList
     deck .= before ++ after
     currentCardIndex .= current + 1
+performUpdate (SetDeckName str) = deckName .= str
+performUpdate (SetAuthor str) = author .= str
 
 updateCard :: CardAction -> CardModel -> CardModel
 updateCard ToggleCardStats = editingSpell %~ not

@@ -175,6 +175,7 @@ data DeckInfo = DeckInfo
     author :: String,
     deckList :: [(Int, Card)]
   }
+  deriving (Eq)
 
 deckCards :: DeckInfo -> [Card]
 deckCards = uncurry replicate <=< deckList
