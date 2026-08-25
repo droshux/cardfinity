@@ -26,14 +26,15 @@ inherent = 5
 
 instance HasScale Condition where
   scale (Destroy d f) = do
-    let multiplier = fieldMult f + (if d == Banish then 2 else 0)
+    popScale <- scale (Pop 1)
+    let multiplier = fieldMult f + (if d == Banish then 0 else popScale)
     let n = natToInt (getCount f)
     -- Half scale from rarity when discarding.
     st <- (`div` (if d == Banish then 1 else 2)) <$> scale (getSearchType f)
     return $ -(n * multiplier + st)
     where
-      fieldMult (FindCardsField _ True _) = 8 + inherent
-      fieldMult _ = 8
+      fieldMult (FindCardsField _ True _) = 10 + inherent
+      fieldMult _ = 10
   scale DiscardSelf = (+ 1) <$> scale (TakeDamage 1 False)
   scale (TakeDamage n False) = return $ -natToInt n
   scale (TakeDamage n True) = do
@@ -145,7 +146,7 @@ destroyEnemyScale :: DestroyType -> FindCards -> Natural
 destroyEnemyScale Discard (FindCardsHand n _) = 10 * n + 2
 destroyEnemyScale Banish (FindCardsHand n _) = 12 * n + 2
 destroyEnemyScale Discard (FindCardsField n False _) = n * 15 + 2
-destroyEnemyScale Banish (FindCardsField n False _) = n * 17 + 1
+destroyEnemyScale Banish (FindCardsField n False _) = n * 17 + 2
 destroyEnemyScale Discard (FindCardsField n True _) = n * 10 + 2
 destroyEnemyScale Banish (FindCardsField n True _) = n * 12 + 2
 
