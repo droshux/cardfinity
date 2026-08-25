@@ -28,6 +28,14 @@ view _ _ m =
           H.button_ [H.onClick NewCard] [H.img_ [P.src_ "assets/icons/square-plus.svg"]],
           H.div_
             [ CSS.style_
+                [ CSS.display $ if m ^. showDecklist then "block" else "none"
+                ]
+            ]
+            [ H.button_ [H.onClick MoveUp] [H.img_ [P.src_ "assets/icons/move-up.svg"]],
+              H.button_ [H.onClick MoveDown] [H.img_ [P.src_ "assets/icons/move-down.svg"]]
+            ],
+          H.div_
+            [ CSS.style_
                 [ CSS.display $ if m ^. showDecklist then "grid" else "none",
                   CSS.rowGap $ CSS.em 0.4,
                   CSS.columnGap $ CSS.em 0.2,

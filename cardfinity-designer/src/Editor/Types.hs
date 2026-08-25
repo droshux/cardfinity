@@ -148,6 +148,8 @@ data DeckAction
   | DeleteCard Int
   | ToggleDecklist
   | ActCard Int CardAction
+  | MoveUp
+  | MoveDown
   | UpdateParent
 
 data CardAction

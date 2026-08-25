@@ -5,6 +5,7 @@ module Editor.Update
   )
 where
 
+import Control.Monad (unless)
 import Data.Bifunctor (first, second)
 import Editor.Types
 import Miso qualified as M
@@ -23,6 +24,22 @@ performUpdate (ViewCard i) = currentCardIndex .= i
 performUpdate (DeleteCard i) = deck % at i .= Nothing
 performUpdate ToggleDecklist = showDecklist %= not
 performUpdate (ActCard i a) = deck % at i %?= second (updateCard a)
+performUpdate MoveUp = do
+  current <- use currentCardIndex
+  unless (current == 0) $ do
+    deckList <- use deck
+    let before = take (current - 1) deckList
+    let after = deckList !! current : deckList !! (current - 1) : drop (current + 1) deckList
+    deck .= before ++ after
+    currentCardIndex .= current - 1
+performUpdate MoveDown = do
+  current <- use currentCardIndex
+  deckList <- use deck
+  unless (current + 1 == length deckList) $ do
+    let before = take current deckList
+    let after = deckList !! (current + 1) : deckList !! current : drop (current + 2) deckList
+    deck .= before ++ after
+    currentCardIndex .= current + 1
 
 updateCard :: CardAction -> CardModel -> CardModel
 updateCard ToggleCardStats = editingSpell %~ not
