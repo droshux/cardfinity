@@ -55,6 +55,8 @@ common warnings
     ghc-options: -Wall
 
 library
+    import: warnings
+
     exposed-modules: Types, Atoms, Scale, ShowCard, AtomDisplay, Utils, CardParser
 
     build-depends:    
@@ -71,7 +73,8 @@ library
       data-default,
       megaparsec,
       optparse-simple,
-      text
+      text,
+      QuickCheck
 
     -- Directories containing source files.
     hs-source-dirs:   
@@ -129,7 +132,8 @@ executable cardfinity
       data-default,
       megaparsec,
       optparse-simple,
-      text
+      text,
+      QuickCheck
 
     -- Directories containing source files.
     hs-source-dirs:   
