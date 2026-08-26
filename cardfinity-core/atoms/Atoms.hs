@@ -13,8 +13,9 @@ module Atoms
   )
 where
 
-import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty (NonEmpty ((:|)))
 import GHC.Natural (Natural)
+import Test.QuickCheck qualified as QC
 
 data Condition
   = Destroy DestroyType FindCards
@@ -25,6 +26,25 @@ data Condition
   | YouMay Condition
   | Choose (NonEmpty Condition)
   deriving (Eq, Ord)
+
+instance QC.Arbitrary Condition where
+  arbitrary =
+    QC.oneof
+      [ do
+          dt <- QC.arbitrary
+          Destroy dt <$> QC.arbitrary,
+        return DiscardSelf,
+        do
+          n <- QC.arbitrary
+          TakeDamage n <$> QC.arbitrary,
+        HealOpponent <$> QC.arbitrary,
+        Pop <$> QC.arbitrary,
+        YouMay <$> QC.arbitrary,
+        do
+          front <- QC.arbitrary
+          list <- QC.listOf QC.arbitrary
+          return $ Choose (front :| list)
+      ]
 
 data Effect
   = DestroyEnemy DestroyType FindCards
@@ -45,6 +65,36 @@ data Effect
   | AsEffect Condition
   deriving (Eq, Ord)
 
+instance QC.Arbitrary Effect where
+  arbitrary =
+    QC.oneof
+      [ do
+          dt <- QC.arbitrary
+          DestroyEnemy dt <$> QC.arbitrary,
+        return DiscardEnemy,
+        do
+          n <- QC.arbitrary
+          DealDamage n <$> QC.arbitrary,
+        Heal <$> QC.arbitrary,
+        return DECKOUT,
+        Draw <$> QC.arbitrary,
+        Peek <$> QC.arbitrary,
+        Scry <$> QC.arbitrary,
+        Optional <$> QC.arbitrary,
+        do
+          front <- QC.arbitrary
+          list <- QC.listOf QC.arbitrary
+          return $ ChooseEffect (front :| list),
+        Attack <$> QC.arbitrary,
+        Play <$> QC.arbitrary,
+        Search <$> QC.arbitrary,
+        Attach <$> QC.arbitrary,
+        do
+          i <- QC.arbitrary
+          Buff i <$> QC.arbitrary,
+        AsEffect <$> QC.arbitrary
+      ]
+
 monsterOnlyEffect :: Effect -> Bool
 monsterOnlyEffect (Attack _) = True
 monsterOnlyEffect (Attach _) = True
@@ -56,11 +106,45 @@ monsterOnlyRequirement _ = False
 
 data DestroyType = Discard | Banish deriving (Eq, Ord, Show)
 
-data SearchType = ForName String | ForFamily String | ForSpell | ForMonster | ForCard deriving (Ord, Eq)
+instance QC.Arbitrary DestroyType where
+  arbitrary = QC.oneof [return Discard, return Banish]
 
-data FindCards = FindCardsField Natural Bool SearchType | FindCardsHand Natural SearchType deriving (Eq, Ord)
+data SearchType
+  = ForName String
+  | ForFamily String
+  | ForSpell
+  | ForMonster
+  | ForCard
+  deriving (Ord, Eq)
+
+instance QC.Arbitrary SearchType where
+  arbitrary =
+    QC.oneof
+      [ ForName <$> QC.arbitrary,
+        ForFamily <$> QC.arbitrary,
+        return ForSpell,
+        return ForMonster,
+        return ForCard
+      ]
+
+data FindCards
+  = FindCardsField Natural Bool SearchType
+  | FindCardsHand Natural SearchType
+  deriving (Eq, Ord)
+
+instance QC.Arbitrary FindCards where
+  arbitrary = do
+    n <- QC.arbitrary
+    st <- QC.arbitrary
+    QC.oneof
+      [ (\ut -> FindCardsField n ut st) <$> QC.arbitrary,
+        return $ FindCardsHand n st
+      ]
 
 data SearchMethod = SearchFor SearchType | DrillFor SearchType deriving (Eq, Ord)
+
+instance QC.Arbitrary SearchMethod where
+  arbitrary = QC.oneof $ map (<$> QC.arbitrary) [SearchFor, DrillFor]
 
 getCount :: FindCards -> Natural
 getCount (FindCardsField n _ _) = n
