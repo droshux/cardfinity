@@ -30,20 +30,13 @@ data Condition
 instance QC.Arbitrary Condition where
   arbitrary =
     QC.oneof
-      [ do
-          dt <- QC.arbitrary
-          Destroy dt <$> QC.arbitrary,
+      [ Destroy <$> QC.arbitrary <*> QC.arbitrary,
         return DiscardSelf,
-        do
-          n <- QC.arbitrary
-          TakeDamage n <$> QC.arbitrary,
+        TakeDamage <$> QC.arbitrary <*> QC.arbitrary,
         HealOpponent <$> QC.arbitrary,
         Pop <$> QC.arbitrary,
         YouMay <$> QC.arbitrary,
-        do
-          front <- QC.arbitrary
-          list <- QC.listOf QC.arbitrary
-          return $ Choose (front :| list)
+        Choose <$> liftA2 (:|) QC.arbitrary (QC.listOf QC.arbitrary)
       ]
 
 data Effect
@@ -68,30 +61,21 @@ data Effect
 instance QC.Arbitrary Effect where
   arbitrary =
     QC.oneof
-      [ do
-          dt <- QC.arbitrary
-          DestroyEnemy dt <$> QC.arbitrary,
+      [ DestroyEnemy <$> QC.arbitrary <*> QC.arbitrary,
         return DiscardEnemy,
-        do
-          n <- QC.arbitrary
-          DealDamage n <$> QC.arbitrary,
+        DealDamage <$> QC.arbitrary <*> QC.arbitrary,
         Heal <$> QC.arbitrary,
         return DECKOUT,
         Draw <$> QC.arbitrary,
         Peek <$> QC.arbitrary,
         Scry <$> QC.arbitrary,
         Optional <$> QC.arbitrary,
-        do
-          front <- QC.arbitrary
-          list <- QC.listOf QC.arbitrary
-          return $ ChooseEffect (front :| list),
+        ChooseEffect <$> liftA2 (:|) QC.arbitrary (QC.listOf QC.arbitrary),
         Attack <$> QC.arbitrary,
         Play <$> QC.arbitrary,
         Search <$> QC.arbitrary,
         Attach <$> QC.arbitrary,
-        do
-          i <- QC.arbitrary
-          Buff i <$> QC.arbitrary,
+        Buff <$> QC.arbitrary <*> QC.arbitrary,
         AsEffect <$> QC.arbitrary
       ]
 
