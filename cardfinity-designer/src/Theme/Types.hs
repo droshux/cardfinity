@@ -9,7 +9,7 @@ data Theme
   | BasicDark
   | Playtest
   | Custom
-  deriving (Eq, Enum)
+  deriving (Eq, Enum, Bounded)
 
 defaultTheme :: Theme
 defaultTheme = BasicLight

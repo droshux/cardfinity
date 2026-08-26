@@ -92,7 +92,7 @@ data TriggerID
   | OnAttach
   | Infinity
   | Counter
-  deriving (Eq, Enum, Show, Generic, ToJSON, FromJSON)
+  deriving (Eq, Enum, Bounded, Show, Generic, ToJSON, FromJSON)
 
 class IsTrigger a where
   toTrigger :: a -> CF.Trigger
@@ -112,7 +112,7 @@ data SearchTypeID
   | ForSpell
   | ForName
   | ForFamily
-  deriving (Enum, Eq, Ord, Generic, FromJSON, ToJSON)
+  deriving (Enum, Bounded, Eq, Ord, Generic, FromJSON, ToJSON)
 
 data ConditionID
   = DiscardSelf -- This is first because it needs no other inputs
@@ -122,7 +122,7 @@ data ConditionID
   | Pop
   | YouMay
   | Choose
-  deriving (Enum, Eq, Ord, Generic, FromJSON, ToJSON)
+  deriving (Enum, Bounded, Eq, Ord, Generic, FromJSON, ToJSON)
 
 data EffectID
   = DiscardEnemy
@@ -141,7 +141,7 @@ data EffectID
   | Attach
   | Buff
   | AsEffect
-  deriving (Enum, Eq, Generic, FromJSON, ToJSON)
+  deriving (Enum, Bounded, Eq, Generic, FromJSON, ToJSON)
 
 data DeckAction
   = NewCard

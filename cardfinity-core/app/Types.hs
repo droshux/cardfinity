@@ -262,10 +262,10 @@ data PlayerState = PlayerState
 
 $(makeLenses ''PlayerState)
 
-data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord, Enum)
+data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord, Enum, Bounded)
 
 allCardLocations :: [CardLocation]
-allCardLocations = enumFrom $ toEnum 0
+allCardLocations = enumFrom minBound
 
 toLens :: CardLocation -> Lens' PlayerState [Card]
 toLens Hand = hand
