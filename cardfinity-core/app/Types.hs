@@ -67,9 +67,10 @@ import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.State
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Maybe (isJust)
-import Data.Set.Ordered qualified as OS (OSet)
+import Data.Set.Ordered qualified as OS (OSet, fromList)
 import GHC.Natural (Natural)
 import Optics
+import Test.QuickCheck qualified as QC
 
 data Trigger
   = OnPlay
@@ -81,7 +82,7 @@ data Trigger
   | OnAttach
   | Infinity
   | Counter
-  deriving (Eq, Ord, Enum)
+  deriving (Eq, Ord, Enum, Bounded)
 
 instance Show Trigger where
   show OnPlay = "When played"
@@ -93,6 +94,10 @@ instance Show Trigger where
   show OnAttach = "When this spell becomes attached to a monster"
   show Infinity = "On your turn"
   show Counter = "Counterspell"
+
+instance QC.Arbitrary Trigger where
+  arbitrary :: QC.Gen Trigger
+  arbitrary = QC.chooseEnum (minBound, maxBound)
 
 isMonsterOnly :: Trigger -> Bool
 isMonsterOnly OnTap = True
@@ -117,6 +122,20 @@ data Spell = Spell
 
 $(makeLenses ''Spell)
 
+instance QC.Arbitrary Spell where
+  arbitrary = do
+    _spellName <- QC.arbitrary
+    _spellTrigger <- QC.arbitrary
+    _effects <- QC.listOf QC.arbitrary
+    _castingConditions <- OS.fromList <$> QC.listOf QC.arbitrary
+    return $
+      Spell
+        { _spellName = _spellName,
+          _spellTrigger = _spellTrigger,
+          _castingConditions = _castingConditions,
+          _effects = _effects
+        }
+
 data Monster = Monster
   { _monsterName :: String,
     _monsterSpells :: [Spell],
@@ -128,6 +147,23 @@ data Monster = Monster
   deriving (Eq, Ord)
 
 $(makeLenses ''Monster)
+
+instance QC.Arbitrary Monster where
+  arbitrary = do
+    _monsterName <- QC.arbitrary
+    _monsterSpells <- QC.listOf QC.arbitrary
+    _summoningConditions <- OS.fromList <$> QC.listOf QC.arbitrary
+    _combatPower <- QC.arbitrary
+    _entersTapped <- QC.arbitrary
+    return $
+      Monster
+        { _monsterName = _monsterName,
+          _monsterSpells = _monsterSpells,
+          _summoningConditions = _summoningConditions,
+          _combatPower = _combatPower,
+          _isTapped = False,
+          _entersTapped = _entersTapped
+        }
 
 data CardStats = SpellStats Spell | MonsterStats Monster deriving (Eq, Ord)
 
@@ -145,6 +181,20 @@ data Card = Card
   }
 
 $(makeLenses ''Card)
+
+instance QC.Arbitrary Card where
+  arbitrary = do
+    _cardID <- QC.arbitrary
+    _cardFamilies <- OS.fromList <$> QC.listOf QC.arbitrary
+    _cardStats <- QC.oneof [SpellStats <$> QC.arbitrary, MonsterStats <$> QC.arbitrary]
+    _cardImageUrl <- QC.oneof [return Nothing, Just <$> QC.arbitrary]
+    return $
+      Card
+        { _cardID = _cardID,
+          _cardFamilies = _cardFamilies,
+          _cardStats = _cardStats,
+          _cardImageUrl = _cardImageUrl
+        }
 
 instance Eq Card where
   (==) c1 c2 = _cardFamilies c1 == _cardFamilies c2 && _cardStats c1 == _cardStats c2
@@ -176,6 +226,21 @@ data DeckInfo = DeckInfo
     deckList :: [(Int, Card)]
   }
   deriving (Eq)
+
+instance QC.Arbitrary DeckInfo where
+  arbitrary = do
+    deckName <- QC.arbitrary
+    author <- QC.arbitrary
+    deckList <- QC.listOf $ do
+      count <- QC.chooseInt (0, 200)
+      card <- QC.arbitrary
+      return (count, card)
+    return
+      DeckInfo
+        { deckName = deckName,
+          author = author,
+          deckList = deckList
+        }
 
 deckCards :: DeckInfo -> [Card]
 deckCards = uncurry replicate <=< deckList
