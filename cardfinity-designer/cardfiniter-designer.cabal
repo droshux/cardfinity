@@ -35,10 +35,11 @@ executable cardfinity-designer
       base >=4.19.2.0,
       cardfinity-core,
       ordered-containers,
-      miso >=1.12.0.0,
+      miso >=1.13.0.0,
       optics,
       text,
-      base64
+      base64,
+      QuickCheck
     default-language: GHC2021
     hs-source-dirs:   
         src
