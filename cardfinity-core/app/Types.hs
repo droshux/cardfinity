@@ -65,6 +65,7 @@ import Control.Monad ((<=<))
 import Control.Monad.Except
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.State
+import Data.Char (isPrint)
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Maybe (isJust)
 import Data.Set.Ordered qualified as OS (OSet, fromList)
@@ -125,10 +126,12 @@ $(makeLenses ''Spell)
 instance QC.Arbitrary Spell where
   arbitrary =
     Spell
-      <$> QC.arbitrary
+      <$> QC.suchThat QC.arbitrary validStr
       <*> QC.arbitrary
       <*> (OS.fromList <$> QC.listOf QC.arbitrary)
       <*> QC.listOf QC.arbitrary
+    where
+      validStr = all $ \c -> isPrint c && c /= '"' && c /= '(' && c /= ')'
 
 data Monster = Monster
   { _monsterName :: String,
@@ -145,12 +148,14 @@ $(makeLenses ''Monster)
 instance QC.Arbitrary Monster where
   arbitrary =
     Monster
-      <$> QC.arbitrary
+      <$> QC.suchThat QC.arbitrary validStr
       <*> QC.listOf QC.arbitrary
       <*> (OS.fromList <$> QC.listOf QC.arbitrary)
       <*> QC.arbitrary
       <*> return False
       <*> QC.arbitrary
+    where
+      validStr = all $ \c -> isPrint c && c /= '"' && c /= '(' && c /= ')'
 
 data CardStats = SpellStats Spell | MonsterStats Monster deriving (Eq, Ord)
 
@@ -173,9 +178,11 @@ instance QC.Arbitrary Card where
   arbitrary =
     Card
       <$> QC.arbitrary
-      <*> (OS.fromList <$> QC.listOf QC.arbitrary)
+      <*> (OS.fromList <$> QC.listOf (QC.suchThat QC.arbitrary validStr))
       <*> QC.oneof [SpellStats <$> QC.arbitrary, MonsterStats <$> QC.arbitrary]
       <*> QC.oneof [return Nothing, Just <$> QC.arbitrary]
+    where
+      validStr = all $ \c -> isPrint c && c /= '"' && c /= '(' && c /= ')'
 
 instance Eq Card where
   (==) c1 c2 = _cardFamilies c1 == _cardFamilies c2 && _cardStats c1 == _cardStats c2

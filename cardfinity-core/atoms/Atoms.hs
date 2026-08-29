@@ -13,6 +13,7 @@ module Atoms
   )
 where
 
+import Data.Char (isPrint)
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import GHC.Natural (Natural)
 import Test.QuickCheck qualified as QC
@@ -104,12 +105,14 @@ data SearchType
 instance QC.Arbitrary SearchType where
   arbitrary =
     QC.oneof
-      [ ForName <$> QC.arbitrary,
-        ForFamily <$> QC.arbitrary,
+      [ ForName <$> QC.suchThat QC.arbitrary validStr,
+        ForFamily <$> QC.suchThat QC.arbitrary validStr,
         return ForSpell,
         return ForMonster,
         return ForCard
       ]
+    where
+      validStr = all $ \c -> isPrint c && c /= '"' && c /= '(' && c /= ')'
 
 data FindCards
   = FindCardsField Natural Bool SearchType
