@@ -10,7 +10,7 @@ import Miso.Lens qualified as M
 import Theme.Types
 
 styleSheets :: [M.CSS]
-styleSheets = map (flip M.Href False . toFile) $ filter (/= Custom) $ enumFrom $ toEnum 0
+styleSheets = map (flip M.Href False . toFile) $ filter (/= Custom) $ enumFrom minBound
   where
     toFile :: Theme -> M.MisoString
     toFile t = "assets/themes/" <> themeClass t <> ".css"
@@ -29,7 +29,7 @@ selector =
 -- TODO: Make a nicer selector?
 view :: Context -> props -> () -> M.View Context () Action
 view _ _ _ =
-  let options = map opt $ enumFrom $ toEnum 0
+  let options = map opt $ enumFrom minBound
    in H.select_
         [H.onChange (SetTheme . toEnum . M.fromMisoString)]
         options

@@ -23,7 +23,7 @@ import Utils qualified as CF
 
 data CardViewProps = CardViewProps
   { _card :: CF.Card,
-    _deck :: [CF.Card]
+    _deck :: CF.DeckInfo
   }
   deriving (Eq)
 
@@ -58,7 +58,7 @@ view ctx props m =
       if m M.^. printView
         then M.text "TODO: display entire deck for printing"
         else viewCard ctx props m,
-      let cardScale = runScale (props M.^. deck) (props M.^. card)
+      let cardScale = runScale (CF.deckCards $ props M.^. deck) (props M.^. card)
        in H.p_
             [ CSS.style_
                 [ CSS.display $ case cardScale of Left _ -> "block"; _ -> "none",
@@ -92,7 +92,7 @@ viewCard ctx props m =
             [ CSS.style_ [CSS.marginBottom $ CSS.pct 0.5],
               P.classes_ ["scale"]
             ]
-            [showScale (props M.^. deck) (props M.^. card)],
+            [showScale (CF.deckCards $ props M.^. deck) (props M.^. card)],
           H.span_
             [ CSS.style_ [CSS.marginLeft $ CSS.em 1],
               P.classes_ ["card-name"]

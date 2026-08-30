@@ -7,6 +7,7 @@ module Main where
 import CardView qualified
 import Context (Context, initialCtx, theme)
 import Editor qualified
+import Export qualified
 import Miso qualified as M
 import Miso.CSS qualified as CSS
 import Miso.Html qualified as H
@@ -14,10 +15,10 @@ import Miso.Lens (at)
 import Miso.Lens qualified as M
 import Miso.Lens.TH (makeLenses)
 import Theme qualified
-import Types qualified as CF (Card)
+import Types qualified as CF (Card, DeckInfo (..))
 
 data Model = Model
-  { _deck :: [CF.Card],
+  { _deck :: CF.DeckInfo,
     _currentCard :: Maybe CF.Card,
     _errMsg :: M.MisoString
   }
@@ -34,7 +35,17 @@ app =
     }
 
 initialState :: Model
-initialState = Model {_deck = [], _currentCard = Nothing, _errMsg = ""}
+initialState =
+  Model
+    { _deck =
+        CF.DeckInfo
+          { CF.deckName = "",
+            CF.author = "",
+            CF.deckList = []
+          },
+      _currentCard = Nothing,
+      _errMsg = ""
+    }
 
 update :: Action -> M.Effect Context props Model Action
 update (Error msg) = errMsg M..= msg
@@ -65,7 +76,8 @@ view ctx _ m =
         []
         [ "themeSelector" M.+> Theme.selector,
           M.text $ Theme.themeClass $ ctx M.^. theme
-        ]
+        ],
+      M.mountWithProps (Export.ExportProps (m M.^. deck)) Export.export
     ]
   where
     cvProps = flip CardView.CardViewProps (m M.^. deck)

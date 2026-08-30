@@ -17,40 +17,66 @@ view :: ctx -> props -> DeckModel -> M.View ctx DeckModel DeckAction
 view _ _ m =
   let index = m ^. currentCardIndex
    in H.div_
-        [ CSS.style_
-            [ CSS.display $ if m ^. showDecklist then "grid" else "block",
-              CSS.gridTemplateColumns "auto auto 1fr",
-              CSS.gridTemplateRows "min-content",
-              CSS.gap $ CSS.em 0.2
-            ]
-        ]
-        [ H.button_ [H.onClick ToggleDecklist, CSS.style_ [CSS.display $ if null (m ^. deck) then "none" else "inline-block"]] [hideIcon $ m ^. showDecklist],
-          H.button_ [H.onClick NewCard] [H.img_ [P.src_ "assets/icons/square-plus.svg"]],
+        []
+        [ H.div_
+            []
+            [ H.label_ [P.for_ "deckNameInput"] [M.text "Deck name:"],
+              H.input_
+                [ P.value_ $ m ^. deckName,
+                  H.onChange SetDeckName,
+                  P.id_ "deckNameInput"
+                ],
+              H.label_ [P.for_ "authorInput"] [M.text "Author:"],
+              H.input_
+                [ P.value_ $ m ^. author,
+                  H.onChange SetAuthor,
+                  P.id_ "authorInput"
+                ]
+            ],
           H.div_
             [ CSS.style_
-                [ CSS.display $ if m ^. showDecklist then "grid" else "none",
-                  CSS.rowGap $ CSS.em 0.4,
-                  CSS.columnGap $ CSS.em 0.2,
-                  CSS.width "fit-content",
-                  CSS.gridTemplateColumns "1fr auto auto auto",
-                  CSS.alignContent "start",
-                  CSS.gridRowStart "2",
-                  ("grid-column", "1 / span 2")
+                [ CSS.display $ if m ^. showDecklist then "grid" else "block",
+                  CSS.gridTemplateColumns "auto auto 1fr",
+                  CSS.gridTemplateRows "min-content",
+                  CSS.gap $ CSS.em 0.2
                 ]
             ]
-            $ concat
-            $ zipWith item [0 ..] (m ^. deck),
-          H.div_
-            [ CSS.style_
-                [ CSS.gridRowStart "2",
-                  CSS.gridColumnStart "3",
-                  CSS.display "flex",
-                  CSS.flexDirection "column",
-                  CSS.gap $ CSS.em 0.1,
-                  CSS.width "fit-content"
+            [ H.button_ [H.onClick ToggleDecklist, CSS.style_ [CSS.display $ if null (m ^. deck) then "none" else "inline-block"]] [hideIcon $ m ^. showDecklist],
+              H.button_ [H.onClick NewCard] [H.img_ [P.src_ "assets/icons/square-plus.svg"]],
+              H.div_
+                [ CSS.style_
+                    [ CSS.display $ if m ^. showDecklist then "block" else "none"
+                    ]
                 ]
+                [ H.button_ [H.onClick MoveUp] [H.img_ [P.src_ "assets/icons/move-up.svg"]],
+                  H.button_ [H.onClick MoveDown] [H.img_ [P.src_ "assets/icons/move-down.svg"]]
+                ],
+              H.div_
+                [ CSS.style_
+                    [ CSS.display $ if m ^. showDecklist then "grid" else "none",
+                      CSS.rowGap $ CSS.em 0.4,
+                      CSS.columnGap $ CSS.em 0.2,
+                      CSS.width "fit-content",
+                      CSS.gridTemplateColumns "1fr auto auto auto",
+                      CSS.alignContent "start",
+                      CSS.gridRowStart "2",
+                      ("grid-column", "1 / span 2")
+                    ]
+                ]
+                $ concat
+                $ zipWith item [0 ..] (m ^. deck),
+              H.div_
+                [ CSS.style_
+                    [ CSS.gridRowStart "2",
+                      CSS.gridColumnStart "3",
+                      CSS.display "flex",
+                      CSS.flexDirection "column",
+                      CSS.gap $ CSS.em 0.1,
+                      CSS.width "fit-content"
+                    ]
+                ]
+                (maybe [] ((: []) . cardView (ActCard index) . snd) (m ^. deck % at index))
             ]
-            (maybe [] ((: []) . cardView (ActCard index) . snd) (m ^. deck % at index))
         ]
   where
     item i (copies, m') =
@@ -322,12 +348,12 @@ listView settings promote viewItem xs =
             [M.text "-"]
         ]
 
-class (Enum a, M.ToMisoString a, M.FromMisoString a, Show a) => Options a where
+class (Enum a, Bounded a, M.ToMisoString a, M.FromMisoString a, Show a) => Options a where
   options :: (a -> Bool) -> (a -> DeckAction) -> a -> M.View ctx DeckModel DeckAction
   options f act current =
     let option :: Int -> a -> M.View ctx model action
         option i x = H.option_ [P.value_ (M.toMisoString x), M.key_ i] [M.text $ M.toMisoString $ show x]
-        opts = zipWith option [0 ..] $ filter f $ enumFrom $ toEnum 0
+        opts = zipWith option [0 ..] $ filter f $ enumFrom minBound
      in H.select_ [H.onChange (act . M.fromMisoString), P.value_ $ M.toMisoString current] opts
 
 instance Options TriggerID
