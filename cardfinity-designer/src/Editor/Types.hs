@@ -80,6 +80,7 @@ import Miso.Lens (Lens, lens)
 import Miso.Lens.TH (makeLenses)
 import Miso.String (FromMisoString (fromMisoStringEither))
 import Miso.String qualified as M
+import Test.QuickCheck qualified as QC
 import Types qualified as CF
 
 data TriggerID
@@ -92,7 +93,10 @@ data TriggerID
   | OnAttach
   | Infinity
   | Counter
-  deriving (Eq, Enum, Show, Generic, ToJSON, FromJSON)
+  deriving (Eq, Enum, Bounded, Show, Generic, ToJSON, FromJSON)
+
+instance QC.Arbitrary TriggerID where
+  arbitrary = QC.chooseEnum (minBound, maxBound)
 
 class IsTrigger a where
   toTrigger :: a -> CF.Trigger
@@ -112,7 +116,10 @@ data SearchTypeID
   | ForSpell
   | ForName
   | ForFamily
-  deriving (Enum, Eq, Ord, Generic, FromJSON, ToJSON)
+  deriving (Enum, Bounded, Eq, Ord, Generic, FromJSON, ToJSON)
+
+instance QC.Arbitrary SearchTypeID where
+  arbitrary = QC.chooseEnum (minBound, maxBound)
 
 data ConditionID
   = DiscardSelf -- This is first because it needs no other inputs
@@ -122,7 +129,10 @@ data ConditionID
   | Pop
   | YouMay
   | Choose
-  deriving (Enum, Eq, Ord, Generic, FromJSON, ToJSON)
+  deriving (Enum, Bounded, Eq, Ord, Generic, FromJSON, ToJSON)
+
+instance QC.Arbitrary ConditionID where
+  arbitrary = QC.chooseEnum (minBound, maxBound)
 
 data EffectID
   = DiscardEnemy
@@ -141,7 +151,10 @@ data EffectID
   | Attach
   | Buff
   | AsEffect
-  deriving (Enum, Eq, Generic, FromJSON, ToJSON)
+  deriving (Enum, Bounded, Eq, Generic, FromJSON, ToJSON)
+
+instance QC.Arbitrary EffectID where
+  arbitrary = QC.chooseEnum (minBound, maxBound)
 
 data DeckAction
   = NewCard
@@ -236,6 +249,9 @@ instance Show EffectID where
   show Buff = "Buff"
   show AsEffect = "As Effect"
 
+instance QC.Arbitrary M.MisoString where
+  arbitrary = M.toMisoString <$> (QC.arbitrary :: QC.Gen String)
+
 data SearchTypeModel = SearchTypeModel
   { _searchTypeID :: SearchTypeID,
     _searchTypeText :: M.MisoString
@@ -243,6 +259,12 @@ data SearchTypeModel = SearchTypeModel
   deriving (Eq, Ord, Generic, FromJSON, ToJSON)
 
 $(makeLenses ''SearchTypeModel)
+
+instance QC.Arbitrary SearchTypeModel where
+  arbitrary = do
+    stId <- QC.arbitrary
+    txt <- QC.arbitrary
+    return $ SearchTypeModel {_searchTypeID = stId, _searchTypeText = txt}
 
 data ConditionModel = ConditionModel
   { _currentCondition :: ConditionID,
@@ -272,6 +294,18 @@ currentCondition' =
    in lens get set
 
 $(makeLenses ''ConditionModel)
+
+instance QC.Arbitrary ConditionModel where
+  arbitrary =
+    ConditionModel
+      <$> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.listOf QC.arbitrary
 
 data EffectModel = EffectModel
   { _currentEffect :: EffectID,
@@ -304,6 +338,20 @@ currentEffect' =
 
 $(makeLenses ''EffectModel)
 
+instance QC.Arbitrary EffectModel where
+  arbitrary =
+    EffectModel
+      <$> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.listOf QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+
 data SpellModel = SpellModel
   { _spellName :: M.MisoString,
     _spellTrigger :: TriggerID,
@@ -313,6 +361,14 @@ data SpellModel = SpellModel
   deriving (Eq, Generic, FromJSON, ToJSON)
 
 $(makeLenses ''SpellModel)
+
+instance QC.Arbitrary SpellModel where
+  arbitrary =
+    SpellModel
+      <$> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.listOf QC.arbitrary
+      <*> QC.listOf QC.arbitrary
 
 data MonsterModel = MonsterModel
   { _monsterName :: M.MisoString,
@@ -325,6 +381,15 @@ data MonsterModel = MonsterModel
 
 $(makeLenses ''MonsterModel)
 
+instance QC.Arbitrary MonsterModel where
+  arbitrary =
+    MonsterModel
+      <$> QC.arbitrary
+      <*> QC.listOf QC.arbitrary
+      <*> QC.listOf QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+
 data CardModel = CardModel
   { _spellStats :: SpellModel,
     _monsterStats :: MonsterModel,
@@ -336,6 +401,15 @@ data CardModel = CardModel
 
 $(makeLenses ''CardModel)
 
+instance QC.Arbitrary CardModel where
+  arbitrary =
+    CardModel
+      <$> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.listOf QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+
 data DeckModel = DeckModel
   { _deck :: [(Int, CardModel)],
     _currentCardIndex :: Int,
@@ -346,6 +420,15 @@ data DeckModel = DeckModel
   deriving (Eq, Generic, FromJSON, ToJSON)
 
 $(makeLenses ''DeckModel)
+
+instance QC.Arbitrary DeckModel where
+  arbitrary =
+    DeckModel
+      <$> QC.listOf (QC.liftArbitrary2 QC.arbitrary QC.arbitrary)
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.arbitrary
 
 class Default a where
   def :: a

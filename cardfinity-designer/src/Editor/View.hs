@@ -348,12 +348,12 @@ listView settings promote viewItem xs =
             [M.text "-"]
         ]
 
-class (Enum a, M.ToMisoString a, M.FromMisoString a, Show a) => Options a where
+class (Enum a, Bounded a, M.ToMisoString a, M.FromMisoString a, Show a) => Options a where
   options :: (a -> Bool) -> (a -> DeckAction) -> a -> M.View ctx DeckModel DeckAction
   options f act current =
     let option :: Int -> a -> M.View ctx model action
         option i x = H.option_ [P.value_ (M.toMisoString x), M.key_ i] [M.text $ M.toMisoString $ show x]
-        opts = zipWith option [0 ..] $ filter f $ enumFrom $ toEnum 0
+        opts = zipWith option [0 ..] $ filter f $ enumFrom minBound
      in H.select_ [H.onChange (act . M.fromMisoString), P.value_ $ M.toMisoString current] opts
 
 instance Options TriggerID

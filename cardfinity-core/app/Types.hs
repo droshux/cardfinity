@@ -65,11 +65,13 @@ import Control.Monad ((<=<))
 import Control.Monad.Except
 import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.State
+import Data.Char (isPrint)
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Maybe (isJust)
-import Data.Set.Ordered qualified as OS (OSet)
+import Data.Set.Ordered qualified as OS (OSet, fromList)
 import GHC.Natural (Natural)
 import Optics
+import Test.QuickCheck qualified as QC
 
 data Trigger
   = OnPlay
@@ -81,7 +83,7 @@ data Trigger
   | OnAttach
   | Infinity
   | Counter
-  deriving (Eq, Ord, Enum)
+  deriving (Eq, Ord, Enum, Bounded)
 
 instance Show Trigger where
   show OnPlay = "When played"
@@ -93,6 +95,10 @@ instance Show Trigger where
   show OnAttach = "When this spell becomes attached to a monster"
   show Infinity = "On your turn"
   show Counter = "Counterspell"
+
+instance QC.Arbitrary Trigger where
+  arbitrary :: QC.Gen Trigger
+  arbitrary = QC.chooseEnum (minBound, maxBound)
 
 isMonsterOnly :: Trigger -> Bool
 isMonsterOnly OnTap = True
@@ -117,6 +123,16 @@ data Spell = Spell
 
 $(makeLenses ''Spell)
 
+instance QC.Arbitrary Spell where
+  arbitrary =
+    Spell
+      <$> QC.suchThat QC.arbitrary validStr
+      <*> QC.arbitrary
+      <*> (OS.fromList <$> QC.listOf QC.arbitrary)
+      <*> QC.listOf QC.arbitrary
+    where
+      validStr = all $ \c -> isPrint c && c /= '"' && c /= '(' && c /= ')'
+
 data Monster = Monster
   { _monsterName :: String,
     _monsterSpells :: [Spell],
@@ -128,6 +144,18 @@ data Monster = Monster
   deriving (Eq, Ord)
 
 $(makeLenses ''Monster)
+
+instance QC.Arbitrary Monster where
+  arbitrary =
+    Monster
+      <$> QC.suchThat QC.arbitrary validStr
+      <*> QC.listOf QC.arbitrary
+      <*> (OS.fromList <$> QC.listOf QC.arbitrary)
+      <*> QC.arbitrary
+      <*> return False
+      <*> QC.arbitrary
+    where
+      validStr = all $ \c -> isPrint c && c /= '"' && c /= '(' && c /= ')'
 
 data CardStats = SpellStats Spell | MonsterStats Monster deriving (Eq, Ord)
 
@@ -145,6 +173,16 @@ data Card = Card
   }
 
 $(makeLenses ''Card)
+
+instance QC.Arbitrary Card where
+  arbitrary =
+    Card
+      <$> QC.arbitrary
+      <*> (OS.fromList <$> QC.listOf (QC.suchThat QC.arbitrary validStr))
+      <*> QC.oneof [SpellStats <$> QC.arbitrary, MonsterStats <$> QC.arbitrary]
+      <*> QC.oneof [return Nothing, Just <$> QC.arbitrary]
+    where
+      validStr = all $ \c -> isPrint c && c /= '"' && c /= '(' && c /= ')'
 
 instance Eq Card where
   (==) c1 c2 = _cardFamilies c1 == _cardFamilies c2 && _cardStats c1 == _cardStats c2
@@ -177,6 +215,13 @@ data DeckInfo = DeckInfo
   }
   deriving (Eq)
 
+instance QC.Arbitrary DeckInfo where
+  arbitrary =
+    DeckInfo
+      <$> QC.arbitrary
+      <*> QC.arbitrary
+      <*> QC.listOf (flip QC.liftArbitrary2 QC.arbitrary $ QC.chooseInt (0, 200))
+
 deckCards :: DeckInfo -> [Card]
 deckCards = uncurry replicate <=< deckList
 
@@ -197,10 +242,10 @@ data PlayerState = PlayerState
 
 $(makeLenses ''PlayerState)
 
-data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord, Enum)
+data CardLocation = Hand | Deck | Field | Graveyard deriving (Eq, Show, Ord, Enum, Bounded)
 
 allCardLocations :: [CardLocation]
-allCardLocations = enumFrom $ toEnum 0
+allCardLocations = enumFrom minBound
 
 toLens :: CardLocation -> Lens' PlayerState [Card]
 toLens Hand = hand

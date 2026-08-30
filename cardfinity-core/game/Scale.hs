@@ -1,10 +1,11 @@
-module Scale (HasScale, isLegal, rarity, runScale, LegalityIssue (..)) where
+module Scale (HasScale, isLegal, rarity, runScale, LegalityIssue (..), arbitraryLegalCard, arbitraryLegalDeck) where
 
 import AtomDisplay ()
 import Atoms
 import Control.Monad (unless, when)
 import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.Reader (MonadReader (local), Reader, asks, runReader)
+import Data.Either (isRight)
 import Data.Foldable (toList)
 import Data.Functor ((<&>))
 import Data.List (find)
@@ -13,6 +14,7 @@ import GHC.Natural (Natural)
 import GameUtils (toPredicate)
 import Optics.Operators ((^.))
 import System.Exit (exitFailure)
+import Test.QuickCheck qualified as QC
 import Types
 import Utils (natToInt)
 
@@ -183,27 +185,32 @@ sumWithPunishment mul (x : xs) = do
   total <- sumScale (x : xs)
   return $ total + mul * punished * punishment
 
-deckLegal :: LegalityCheck ()
-deckLegal = do
+deckLegal :: Bool -> LegalityCheck ()
+deckLegal ignoreMin = do
   -- Decks must have 40-60 cards
   len <- asks $ length . deckContext
-  unless (len >= 40) $ throwError $ TooFewCards len
+  unless (ignoreMin || len >= 40) $ throwError $ TooFewCards len
   unless (len <= 60) $ throwError $ TooManyCards len
 
-  -- Decks must have a total scale of 20 or less.
+  -- Decks must have a total scale of 200 or less.
   total <- asks deckContext >>= sumScale
   unless (total <= 200) $ throwError $ DeckScaleTooHigh total
 
+isLegalHelper :: Bool -> [Card] -> Either LegalityIssue [Card]
+isLegalHelper ignoreMin dck =
+  let ctex = LegalityContext {deckContext = dck, inMonster = False, ignoreSTNotFound = False}
+   in case runReader (runExceptT $ deckLegal ignoreMin) ctex of
+        Right () -> Right dck
+        Left err -> Left err
+
 -- Throws with nice error message if the input is an illegal deck.
 isLegal :: [Card] -> IO [Card]
-isLegal dck = do
-  let ctex = LegalityContext {deckContext = dck, inMonster = False, ignoreSTNotFound = False}
-  case runReader (runExceptT deckLegal) ctex of
-    Left err -> do
-      putStrLn "Illegal deck:"
-      print err
-      exitFailure
-    Right () -> return dck
+isLegal dck = case isLegalHelper False dck of
+  Left err -> do
+    putStrLn "Illegal deck:"
+    print err
+    exitFailure
+  Right dck' -> return dck'
 
 instance HasScale Card where
   scale c = scale $ c ^. cardStats
@@ -281,3 +288,30 @@ instance Show LegalityIssue where
         "\" can only be part of a monster."
       ]
   show (MOonSpellable (Nothing, Nothing) n) = "Woops! Error thrown even though " ++ show n ++ " is MOE legal!"
+
+arbitraryLegalCard :: QC.Gen Card
+arbitraryLegalCard = do
+  deckSize <- QC.chooseInt (39, 59)
+  restOfDeck <- QC.vectorOf deckSize QC.arbitrary
+  QC.suchThat QC.arbitrary $ \card -> case isLegalHelper True (card : restOfDeck) of
+    Left _ -> False
+    Right _ -> True
+
+arbitraryLegalDeck :: QC.Gen DeckInfo
+arbitraryLegalDeck = do
+  let deckList = QC.chooseInt (40, 60) >>= flip QC.resize (QC.sized buildLegalDeck)
+  DeckInfo
+    <$> QC.arbitrary
+    <*> QC.arbitrary
+    <*> deckList
+  where
+    buildLegalDeck :: Int -> QC.Gen [(Int, Card)]
+    buildLegalDeck n
+      | n <= 0 = return []
+      | otherwise =
+          let evaluate = isRight . isLegalHelper True . deckCards . DeckInfo "" ""
+           in do
+                copies <- QC.chooseInt (1, n)
+                rest <- buildLegalDeck (n - copies)
+                newCard <- QC.suchThat QC.arbitrary $ \c -> evaluate ((copies, c) : rest)
+                return $ (copies, newCard) : rest
